@@ -7,7 +7,8 @@
     "start": "electron .",
     "keygen": "node licenseGen.js",
     "build": "node scripts/build-protected.js",
-    "build:full": "node scripts/build-protected.js --include-drivers"
+    "build:full": "node scripts/build-protected.js --include-drivers",
+    "release": "node scripts/upload-release.js"
   },
   "keywords": [
     "antidetect",
