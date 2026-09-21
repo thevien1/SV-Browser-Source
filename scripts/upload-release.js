@@ -13,10 +13,11 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 
+const pkg = require('../package.json');
 const REPO_OWNER = 'thevien1';
 const REPO_NAME = 'SV-Browser';
-const TAG_NAME = 'v1.0.0';
-const RELEASE_TITLE = 'SV Browser v1.0.0 - Antidetect Multi-Browser Profile Manager';
+const TAG_NAME = `v${pkg.version || '1.0.1'}`;
+const RELEASE_TITLE = `SV Browser v${pkg.version || '1.0.1'} - Antidetect Multi-Browser Profile Manager`;
 
 const token = process.argv[2] || process.env.GITHUB_TOKEN;
 if (!token) {
@@ -32,8 +33,8 @@ if (!token) {
 
 const distDir = path.join(__dirname, '..', 'dist');
 const filesToUpload = [
-  'SV Browser Setup 1.0.0.exe',
-  'SV Browser 1.0.0 Portable.exe'
+  `SV Browser Setup ${pkg.version || '1.0.1'}.exe`,
+  `SV Browser ${pkg.version || '1.0.1'} Portable.exe`
 ];
 
 function request(options, data) {

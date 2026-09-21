@@ -186,10 +186,14 @@ async function run() {
     copyDirRecursive(assetsDir, path.join(stagingDir, 'assets'));
   }
 
+  // Lấy version từ package.json gốc
+  const rootPkg = require(path.join(rootDir, 'package.json'));
+  const appVersion = rootPkg.version || "1.0.1";
+
   // Tạo package.json sạch cho ứng dụng (chỉ chứa metadata cần thiết, không lộ keygen hay devDependencies)
   const appPkg = {
     name: "sv-browser",
-    version: "1.0.0",
+    version: appVersion,
     description: "SV Browser Antidetect Multi-Browser Profile Manager",
     main: "main.js",
     author: "SV Browser Team"
