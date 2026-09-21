@@ -519,7 +519,7 @@ export class ModalsComponent {
             <input type="hidden" id="modal-hwid-val">
 
             <div id="license-server-badge" style="font-size: 12.5px; padding: 7px 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span>🌐 Máy chủ quản lý: <strong style="color: #0284c7;">http://localhost:5000</strong></span>
+              <span>🌐 Máy chủ quản lý: <strong style="color: #0284c7;">https://api-v1.kokenshop.site</strong></span>
               <span style="color: #10b981; font-weight: 600;">● Trực tuyến</span>
             </div>
 
@@ -1835,7 +1835,7 @@ export class ModalsComponent {
     if (cancelBtn) cancelBtn.style.display = isOk ? '' : 'none';
 
     if (serverBadge) {
-      const srvUrl = (status && status.serverUrl) || 'http://localhost:5000';
+      const srvUrl = (status && status.serverUrl) || 'https://api-v1.kokenshop.site';
       const isOnline = status && status.serverOnline;
       serverBadge.innerHTML = isOnline
         ? `<span>🌐 Máy chủ quản lý: <strong style="color: #0284c7;">${srvUrl}</strong></span> <span style="color: #10b981; font-weight: 600;">● Trực tuyến</span>`
