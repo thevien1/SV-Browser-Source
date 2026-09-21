@@ -314,11 +314,31 @@ export class ProfilesViewComponent {
                 <button type="button" id="btn-export-fmt-zip" class="export-fmt-btn" style="padding: 6px 18px; border: none; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer; background: transparent; color: var(--text-muted); transition: all 0.15s;">Zip file</button>
               </div>
             </div>
+
+            <!-- Progress container cho Export (Hiển thị phần trăm từng cái chuẩn đẹp) -->
+            <div id="export-progress-container" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span id="export-progress-status" style="font-size: 12.5px; font-weight: 600; color: #0284c7; display: flex; align-items: center; gap: 6px;">
+                  <span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                  <span>Đang chuẩn bị export...</span>
+                </span>
+                <span id="export-progress-percent" style="font-size: 13px; font-weight: 700; color: #0284c7;">0%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+                <div id="export-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #0284c7); border-radius: 999px; transition: width 0.2s ease;"></div>
+              </div>
+            </div>
           </div>
 
-          <div class="modal-footer" style="padding: 14px 20px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color);">
-            <button type="button" id="btn-cancel-export-profiles" style="background: none; border: none; color: #0284c7; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 6px 12px;">Hủy bỏ</button>
-            <button type="button" id="btn-submit-export-profiles" class="btn btn-primary" style="height: 36px; padding: 0 22px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;">Export</button>
+          <div class="modal-footer" style="padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color);">
+            <div id="export-footer-status" style="display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted);">
+              <span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span>
+              <span id="export-footer-text">Zipping...</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+              <button type="button" id="btn-cancel-export-profiles" style="background: none; border: none; color: #0284c7; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 6px 12px;">Hủy bỏ</button>
+              <button type="button" id="btn-submit-export-profiles" class="btn btn-primary" style="height: 36px; padding: 0 22px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;">Export</button>
+            </div>
           </div>
         </div>
       </div>
@@ -379,12 +399,32 @@ export class ProfilesViewComponent {
               </select>
             </div>
 
+            <!-- Progress container cho Import (Hiển thị phần trăm từng cái chuẩn đẹp) -->
+            <div id="import-progress-container" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span id="import-progress-status" style="font-size: 12.5px; font-weight: 600; color: #0284c7; display: flex; align-items: center; gap: 6px;">
+                  <span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                  <span>Đang chuẩn bị import...</span>
+                </span>
+                <span id="import-progress-percent" style="font-size: 13px; font-weight: 700; color: #0284c7;">0%</span>
+              </div>
+              <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden;">
+                <div id="import-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #0284c7); border-radius: 999px; transition: width 0.2s ease;"></div>
+              </div>
+            </div>
+
             <div id="import-status-banner" style="display: none; padding: 10px; border-radius: 6px; font-size: 13px;"></div>
           </div>
 
-          <div class="modal-footer" style="padding: 14px 20px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color);">
-            <button type="button" id="btn-cancel-import-profiles" style="background: none; border: none; color: #0284c7; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 6px 12px;">Hủy bỏ</button>
-            <button type="button" id="btn-submit-import-profiles" class="btn btn-primary" style="height: 36px; padding: 0 22px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;">Import</button>
+          <div class="modal-footer" style="padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color);">
+            <div id="import-footer-status" style="display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted);">
+              <span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span>
+              <span id="import-footer-text">Đang import...</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-left: auto;">
+              <button type="button" id="btn-cancel-import-profiles" style="background: none; border: none; color: #0284c7; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 6px 12px;">Hủy bỏ</button>
+              <button type="button" id="btn-submit-import-profiles" class="btn btn-primary" style="height: 36px; padding: 0 22px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;">Import</button>
+            </div>
           </div>
         </div>
       </div>
@@ -679,6 +719,41 @@ export class ProfilesViewComponent {
       }
     };
 
+    const exportProgressContainer = this.container.querySelector('#export-progress-container');
+    const exportProgressStatus = this.container.querySelector('#export-progress-status');
+    const exportProgressPercent = this.container.querySelector('#export-progress-percent');
+    const exportProgressBar = this.container.querySelector('#export-progress-bar');
+    const exportFooterStatus = this.container.querySelector('#export-footer-status');
+    const exportFooterText = this.container.querySelector('#export-footer-text');
+
+    const resetExportProgress = () => {
+      if (exportProgressContainer) exportProgressContainer.style.display = 'none';
+      if (exportFooterStatus) exportFooterStatus.style.display = 'none';
+      if (exportProgressBar) exportProgressBar.style.width = '0%';
+      if (exportProgressPercent) exportProgressPercent.innerText = '0%';
+      if (exportProgressStatus) {
+        exportProgressStatus.innerHTML = `<span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span> <span>Đang chuẩn bị export...</span>`;
+      }
+      if (exportFooterText) exportFooterText.innerText = 'Zipping...';
+    };
+
+    if (window.api && window.api.onExportProgress) {
+      window.api.onExportProgress((p) => {
+        if (!p) return;
+        if (exportProgressContainer) exportProgressContainer.style.display = 'block';
+        if (exportFooterStatus) exportFooterStatus.style.display = 'flex';
+        const pct = p.percent || 0;
+        if (exportProgressBar) exportProgressBar.style.width = pct + '%';
+        if (exportProgressPercent) exportProgressPercent.innerText = pct + '%';
+        if (exportProgressStatus) {
+          exportProgressStatus.innerHTML = `<span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span> <span>${this.escape(p.status || (p.name ? `Đang xử lý: ${p.name}` : 'Đang xử lý...'))}</span>`;
+        }
+        if (exportFooterText) {
+          exportFooterText.innerText = exportFormat === 'zip' && pct >= 80 ? `Zipping... ${pct}%` : `Đang export... ${pct}%`;
+        }
+      });
+    }
+
     btnBrowseExport?.addEventListener('click', handleSelectExportDir);
     inputExportPath?.addEventListener('click', handleSelectExportDir);
 
@@ -697,10 +772,20 @@ export class ProfilesViewComponent {
       try {
         btnSubmitExport.disabled = true;
         btnSubmitExport.innerText = 'Đang export...';
+        if (exportProgressContainer) exportProgressContainer.style.display = 'block';
+        if (exportFooterStatus) exportFooterStatus.style.display = 'flex';
+        if (exportFooterText) exportFooterText.innerText = exportFormat === 'zip' ? 'Zipping... 0%' : 'Đang export... 0%';
+
         if (window.api && window.api.exportProfiles) {
           const res = await window.api.exportProfiles(targetIds, targetDir, exportFormat);
           if (res && res.success) {
-            alert(`Export thành công ${res.count} profile vào thư mục:\n${targetDir}`);
+            if (exportProgressBar) exportProgressBar.style.width = '100%';
+            if (exportProgressPercent) exportProgressPercent.innerText = '100%';
+            if (exportProgressStatus) exportProgressStatus.innerHTML = `<span>✅ Hoàn tất export ${res.count} profile!</span>`;
+            if (exportFooterText) exportFooterText.innerText = 'Hoàn tất 100%';
+
+            await new Promise(r => setTimeout(r, 600));
+            alert(`Export thành công ${res.count} profile vào:\n${res.filePath || targetDir}`);
             closeExportModal();
           } else {
             alert('Lỗi export: ' + (res?.message || 'Không rõ nguyên nhân'));
@@ -711,6 +796,7 @@ export class ProfilesViewComponent {
       } finally {
         btnSubmitExport.disabled = false;
         btnSubmitExport.innerText = 'Export';
+        resetExportProgress();
       }
     });
 
@@ -722,6 +808,7 @@ export class ProfilesViewComponent {
         return;
       }
       if (modalExportProfiles) {
+        resetExportProgress();
         exportFormat = 'folder';
         updateFormatButtons();
         modalExportProfiles.classList.add('active');
@@ -775,6 +862,41 @@ export class ProfilesViewComponent {
       }
     };
 
+    const importProgressContainer = this.container.querySelector('#import-progress-container');
+    const importProgressStatus = this.container.querySelector('#import-progress-status');
+    const importProgressPercent = this.container.querySelector('#import-progress-percent');
+    const importProgressBar = this.container.querySelector('#import-progress-bar');
+    const importFooterStatus = this.container.querySelector('#import-footer-status');
+    const importFooterText = this.container.querySelector('#import-footer-text');
+
+    const resetImportProgress = () => {
+      if (importProgressContainer) importProgressContainer.style.display = 'none';
+      if (importFooterStatus) importFooterStatus.style.display = 'none';
+      if (importProgressBar) importProgressBar.style.width = '0%';
+      if (importProgressPercent) importProgressPercent.innerText = '0%';
+      if (importProgressStatus) {
+        importProgressStatus.innerHTML = `<span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span> <span>Đang chuẩn bị import...</span>`;
+      }
+      if (importFooterText) importFooterText.innerText = 'Đang import...';
+    };
+
+    if (window.api && window.api.onImportProgress) {
+      window.api.onImportProgress((p) => {
+        if (!p) return;
+        if (importProgressContainer) importProgressContainer.style.display = 'block';
+        if (importFooterStatus) importFooterStatus.style.display = 'flex';
+        const pct = p.percent || 0;
+        if (importProgressBar) importProgressBar.style.width = pct + '%';
+        if (importProgressPercent) importProgressPercent.innerText = pct + '%';
+        if (importProgressStatus) {
+          importProgressStatus.innerHTML = `<span class="spinner-circle" style="width: 14px; height: 14px; border-width: 2px;"></span> <span>${this.escape(p.status || (p.name ? `Đang import: ${p.name}` : 'Đang import...'))}</span>`;
+        }
+        if (importFooterText) {
+          importFooterText.innerText = `Đang import... ${pct}%`;
+        }
+      });
+    }
+
     const openImportModal = () => {
       if (!this.licenseStatus?.isActivated || this.licenseStatus?.isExpired) {
         if (window.showGlobalToast) {
@@ -785,6 +907,7 @@ export class ProfilesViewComponent {
         return;
       }
       if (!modalImportProfiles) return;
+      resetImportProgress();
       importType = 'folder';
       updateImportTypeButtons();
       if (inputImportPath) inputImportPath.value = '';
@@ -804,6 +927,7 @@ export class ProfilesViewComponent {
 
     const closeImportModal = () => {
       if (modalImportProfiles) modalImportProfiles.classList.remove('active');
+      resetImportProgress();
     };
 
     btnImportToolbar?.addEventListener('click', (e) => {
@@ -858,12 +982,9 @@ export class ProfilesViewComponent {
       try {
         btnSubmitImport.disabled = true;
         btnSubmitImport.innerText = 'Đang import...';
-        if (importStatusBanner) {
-          importStatusBanner.style.display = 'block';
-          importStatusBanner.style.background = '#e0f2fe';
-          importStatusBanner.style.color = '#0369a1';
-          importStatusBanner.innerText = 'Đang tiến hành import profiles, vui lòng chờ...';
-        }
+        if (importProgressContainer) importProgressContainer.style.display = 'block';
+        if (importFooterStatus) importFooterStatus.style.display = 'flex';
+        if (importFooterText) importFooterText.innerText = 'Đang import... 0%';
 
         if (window.api && window.api.importProfiles) {
           const res = await window.api.importProfiles({
@@ -873,6 +994,12 @@ export class ProfilesViewComponent {
           });
 
           if (res && res.success) {
+            if (importProgressBar) importProgressBar.style.width = '100%';
+            if (importProgressPercent) importProgressPercent.innerText = '100%';
+            if (importProgressStatus) importProgressStatus.innerHTML = `<span>✅ Hoàn tất import ${res.count} profile!</span>`;
+            if (importFooterText) importFooterText.innerText = 'Hoàn tất 100%';
+
+            await new Promise(r => setTimeout(r, 600));
             await this.loadProfiles();
             alert(`Import thành công! Đã thêm ${res.count} profile vào hệ thống.`);
             closeImportModal();
@@ -885,7 +1012,7 @@ export class ProfilesViewComponent {
       } finally {
         btnSubmitImport.disabled = false;
         btnSubmitImport.innerText = 'Import';
-        if (importStatusBanner) importStatusBanner.style.display = 'none';
+        resetImportProgress();
       }
     });
 

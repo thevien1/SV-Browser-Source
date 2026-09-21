@@ -545,7 +545,13 @@ ipcMain.handle('profiles:import-cookie', async (event, profileId, cookieContent)
 // Export Profiles IPC (Chuẩn Hình 1, 2)
 ipcMain.handle('profiles:export', async (event, profileIds, targetDir, format) => {
   try {
-    return profileStore.exportProfiles(profileIds, targetDir, format);
+    return profileStore.exportProfiles(profileIds, targetDir, format, (progress) => {
+      try {
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('profiles:export-progress', progress);
+        }
+      } catch (e) {}
+    });
   } catch (err) {
     console.error('Lỗi profiles:export:', err);
     return { success: false, message: err.message };
@@ -555,7 +561,13 @@ ipcMain.handle('profiles:export', async (event, profileIds, targetDir, format) =
 // Import Profiles IPC (Chuẩn Hình ảnh người dùng)
 ipcMain.handle('profiles:import', async (event, options) => {
   try {
-    return profileStore.importProfiles(options || {});
+    return profileStore.importProfiles(options || {}, (progress) => {
+      try {
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('profiles:import-progress', progress);
+        }
+      } catch (e) {}
+    });
   } catch (err) {
     console.error('Lỗi profiles:import:', err);
     return { success: false, error: err.message };

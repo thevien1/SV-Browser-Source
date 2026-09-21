@@ -1227,7 +1227,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
    * @param {string} targetDir - Thư mục đầu ra
    * @param {'zip'|'folder'} format - Định dạng export
    */
-  exportProfiles(profileIds, targetDir, format = 'zip') {
+  exportProfiles(profileIds, targetDir, format = 'zip', onProgress = null) {
     if (!Array.isArray(profileIds) || profileIds.length === 0 || !targetDir) {
       return { success: false, message: 'Tham số không hợp lệ hoặc chưa chọn profile' };
     }
@@ -1240,6 +1240,23 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     const timeStamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     let exportedCount = 0;
+    const total = profileIds.length;
+
+    const report = (percent, name, status) => {
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress({
+            current: exportedCount,
+            total,
+            percent: Math.min(100, Math.max(0, Math.round(percent))),
+            name: name || '',
+            status: status || ''
+          });
+        } catch (e) {}
+      }
+    };
+
+    report(0, '', 'Đang chuẩn bị export...');
 
     if (format === 'zip') {
       // 1. Tạo 1 file ZIP DUY NHẤT chứa toàn bộ profiles đã chọn
@@ -1253,9 +1270,14 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         const exportMetadata = [];
         const usedNames = new Set();
 
-        for (const id of profileIds) {
+        for (let i = 0; i < profileIds.length; i++) {
+          const id = profileIds[i];
           const profile = this.getProfile(id);
           if (!profile) continue;
+
+          const pName = profile.name || id;
+          const currentPct = Math.round(((i + 1) / total) * 75);
+          report(currentPct, pName, `Đang xử lý ${i + 1}/${total}: ${pName}`);
 
           const profileDir = profile.profilePath || path.join(storagePath, id);
           let safeName = (profile.name || id).replace(/[\\/:*?"<>|]/g, '_').trim();
@@ -1283,12 +1305,16 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         // Ghi file metadata ở thư mục gốc của file zip
         fs.writeFileSync(path.join(tempStagingDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
 
+        report(85, '', 'Đang nén file ZIP (Zipping)...');
+
         // Nén toàn bộ staging vào đúng 1 file ZIP duy nhất
         try {
           execSync(`powershell -Command "Compress-Archive -Path '${tempStagingDir}\\*' -DestinationPath '${destZipPath}' -Force"`, { stdio: 'ignore' });
         } catch (zipErr) {
           execSync(`tar -acf "${destZipPath}" -C "${tempStagingDir}" .`, { stdio: 'ignore' });
         }
+
+        report(100, '', 'Hoàn thành export!');
 
         return {
           success: true,
@@ -1315,9 +1341,14 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         const exportMetadata = [];
         const usedNames = new Set();
 
-        for (const id of profileIds) {
+        for (let i = 0; i < profileIds.length; i++) {
+          const id = profileIds[i];
           const profile = this.getProfile(id);
           if (!profile) continue;
+
+          const pName = profile.name || id;
+          const currentPct = Math.round(((i + 1) / total) * 98);
+          report(currentPct, pName, `Đang export ${i + 1}/${total}: ${pName}`);
 
           const profileDir = profile.profilePath || path.join(storagePath, id);
           let safeName = (profile.name || id).replace(/[\\/:*?"<>|]/g, '_').trim();
@@ -1344,6 +1375,8 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
 
         fs.writeFileSync(path.join(destExportDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
 
+        report(100, '', 'Hoàn thành export!');
+
         return {
           success: true,
           count: exportedCount,
@@ -1360,8 +1393,9 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
   /**
    * Import profiles từ Thư mục hoặc file Zip (Chuẩn Hình 2 người dùng)
    * @param {Object} options - { type: 'folder'|'zip', sourcePath: string|string[], group: string }
+   * @param {Function} [onProgress] - Callback tiến trình ({ current, percent, name, status })
    */
-  importProfiles({ type, sourcePath, group }) {
+  importProfiles({ type, sourcePath, group }, onProgress = null) {
     const storagePath = this.settings.localStoragePath || this.localStorageDefault;
     if (!fs.existsSync(storagePath)) {
       try { fs.mkdirSync(storagePath, { recursive: true }); } catch (e) {}
@@ -1369,6 +1403,21 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
 
     let importedCount = 0;
     const targetGroup = (group && typeof group === 'string' && group.trim() && !group.includes('Chọn nhóm')) ? group.trim() : null;
+
+    const report = (percent, name, status) => {
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress({
+            current: importedCount,
+            percent: Math.min(100, Math.max(0, Math.round(percent))),
+            name: name || '',
+            status: status || ''
+          });
+        } catch (e) {}
+      }
+    };
+
+    report(0, '', 'Đang chuẩn bị import...');
 
     if (type === 'zip') {
       const rawList = Array.isArray(sourcePath) ? sourcePath : String(sourcePath).split(/[;,\n]+/);
@@ -1379,6 +1428,8 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         const tempDir = path.join(os.tmpdir(), 'sv_import_zip_' + crypto.randomUUID());
         try {
           fs.mkdirSync(tempDir, { recursive: true });
+          report(10, path.basename(zipFile), `Đang giải nén ${path.basename(zipFile)}...`);
+
           try {
             execSync(`powershell -Command "Expand-Archive -LiteralPath '${zipFile}' -DestinationPath '${tempDir}' -Force"`, { stdio: 'ignore' });
           } catch (zipErr) {
@@ -1393,13 +1444,17 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
           }
 
           if (Array.isArray(exportMetaList) && exportMetaList.length > 0) {
-            for (const item of exportMetaList) {
+            const total = exportMetaList.length;
+            for (let idx = 0; idx < total; idx++) {
+              const item = exportMetaList[idx];
               const safeName = (item.name || item.id).replace(/[\\/:*?"<>|]/g, '_').trim();
               let profileSrc = path.join(tempDir, safeName);
               if (!fs.existsSync(profileSrc)) {
                 profileSrc = path.join(tempDir, item.id);
               }
               if (fs.existsSync(profileSrc)) {
+                const currentPct = 20 + Math.round(((idx + 1) / total) * 78);
+                report(currentPct, item.name || safeName, `Đang import ${idx + 1}/${total}: ${item.name || safeName}`);
                 const res = this.createImportedProfile(profileSrc, item.name || safeName, targetGroup, item);
                 if (res) importedCount++;
               }
@@ -1413,6 +1468,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
             const zipBaseName = path.basename(zipFile, path.extname(zipFile));
 
             if (isSingleProfile) {
+              report(50, zipBaseName, `Đang import profile: ${zipBaseName}`);
               const res = this.createImportedProfile(tempDir, zipBaseName, targetGroup);
               if (res) importedCount++;
             } else {
@@ -1420,11 +1476,16 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
                 .filter(i => i.isDirectory() && !i.name.startsWith('.'));
 
               if (subItems.length === 0) {
+                report(50, zipBaseName, `Đang import profile: ${zipBaseName}`);
                 const res = this.createImportedProfile(tempDir, zipBaseName, targetGroup);
                 if (res) importedCount++;
               } else {
-                for (const sub of subItems) {
+                const total = subItems.length;
+                for (let idx = 0; idx < total; idx++) {
+                  const sub = subItems[idx];
                   const subDir = path.join(tempDir, sub.name);
+                  const currentPct = 20 + Math.round(((idx + 1) / total) * 78);
+                  report(currentPct, sub.name, `Đang import ${idx + 1}/${total}: ${sub.name}`);
                   const res = this.createImportedProfile(subDir, sub.name, targetGroup);
                   if (res) importedCount++;
                 }
@@ -1446,6 +1507,8 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         return { success: false, message: 'Đường dẫn thư mục không tồn tại: ' + cleanPath };
       }
 
+      report(5, '', 'Đang quét danh mục profile...');
+
       // Kiểm tra có profiles_export.json không
       const exportMetaPath = path.join(cleanPath, 'profiles_export.json');
       let exportMetaList = null;
@@ -1454,13 +1517,17 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       }
 
       if (Array.isArray(exportMetaList) && exportMetaList.length > 0) {
-        for (const item of exportMetaList) {
+        const total = exportMetaList.length;
+        for (let idx = 0; idx < total; idx++) {
+          const item = exportMetaList[idx];
           const safeName = (item.name || item.id).replace(/[\\/:*?"<>|]/g, '_').trim();
           let profileSrc = path.join(cleanPath, safeName);
           if (!fs.existsSync(profileSrc)) {
             profileSrc = path.join(cleanPath, item.id);
           }
           if (fs.existsSync(profileSrc)) {
+            const currentPct = Math.round(((idx + 1) / total) * 98);
+            report(currentPct, item.name || safeName, `Đang import ${idx + 1}/${total}: ${item.name || safeName}`);
             const res = this.createImportedProfile(profileSrc, item.name || safeName, targetGroup, item);
             if (res) importedCount++;
           }
@@ -1471,6 +1538,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
                                 fs.existsSync(path.join(cleanPath, 'Preferences'));
 
         if (isSingleProfile) {
+          report(50, path.basename(cleanPath), `Đang import profile: ${path.basename(cleanPath)}`);
           const res = this.createImportedProfile(cleanPath, path.basename(cleanPath), targetGroup);
           if (res) importedCount++;
         } else {
@@ -1480,12 +1548,16 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
             .filter(i => i.isDirectory() && !i.name.startsWith('.'));
 
           if (subItems.length === 0) {
+            report(50, path.basename(cleanPath), `Đang import profile: ${path.basename(cleanPath)}`);
             const res = this.createImportedProfile(cleanPath, path.basename(cleanPath), targetGroup);
             if (res) importedCount++;
           } else {
-            for (const sub of subItems) {
+            const total = subItems.length;
+            for (let idx = 0; idx < total; idx++) {
+              const sub = subItems[idx];
               const subDir = path.join(cleanPath, sub.name);
-              // Lấy chính tên thư mục con làm tên profile và copy toàn bộ nội dung ra localStoragePath
+              const currentPct = Math.round(((idx + 1) / total) * 98);
+              report(currentPct, sub.name, `Đang import ${idx + 1}/${total}: ${sub.name}`);
               const res = this.createImportedProfile(subDir, sub.name, targetGroup);
               if (res) importedCount++;
             }
@@ -1494,6 +1566,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       }
     }
 
+    report(100, '', 'Hoàn thành import!');
     this.saveProfiles();
     return {
       success: true,

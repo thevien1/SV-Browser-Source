@@ -33,7 +33,17 @@ contextBridge.exposeInMainWorld('api', {
   checkProxy: (id) => ipcRenderer.invoke('profiles:check-proxy', id),
   testProxyString: (proxyStr, proxyType) => ipcRenderer.invoke('proxy:test-string', proxyStr, proxyType),
   exportProfiles: (profileIds, targetDir, format) => ipcRenderer.invoke('profiles:export', profileIds, targetDir, format),
+  onExportProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('profiles:export-progress', handler);
+    return () => ipcRenderer.removeListener('profiles:export-progress', handler);
+  },
   importProfiles: (options) => ipcRenderer.invoke('profiles:import', options),
+  onImportProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('profiles:import-progress', handler);
+    return () => ipcRenderer.removeListener('profiles:import-progress', handler);
+  },
   exportCookies: (profileIds) => ipcRenderer.invoke('profiles:export-cookies', profileIds),
   randomizeFingerprint: (profileIds) => ipcRenderer.invoke('profiles:randomize-fingerprint', profileIds),
   clearCache: (id) => ipcRenderer.invoke('profiles:clear-cache', id),
