@@ -52,7 +52,7 @@ class ProfileStore {
       autoClearCache: true,
       limitBrowserSize: true,
       restoreLastSession: false,
-      startupUrl: 'https://google.com https://facebook.com',
+      startupUrl: '',
       chromeParams: '',
       bookmarks: '',
       canvasMode: 'noise',

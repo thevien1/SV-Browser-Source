@@ -179,7 +179,7 @@ export class SettingsViewComponent {
 
             <div>
               <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">URL khởi động</label>
-              <input type="text" class="form-control" id="settings-browser-startup-url" value="https://google.com https://facebook.com" style="width: 100%; height: 38px; font-size: 13px;">
+              <input type="text" class="form-control" id="settings-browser-startup-url" value="" placeholder="Nhập URL khởi động (để trống nếu không dùng)" style="width: 100%; height: 38px; font-size: 13px;">
             </div>
 
             <div>
@@ -454,7 +454,7 @@ export class SettingsViewComponent {
       if (clearCache) clearCache.checked = true;
       if (limitSize) limitSize.checked = true;
       if (restoreSession) restoreSession.checked = false;
-      if (startupUrl) startupUrl.value = 'https://google.com https://facebook.com';
+      if (startupUrl) startupUrl.value = '';
       if (chromeParams) chromeParams.value = '';
       if (bookmarks) bookmarks.value = '';
 
@@ -813,8 +813,8 @@ export class SettingsViewComponent {
       }
 
       const startupUrl = this.container.querySelector('#settings-browser-startup-url');
-      if (startupUrl && this.settings.startupUrl) {
-        startupUrl.value = this.settings.startupUrl;
+      if (startupUrl) {
+        startupUrl.value = this.settings.startupUrl || '';
       }
 
       const chromeParams = this.container.querySelector('#settings-browser-chrome-params');
