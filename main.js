@@ -544,43 +544,12 @@ ipcMain.handle('profiles:import-cookie', async (event, profileId, cookieContent)
 
 // Export Profiles IPC (Chuẩn Hình 1, 2)
 ipcMain.handle('profiles:export', async (event, profileIds, targetDir, format) => {
-  if (!Array.isArray(profileIds) || profileIds.length === 0 || !targetDir) {
-    return { success: false, message: 'Tham số không hợp lệ' };
+  try {
+    return profileStore.exportProfiles(profileIds, targetDir, format);
+  } catch (err) {
+    console.error('Lỗi profiles:export:', err);
+    return { success: false, message: err.message };
   }
-
-  const storagePath = profileStore.getSettings().localStoragePath || defaultStorageDir;
-  let exportedCount = 0;
-
-  for (const id of profileIds) {
-    const profile = profileStore.getProfile(id);
-    if (!profile) continue;
-
-    const profileDir = profile.profilePath || path.join(storagePath, id);
-    if (!fs.existsSync(profileDir)) continue;
-
-    const safeName = (profile.name || id).replace(/[\\/:*?"<>|]/g, '_').trim();
-
-    if (format === 'zip') {
-      const destZip = path.join(targetDir, `${safeName}.zip`);
-      try {
-        execSync(`powershell -Command "Compress-Archive -Path '${profileDir}\\*' -DestinationPath '${destZip}' -Force"`);
-        exportedCount++;
-      } catch (err) {
-        console.error(`Lỗi zip profile ${id}:`, err);
-      }
-    } else {
-      // Thư mục
-      const destFolder = path.join(targetDir, safeName);
-      try {
-        fs.cpSync(profileDir, destFolder, { recursive: true });
-        exportedCount++;
-      } catch (err) {
-        console.error(`Lỗi copy profile ${id}:`, err);
-      }
-    }
-  }
-
-  return { success: true, count: exportedCount };
 });
 
 // Import Profiles IPC (Chuẩn Hình ảnh người dùng)

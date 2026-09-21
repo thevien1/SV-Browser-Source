@@ -1138,7 +1138,227 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
   }
 
   /**
-   * Import profiles từ Thư mục hoặc file Zip (Chuẩn Hình ảnh người dùng)
+   * Tạo 1 profile hoàn chỉnh trong hệ thống từ một thư mục profile nguồn
+   */
+  createImportedProfile(srcDir, profileName, targetGroup, meta = {}) {
+    const storagePath = this.settings.localStoragePath || this.localStorageDefault;
+    const newId = this.generateUuid();
+    const destDir = path.join(storagePath, newId);
+
+    // 1. Copy toàn bộ thư mục profile vào localStoragePath
+    try {
+      fs.cpSync(srcDir, destDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error(`Lỗi copy thư mục profile từ ${srcDir} sang ${destDir}:`, err);
+      return null;
+    }
+
+    // 2. Đọc thông tin có sẵn nếu có
+    let info = this.readProfileInfoTxt(destDir, newId);
+    let jsonMeta = {};
+    const metaFile = path.join(destDir, 'profile_info.json');
+    if (fs.existsSync(metaFile)) {
+      try { jsonMeta = JSON.parse(fs.readFileSync(metaFile, 'utf8')); } catch (e) {}
+    }
+
+    const version = meta.version || jsonMeta.version || info.version || '151.0.7922.76';
+    const os = (meta.os || jsonMeta.os || info.os || 'Windows').toLowerCase();
+    const browserType = meta.browserType || jsonMeta.browserType || info.browserType || 'chrome';
+    const proxyStr = meta.proxy || jsonMeta.proxy || info.proxy || 'No Proxy';
+    const proxyType = meta.proxyType || jsonMeta.proxyType || 'None';
+    const proxyCountry = meta.proxyCountry || jsonMeta.proxyCountry || info.proxyCountry || (proxyStr !== 'No Proxy' ? 'us' : 'vn');
+
+    const majorVer = version.split('.')[0] || '151';
+    let defaultUa = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${majorVer}.0.0.0 Safari/537.36 Edg/${majorVer}.0.0.0`;
+    if (os.includes('mac')) {
+      defaultUa = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${majorVer}.0.0.0 Safari/537.36`;
+    }
+
+    const finalGroup = targetGroup || meta.group || jsonMeta.group || info.group || 'Default group';
+    const finalName = profileName || meta.name || jsonMeta.name || info.name || `Profile ${newId.substring(0, 5)}`;
+
+    const newProfile = {
+      id: newId,
+      name: finalName,
+      group: finalGroup,
+      group_id: 'all',
+      browserType: browserType,
+      browser: {
+        name: browserType,
+        version: version
+      },
+      version: version,
+      taskbarTitle: meta.taskbarTitle || jsonMeta.taskbarTitle || '',
+      startUrl: meta.startUrl || jsonMeta.startUrl || '',
+      bypassStaticFiles: meta.bypassStaticFiles || jsonMeta.bypassStaticFiles || '',
+      os: os,
+      proxy: proxyStr,
+      raw_proxy: proxyStr === 'No Proxy' ? '' : proxyStr,
+      proxyType: proxyType,
+      proxyCountry: proxyCountry.toLowerCase(),
+      status: 'ready',
+      lastRun: 'Chưa chạy',
+      tags: meta.tags || jsonMeta.tags || info.tags || [],
+      note: meta.notes || meta.note || jsonMeta.notes || jsonMeta.note || info.notes || '',
+      notes: meta.notes || meta.note || jsonMeta.notes || jsonMeta.note || info.notes || '',
+      userAgent: meta.userAgent || jsonMeta.userAgent || info.userAgent || defaultUa,
+      cookies: meta.cookies || jsonMeta.cookies || info.cookies || '',
+      hardware: meta.hardware || jsonMeta.hardware || {},
+      software: meta.software || jsonMeta.software || {},
+      storage_path: destDir,
+      profilePath: destDir,
+      fingerprint: meta.fingerprint || jsonMeta.fingerprint || this.generateFingerprint(os === 'mac' ? 'Mac' : 'Windows', browserType, version),
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    this.writeProfileInfoTxt(newProfile, destDir);
+    try {
+      fs.writeFileSync(path.join(destDir, 'profile_info.json'), JSON.stringify(newProfile, null, 2), 'utf8');
+    } catch (e) {}
+
+    this.profiles.unshift(newProfile);
+    return newProfile;
+  }
+
+  /**
+   * Export profiles ra 1 file ZIP duy nhất hoặc thư mục (Chuẩn Hình 1 người dùng)
+   * @param {string[]} profileIds - Danh sách profile ID cần export
+   * @param {string} targetDir - Thư mục đầu ra
+   * @param {'zip'|'folder'} format - Định dạng export
+   */
+  exportProfiles(profileIds, targetDir, format = 'zip') {
+    if (!Array.isArray(profileIds) || profileIds.length === 0 || !targetDir) {
+      return { success: false, message: 'Tham số không hợp lệ hoặc chưa chọn profile' };
+    }
+
+    const storagePath = this.settings.localStoragePath || this.localStorageDefault;
+    if (!fs.existsSync(targetDir)) {
+      try { fs.mkdirSync(targetDir, { recursive: true }); } catch (e) {}
+    }
+
+    const timeStamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    let exportedCount = 0;
+
+    if (format === 'zip') {
+      // 1. Tạo 1 file ZIP DUY NHẤT chứa toàn bộ profiles đã chọn
+      const zipFileName = `SVBrowser_Profiles_${timeStamp}_${randomSuffix}.zip`;
+      const destZipPath = path.join(targetDir, zipFileName);
+      const tempStagingDir = path.join(os.tmpdir(), 'sv_export_staging_' + crypto.randomUUID());
+
+      try {
+        fs.mkdirSync(tempStagingDir, { recursive: true });
+
+        const exportMetadata = [];
+        const usedNames = new Set();
+
+        for (const id of profileIds) {
+          const profile = this.getProfile(id);
+          if (!profile) continue;
+
+          const profileDir = profile.profilePath || path.join(storagePath, id);
+          let safeName = (profile.name || id).replace(/[\\/:*?"<>|]/g, '_').trim();
+          if (usedNames.has(safeName.toLowerCase())) {
+            safeName = `${safeName}_${id.substring(0, 5)}`;
+          }
+          usedNames.add(safeName.toLowerCase());
+
+          const destProfileDir = path.join(tempStagingDir, safeName);
+          if (fs.existsSync(profileDir)) {
+            fs.cpSync(profileDir, destProfileDir, { recursive: true, force: true });
+          } else {
+            fs.mkdirSync(destProfileDir, { recursive: true });
+          }
+
+          this.writeProfileInfoTxt(profile, destProfileDir);
+          try {
+            fs.writeFileSync(path.join(destProfileDir, 'profile_info.json'), JSON.stringify(profile, null, 2), 'utf8');
+          } catch (e) {}
+
+          exportMetadata.push(profile);
+          exportedCount++;
+        }
+
+        // Ghi file metadata ở thư mục gốc của file zip
+        fs.writeFileSync(path.join(tempStagingDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
+
+        // Nén toàn bộ staging vào đúng 1 file ZIP duy nhất
+        try {
+          execSync(`powershell -Command "Compress-Archive -Path '${tempStagingDir}\\*' -DestinationPath '${destZipPath}' -Force"`, { stdio: 'ignore' });
+        } catch (zipErr) {
+          execSync(`tar -acf "${destZipPath}" -C "${tempStagingDir}" .`, { stdio: 'ignore' });
+        }
+
+        return {
+          success: true,
+          count: exportedCount,
+          filePath: destZipPath,
+          message: `Đã export thành công ${exportedCount} profile vào file zip:\n${destZipPath}`
+        };
+      } catch (err) {
+        console.error('Lỗi export zip:', err);
+        return { success: false, message: err.message };
+      } finally {
+        try {
+          if (fs.existsSync(tempStagingDir)) fs.rmSync(tempStagingDir, { recursive: true, force: true });
+        } catch (e) {}
+      }
+    } else {
+      // 2. Export dạng Thư mục
+      const folderName = `SVBrowser_Profiles_Export_${timeStamp}`;
+      const destExportDir = path.join(targetDir, folderName);
+
+      try {
+        fs.mkdirSync(destExportDir, { recursive: true });
+
+        const exportMetadata = [];
+        const usedNames = new Set();
+
+        for (const id of profileIds) {
+          const profile = this.getProfile(id);
+          if (!profile) continue;
+
+          const profileDir = profile.profilePath || path.join(storagePath, id);
+          let safeName = (profile.name || id).replace(/[\\/:*?"<>|]/g, '_').trim();
+          if (usedNames.has(safeName.toLowerCase())) {
+            safeName = `${safeName}_${id.substring(0, 5)}`;
+          }
+          usedNames.add(safeName.toLowerCase());
+
+          const destProfileDir = path.join(destExportDir, safeName);
+          if (fs.existsSync(profileDir)) {
+            fs.cpSync(profileDir, destProfileDir, { recursive: true, force: true });
+          } else {
+            fs.mkdirSync(destProfileDir, { recursive: true });
+          }
+
+          this.writeProfileInfoTxt(profile, destProfileDir);
+          try {
+            fs.writeFileSync(path.join(destProfileDir, 'profile_info.json'), JSON.stringify(profile, null, 2), 'utf8');
+          } catch (e) {}
+
+          exportMetadata.push(profile);
+          exportedCount++;
+        }
+
+        fs.writeFileSync(path.join(destExportDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
+
+        return {
+          success: true,
+          count: exportedCount,
+          filePath: destExportDir,
+          message: `Đã export thành công ${exportedCount} profile vào thư mục:\n${destExportDir}`
+        };
+      } catch (err) {
+        console.error('Lỗi export folder:', err);
+        return { success: false, message: err.message };
+      }
+    }
+  }
+
+  /**
+   * Import profiles từ Thư mục hoặc file Zip (Chuẩn Hình 2 người dùng)
    * @param {Object} options - { type: 'folder'|'zip', sourcePath: string|string[], group: string }
    */
   importProfiles({ type, sourcePath, group }) {
@@ -1150,69 +1370,64 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     let importedCount = 0;
     const targetGroup = (group && typeof group === 'string' && group.trim() && !group.includes('Chọn nhóm')) ? group.trim() : null;
 
-    const importSingleDir = (srcDir, defaultName) => {
-      try {
-        const newId = crypto.randomUUID();
-        const destDir = path.join(storagePath, newId);
-        fs.cpSync(srcDir, destDir, { recursive: true });
-
-        let info = this.readProfileInfoTxt(destDir, newId);
-        info.id = newId;
-        info.profilePath = destDir;
-        info.storage_path = destDir;
-        if (targetGroup) {
-          info.group = targetGroup;
-        }
-        if (!info.name || info.name === `Profile ${newId}`) {
-          info.name = defaultName || path.basename(srcDir);
-        }
-        this.writeProfileInfoTxt(info, destDir);
-        this.profiles.unshift(info);
-        importedCount++;
-        return true;
-      } catch (err) {
-        console.error(`Lỗi import profile folder ${srcDir}:`, err);
-        return false;
-      }
-    };
-
     if (type === 'zip') {
       const rawList = Array.isArray(sourcePath) ? sourcePath : String(sourcePath).split(/[;,\n]+/);
       const zipFiles = rawList.map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
 
       for (const zipFile of zipFiles) {
         if (!fs.existsSync(zipFile)) continue;
-        const tempDir = path.join(os.tmpdir(), 'gpm_import_' + crypto.randomUUID());
+        const tempDir = path.join(os.tmpdir(), 'sv_import_zip_' + crypto.randomUUID());
         try {
           fs.mkdirSync(tempDir, { recursive: true });
           try {
-            execSync(`tar -xf "${zipFile}" -C "${tempDir}"`, { stdio: 'ignore' });
-          } catch (tarErr) {
             execSync(`powershell -Command "Expand-Archive -LiteralPath '${zipFile}' -DestinationPath '${tempDir}' -Force"`, { stdio: 'ignore' });
+          } catch (zipErr) {
+            execSync(`tar -xf "${zipFile}" -C "${tempDir}"`, { stdio: 'ignore' });
           }
 
-          // Kiểm tra xem tempDir chứa trực tiếp dữ liệu profile hay chứa các thư mục con
-          const isDirectProfile = fs.existsSync(path.join(tempDir, 'profile_info.txt')) ||
-                                  fs.existsSync(path.join(tempDir, 'Default')) ||
-                                  fs.existsSync(path.join(tempDir, 'Preferences'));
+          // Kiểm tra xem có profiles_export.json ở thư mục gốc không
+          const exportMetaPath = path.join(tempDir, 'profiles_export.json');
+          let exportMetaList = null;
+          if (fs.existsSync(exportMetaPath)) {
+            try { exportMetaList = JSON.parse(fs.readFileSync(exportMetaPath, 'utf8')); } catch (e) {}
+          }
 
-          const zipBaseName = path.basename(zipFile, path.extname(zipFile));
-
-          if (isDirectProfile) {
-            importSingleDir(tempDir, zipBaseName);
+          if (Array.isArray(exportMetaList) && exportMetaList.length > 0) {
+            for (const item of exportMetaList) {
+              const safeName = (item.name || item.id).replace(/[\\/:*?"<>|]/g, '_').trim();
+              let profileSrc = path.join(tempDir, safeName);
+              if (!fs.existsSync(profileSrc)) {
+                profileSrc = path.join(tempDir, item.id);
+              }
+              if (fs.existsSync(profileSrc)) {
+                const res = this.createImportedProfile(profileSrc, item.name || safeName, targetGroup, item);
+                if (res) importedCount++;
+              }
+            }
           } else {
-            const subItems = fs.readdirSync(tempDir, { withFileTypes: true })
-              .filter(i => i.isDirectory() && !i.name.startsWith('.'));
+            // Không có profiles_export.json -> Kiểm tra tempDir là 1 profile hay nhiều thư mục profile con
+            const isSingleProfile = fs.existsSync(path.join(tempDir, 'profile_info.txt')) ||
+                                    fs.existsSync(path.join(tempDir, 'Default')) ||
+                                    fs.existsSync(path.join(tempDir, 'Preferences'));
 
-            if (subItems.length === 0) {
-              importSingleDir(tempDir, zipBaseName);
-            } else if (subItems.length === 1) {
-              const singleSub = path.join(tempDir, subItems[0].name);
-              importSingleDir(singleSub, zipBaseName);
+            const zipBaseName = path.basename(zipFile, path.extname(zipFile));
+
+            if (isSingleProfile) {
+              const res = this.createImportedProfile(tempDir, zipBaseName, targetGroup);
+              if (res) importedCount++;
             } else {
-              for (const sub of subItems) {
-                const subDir = path.join(tempDir, sub.name);
-                importSingleDir(subDir, `${zipBaseName}_${sub.name}`);
+              const subItems = fs.readdirSync(tempDir, { withFileTypes: true })
+                .filter(i => i.isDirectory() && !i.name.startsWith('.'));
+
+              if (subItems.length === 0) {
+                const res = this.createImportedProfile(tempDir, zipBaseName, targetGroup);
+                if (res) importedCount++;
+              } else {
+                for (const sub of subItems) {
+                  const subDir = path.join(tempDir, sub.name);
+                  const res = this.createImportedProfile(subDir, sub.name, targetGroup);
+                  if (res) importedCount++;
+                }
               }
             }
           }
@@ -1231,22 +1446,49 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         return { success: false, message: 'Đường dẫn thư mục không tồn tại: ' + cleanPath };
       }
 
-      const isSingleProfile = fs.existsSync(path.join(cleanPath, 'profile_info.txt')) ||
-                              fs.existsSync(path.join(cleanPath, 'Default')) ||
-                              fs.existsSync(path.join(cleanPath, 'Preferences'));
+      // Kiểm tra có profiles_export.json không
+      const exportMetaPath = path.join(cleanPath, 'profiles_export.json');
+      let exportMetaList = null;
+      if (fs.existsSync(exportMetaPath)) {
+        try { exportMetaList = JSON.parse(fs.readFileSync(exportMetaPath, 'utf8')); } catch (e) {}
+      }
 
-      if (isSingleProfile) {
-        importSingleDir(cleanPath, path.basename(cleanPath));
+      if (Array.isArray(exportMetaList) && exportMetaList.length > 0) {
+        for (const item of exportMetaList) {
+          const safeName = (item.name || item.id).replace(/[\\/:*?"<>|]/g, '_').trim();
+          let profileSrc = path.join(cleanPath, safeName);
+          if (!fs.existsSync(profileSrc)) {
+            profileSrc = path.join(cleanPath, item.id);
+          }
+          if (fs.existsSync(profileSrc)) {
+            const res = this.createImportedProfile(profileSrc, item.name || safeName, targetGroup, item);
+            if (res) importedCount++;
+          }
+        }
       } else {
-        const subItems = fs.readdirSync(cleanPath, { withFileTypes: true })
-          .filter(i => i.isDirectory() && !i.name.startsWith('.'));
+        const isSingleProfile = fs.existsSync(path.join(cleanPath, 'profile_info.txt')) ||
+                                fs.existsSync(path.join(cleanPath, 'Default')) ||
+                                fs.existsSync(path.join(cleanPath, 'Preferences'));
 
-        if (subItems.length === 0) {
-          importSingleDir(cleanPath, path.basename(cleanPath));
+        if (isSingleProfile) {
+          const res = this.createImportedProfile(cleanPath, path.basename(cleanPath), targetGroup);
+          if (res) importedCount++;
         } else {
-          for (const sub of subItems) {
-            const subDir = path.join(cleanPath, sub.name);
-            importSingleDir(subDir, sub.name);
+          // Quét tất cả các thư mục con trong thư mục đã chọn
+          // "khi chọn Thư mục thì hãy copy tất cả tên thư mục đó vào"
+          const subItems = fs.readdirSync(cleanPath, { withFileTypes: true })
+            .filter(i => i.isDirectory() && !i.name.startsWith('.'));
+
+          if (subItems.length === 0) {
+            const res = this.createImportedProfile(cleanPath, path.basename(cleanPath), targetGroup);
+            if (res) importedCount++;
+          } else {
+            for (const sub of subItems) {
+              const subDir = path.join(cleanPath, sub.name);
+              // Lấy chính tên thư mục con làm tên profile và copy toàn bộ nội dung ra localStoragePath
+              const res = this.createImportedProfile(subDir, sub.name, targetGroup);
+              if (res) importedCount++;
+            }
           }
         }
       }
