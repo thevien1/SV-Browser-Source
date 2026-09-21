@@ -25,12 +25,13 @@ class GpmApiServer {
       const portStr = this.port.toString();
       if (this.profileStore && this.profileStore.dataDir) {
         fs.writeFileSync(path.join(this.profileStore.dataDir, 'http.port'), portStr, 'utf8');
+      } else if (!__dirname.includes('app.asar')) {
+        const appDataDir = path.join(__dirname, 'app_data');
+        if (!fs.existsSync(appDataDir)) {
+          try { fs.mkdirSync(appDataDir, { recursive: true }); } catch (e) {}
+        }
+        try { fs.writeFileSync(path.join(appDataDir, 'http.port'), portStr, 'utf8'); } catch (e) {}
       }
-      const appDataDir = path.join(__dirname, 'app_data');
-      if (!fs.existsSync(appDataDir)) {
-        try { fs.mkdirSync(appDataDir, { recursive: true }); } catch (e) {}
-      }
-      fs.writeFileSync(path.join(appDataDir, 'http.port'), portStr, 'utf8');
     } catch (e) {
       console.warn('[SV Browser API Gateway] Không thể ghi file http.port:', e.message);
     }

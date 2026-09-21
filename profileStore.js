@@ -8,9 +8,11 @@ const { execSync } = require('child_process');
 
 class ProfileStore {
   constructor(dataDir) {
-    this.dataDir = dataDir || path.join(__dirname, 'app_data');
+    const isAsar = __dirname.includes('app.asar');
+    const defaultUserData = path.join(process.env.APPDATA || 'C:\\Windows\\Temp', 'SVBrowserData');
+    this.dataDir = dataDir || (isAsar ? defaultUserData : path.join(__dirname, 'app_data'));
     if (!fs.existsSync(this.dataDir)) {
-      fs.mkdirSync(this.dataDir, { recursive: true });
+      try { fs.mkdirSync(this.dataDir, { recursive: true }); } catch (e) {}
     }
 
     this.profilesFilePath = path.join(this.dataDir, 'profiles.json');
@@ -18,10 +20,15 @@ class ProfileStore {
     this.groupsFilePath = path.join(this.dataDir, 'groups.json');
     this.settingsFilePath = path.join(this.dataDir, 'settings.json');
 
-    // Mặc định lưu profiles_data tại D:\Phần mềm\GPMLoginGlobal-v1\profiles_data
-    this.localStorageDefault = path.join(__dirname, 'profiles_data');
+    // Mặc định lưu profiles_data tại thư mục có thể ghi (UserData hoặc cạnh app nếu dev)
+    this.localStorageDefault = (isAsar || !fs.existsSync(path.join(__dirname, 'profiles_data')))
+      ? path.join(this.dataDir, 'profiles_data')
+      : path.join(__dirname, 'profiles_data');
+
     if (!fs.existsSync(this.localStorageDefault)) {
-      fs.mkdirSync(this.localStorageDefault, { recursive: true });
+      try {
+        fs.mkdirSync(this.localStorageDefault, { recursive: true });
+      } catch (e) {}
     }
 
     this.profiles = [];
@@ -77,6 +84,9 @@ class ProfileStore {
     try {
       if (fs.existsSync(this.settingsFilePath)) {
         this.settings = { ...this.settings, ...JSON.parse(fs.readFileSync(this.settingsFilePath, 'utf8')) };
+      }
+      if (this.settings.localStoragePath && this.settings.localStoragePath.includes('app.asar')) {
+        this.settings.localStoragePath = this.localStorageDefault;
       }
       if ((!this.settings.gpmAutomatePath || !fs.existsSync(this.settings.gpmAutomatePath)) && fs.existsSync('D:\\Phần mềm\\GPMAutomateEditor')) {
         this.settings.gpmAutomatePath = 'D:\\Phần mềm\\GPMAutomateEditor';

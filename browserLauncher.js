@@ -7,9 +7,13 @@ const ProxyChecker = require('./proxyChecker');
 class BrowserLauncher extends EventEmitter {
   constructor(baseDataDir) {
     super();
-    this.baseDataDir = baseDataDir || path.join(__dirname, 'profiles_data');
+    const isAsar = __dirname.includes('app.asar');
+    const fallbackDir = isAsar
+      ? path.join(process.env.APPDATA || 'C:\\Windows\\Temp', 'SVBrowserData', 'profiles_data')
+      : path.join(__dirname, 'profiles_data');
+    this.baseDataDir = baseDataDir || fallbackDir;
     if (!fs.existsSync(this.baseDataDir)) {
-      fs.mkdirSync(this.baseDataDir, { recursive: true });
+      try { fs.mkdirSync(this.baseDataDir, { recursive: true }); } catch (e) {}
     }
     // Map of profileId => { process, pid, browserType, version, debugPort, startTime }
     this.runningProfiles = new Map();
