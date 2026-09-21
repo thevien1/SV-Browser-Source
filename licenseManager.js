@@ -264,14 +264,24 @@ class LicenseManager {
     if (this.serverUrl) {
       try {
         const query = `?key=${encodeURIComponent(stored.key)}&hwid=${encodeURIComponent(currentHwid)}`;
+        // Thử GET /api/v1/license/check trước, nếu 404 thì thử /api/v1/license/verify
         let serverRes = await this.requestServer(`/api/v1/license/check${query}`, 'GET');
+        if (!serverRes.ok && serverRes.status === 404) {
+          serverRes = await this.requestServer(`/api/v1/license/verify${query}`, 'GET');
+        }
 
-        // Nếu endpoint GET trả về lỗi method not allowed (405) hoặc 404, fallback sang POST
+        // Nếu phương thức GET bị 405 hoặc 404, fallback sang POST
         if (!serverRes.ok && (serverRes.status === 404 || serverRes.status === 405)) {
-          serverRes = await this.requestServer('/api/v1/license/check', 'POST', {
+          serverRes = await this.requestServer('/api/v1/license/verify', 'POST', {
             key: stored.key,
             hwid: currentHwid
           });
+          if (!serverRes.ok && serverRes.status === 404) {
+            serverRes = await this.requestServer('/api/v1/license/check', 'POST', {
+              key: stored.key,
+              hwid: currentHwid
+            });
+          }
         }
 
         if (serverRes.ok && serverRes.data) {
