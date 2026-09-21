@@ -511,17 +511,12 @@ export class ModalsComponent {
       <div class="modal-overlay" id="modal-license">
         <div class="modal-dialog" style="max-width: 520px;">
           <div class="modal-header">
-            <div class="modal-title">Quản Lý & Kích Hoạt Bản Quyền</div>
+            <div class="modal-title">Kích Hoạt Bản Quyền</div>
             <button class="window-btn close" data-close="modal-license" id="btn-close-license-modal">✕</button>
           </div>
           <div class="modal-body">
             <!-- HWID ẩn xử lý tự động trong hệ thống, không hiển thị ra giao diện -->
             <input type="hidden" id="modal-hwid-val">
-
-            <div id="license-server-badge" style="font-size: 12.5px; padding: 7px 12px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
-              <span>🌐 Máy chủ quản lý: <strong style="color: #0284c7;">https://api-v1.kokenshop.site</strong></span>
-              <span style="color: #10b981; font-weight: 600;">● Trực tuyến</span>
-            </div>
 
             <div id="license-info-card" style="background: var(--table-header); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-bottom: 15px;">
               <div style="font-size: 13px; margin-bottom: 4px;">Trạng thái: <strong id="info-status">Chưa kích hoạt</strong></div>
@@ -1378,7 +1373,7 @@ export class ModalsComponent {
       const origText = submitBtn ? submitBtn.innerText : 'Kích Hoạt';
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.innerText = '⏳ Đang kết nối máy chủ...';
+        submitBtn.innerText = '⏳ Đang kích hoạt...';
       }
 
       try {
@@ -1399,7 +1394,7 @@ export class ModalsComponent {
           }
         }
       } catch (err) {
-        alert('Lỗi kết nối máy chủ bản quyền: ' + err.message);
+        alert('Lỗi kích hoạt: ' + err.message);
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -1835,11 +1830,8 @@ export class ModalsComponent {
     if (cancelBtn) cancelBtn.style.display = isOk ? '' : 'none';
 
     if (serverBadge) {
-      const srvUrl = (status && status.serverUrl) || 'https://api-v1.kokenshop.site';
-      const isOnline = status && status.serverOnline;
-      serverBadge.innerHTML = isOnline
-        ? `<span>🌐 Máy chủ quản lý: <strong style="color: #0284c7;">${srvUrl}</strong></span> <span style="color: #10b981; font-weight: 600;">● Trực tuyến</span>`
-        : `<span>🌐 Máy chủ quản lý: <strong style="color: #64748b;">${srvUrl}</strong></span> <span style="color: #f59e0b; font-weight: 500;">(Ngoại tuyến / Độc lập)</span>`;
+      serverBadge.style.display = 'none';
+      serverBadge.innerHTML = '';
     }
 
     if (!statusEl || !daysEl || !machinesEl) return;
