@@ -34,17 +34,22 @@ class DriverDownloader {
 
     const folderName = `ChromiumCore_v${majorVersion}`;
     const targetDir = path.join(this.driversDir, folderName);
-    const tempFile = path.join(this.driversDir, `temp_download_${Date.now()}.7z`);
+    const tempFileName = `temp_download_${Date.now()}.7z`;
+    const tempFile = path.join(targetDir, tempFileName);
 
     if (!fs.existsSync(this.driversDir)) {
       fs.mkdirSync(this.driversDir, { recursive: true });
     }
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
 
     onProgress(`[1/4] Đang tải Chromium Core v${majorVersion} từ:\n${downloadUrl}`);
 
-    // Sử dụng curl.exe có sẵn trên Windows để tải file siêu nhanh và hỗ trợ redirect
+    // Sử dụng curl.exe với cwd là targetDir để tránh lỗi đường dẫn Unicode tiếng Việt (Phần mềm)
     await new Promise((resolve, reject) => {
-      const curl = spawn('curl.exe', ['-L', '--fail', '-o', tempFile, downloadUrl], {
+      const curl = spawn('curl.exe', ['-L', '--fail', '-o', tempFileName, downloadUrl], {
+        cwd: targetDir,
         windowsHide: true
       });
 
@@ -70,12 +75,9 @@ class DriverDownloader {
 
     onProgress(`[2/4] Đã tải xong (~${(fs.statSync(tempFile).size / (1024 * 1024)).toFixed(1)} MB). Đang giải nén vào ${folderName}...`);
 
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-
-    // Sử dụng tar.exe của Windows 10/11 để giải nén .7z trực tiếp
-    const extractRes = spawnSync('tar.exe', ['-xf', tempFile, '-C', targetDir], {
+    // Sử dụng tar.exe của Windows 10/11 với cwd là targetDir và tên file tương đối để tránh lỗi ký tự tiếng Việt
+    const extractRes = spawnSync('tar.exe', ['-xf', tempFileName], {
+      cwd: targetDir,
       encoding: 'utf8',
       windowsHide: true
     });
