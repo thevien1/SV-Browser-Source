@@ -110,62 +110,68 @@ class BrowserLauncher extends EventEmitter {
       new DriverIconManager(baseDir).syncAllDriverIcons();
     } catch (e) {}
 
+    // CHỈ QUÉT DUY NHẤT THƯ MỤC drivers NỘI BỘ CỦA ỨNG DỤNG (D:\Phần mềm\GPMLoginGlobal-v1\drivers)
+    // Tuyệt đối không quét từ AppData của GPMLoginGlobal hay bất kỳ phần mềm nào khác
     const driversDir = path.join(__dirname, 'drivers');
-    const cores = [];
-
-    // Danh sách các thư mục ưu tiên quét
     const candidateDirs = [
       path.join(process.resourcesPath || '', 'drivers'),
       path.join(path.dirname(process.execPath || ''), 'drivers'),
-      driversDir,
-      path.join(process.env.APPDATA || '', 'SVBrowser', 'Browsers'),
-      path.join(process.env.APPDATA || '', 'GPMLoginGlobal', 'Browsers')
-    ];
+      driversDir
+    ].filter(d => Boolean(d) && fs.existsSync(d));
+
+    const coresMap = new Map();
 
     for (const base of candidateDirs) {
-      if (!fs.existsSync(base)) continue;
+      try {
+        const items = fs.readdirSync(base, { withFileTypes: true });
+        for (const item of items) {
+          if (!item.isDirectory()) continue;
 
-      const items = fs.readdirSync(base, { withFileTypes: true });
-      for (const item of items) {
-        if (!item.isDirectory()) continue;
+          const folderPath = path.join(base, item.name);
+          let exePath = null;
+          let version = null;
 
-        const folderPath = path.join(base, item.name);
-        let exePath = null;
-        let version = null;
+          // Kiểm tra exe: Chrome-bin/chrome.exe hoặc trực tiếp chrome.exe
+          const p1 = path.join(folderPath, 'Chrome-bin', 'chrome.exe');
+          const p2 = path.join(folderPath, 'chrome.exe');
+          if (fs.existsSync(p1)) exePath = p1;
+          else if (fs.existsSync(p2)) exePath = p2;
 
-        // Kiểm tra exe: Chrome-bin/chrome.exe hoặc trực tiếp chrome.exe
-        const p1 = path.join(folderPath, 'Chrome-bin', 'chrome.exe');
-        const p2 = path.join(folderPath, 'chrome.exe');
-        if (fs.existsSync(p1)) exePath = p1;
-        else if (fs.existsSync(p2)) exePath = p2;
+          if (exePath) {
+            // Tìm version từ thư mục con trong Chrome-bin hoặc trực tiếp trong folder
+            const chromeBinDir = path.join(folderPath, 'Chrome-bin');
+            if (fs.existsSync(chromeBinDir)) {
+              const sub = fs.readdirSync(chromeBinDir).find(n => /^\d+\.\d+\.\d+/.test(n));
+              if (sub) version = sub;
+            }
+            if (!version) {
+              const sub = fs.readdirSync(folderPath).find(n => /^\d+\.\d+\.\d+/.test(n));
+              if (sub) version = sub;
+            }
 
-        if (exePath) {
-          // Tìm version từ thư mục con trong Chrome-bin hoặc trực tiếp trong folder
-          const chromeBinDir = path.join(folderPath, 'Chrome-bin');
-          if (fs.existsSync(chromeBinDir)) {
-            const sub = fs.readdirSync(chromeBinDir).find(n => /^\d+\.\d+\.\d+/.test(n));
-            if (sub) version = sub;
+            if (!version) {
+              const match = item.name.match(/v?(\d+)/i);
+              version = match ? `${match[1]}.0.0.0` : '153.0.0.0';
+            }
+
+            const majorVersion = version.split('.')[0];
+            const coreKey = `${item.name.toLowerCase()}`;
+
+            // Chống trùng lặp theo tên thư mục và majorVersion
+            if (!coresMap.has(coreKey) && !coresMap.has(majorVersion)) {
+              coresMap.set(coreKey, {
+                name: item.name,
+                version: version,
+                majorVersion: majorVersion,
+                path: exePath
+              });
+            }
           }
-          if (!version) {
-            const sub = fs.readdirSync(folderPath).find(n => /^\d+\.\d+\.\d+/.test(n));
-            if (sub) version = sub;
-          }
-
-          if (!version) {
-            const match = item.name.match(/v?(\d+)/i);
-            version = match ? `${match[1]}.0.0.0` : '151.0.7922.76';
-          }
-
-          cores.push({
-            name: item.name,
-            version: version,
-            majorVersion: version.split('.')[0],
-            path: exePath
-          });
         }
-      }
+      } catch (e) {}
     }
 
+    const cores = Array.from(coresMap.values());
     // Sắp xếp version mới nhất lên đầu
     cores.sort((a, b) => parseInt(b.majorVersion || 0) - parseInt(a.majorVersion || 0));
     return cores;

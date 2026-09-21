@@ -789,27 +789,25 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     }
   ];
 
-  // Hợp nhất dữ liệu: Các core từ server cập nhật sẽ ghi đè link, version và mô tả
-  const mergedCores = [...defaultCores];
-  for (const rc of remoteCores) {
-    const idx = mergedCores.findIndex(dc => 
-      dc.name.toLowerCase() === rc.name.toLowerCase() ||
-      (dc.majorVersion && rc.majorVersion && String(dc.majorVersion) === String(rc.majorVersion))
-    );
-    if (idx !== -1) {
-      mergedCores[idx] = {
-        ...mergedCores[idx],
-        ...rc,
-        downloadUrl: rc.downloadUrl || mergedCores[idx].downloadUrl,
-        version: rc.version || mergedCores[idx].version,
-        description: rc.description || mergedCores[idx].description
-      };
-    } else {
-      mergedCores.unshift(rc);
+  // CHỈ HIỂN THỊ CÁC CORE TỪ SERVER API https://api-v2.kokenshop.site/api/v1/updates/cores
+  // Nếu server API trả về danh sách, hiển thị CHÍNH XÁC danh sách đó theo yêu cầu của bạn, không trộn thêm các core khác
+  let coreList = [];
+  if (remoteCores && remoteCores.length > 0) {
+    // Chống trùng lặp theo name / majorVersion
+    const uniqueMap = new Map();
+    for (const rc of remoteCores) {
+      const key = (rc.name || `ChromiumCore_v${rc.majorVersion}`).toLowerCase();
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, rc);
+      }
     }
+    coreList = Array.from(uniqueMap.values());
+  } else {
+    // Chỉ fallback sang defaultCores khi hoàn toàn không thể kết nối server (mất mạng)
+    coreList = defaultCores;
   }
 
-  const results = mergedCores.map(item => {
+  const results = coreList.map(item => {
     const isInstalled = localCores.some(c => 
       c.name.toLowerCase() === item.name.toLowerCase() || 
       (item.majorVersion && String(c.majorVersion) === String(item.majorVersion))

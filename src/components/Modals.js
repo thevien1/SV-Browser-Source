@@ -1256,11 +1256,11 @@ export class ModalsComponent {
         const select = this.container.querySelector('#quick-browser-core');
         if (select) {
           select.innerHTML = '';
-          cores.forEach(c => {
+          cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
             opt.textContent = `Chrome - ${c.version.split('.')[0]} (${c.version})`;
-            if (c.version === '151.0.7922.76') opt.selected = true;
+            if (idx === 0) opt.selected = true;
             select.appendChild(opt);
           });
           this.updateSummary();
@@ -1269,11 +1269,11 @@ export class ModalsComponent {
         const batchSelect = this.container.querySelector('#batch-browser-version');
         if (batchSelect) {
           batchSelect.innerHTML = '';
-          cores.forEach(c => {
+          cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = c.version;
             opt.textContent = c.version;
-            if (c.version === '151.0.7922.76') opt.selected = true;
+            if (idx === 0) opt.selected = true;
             batchSelect.appendChild(opt);
           });
         }
@@ -1281,11 +1281,11 @@ export class ModalsComponent {
         const editSelect = this.container.querySelector('#edit-quick-browser-core');
         if (editSelect) {
           editSelect.innerHTML = '';
-          cores.forEach(c => {
+          cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
             opt.textContent = `Chrome - ${c.version.split('.')[0]} (${c.version})`;
-            if (c.version === '151.0.7922.76') opt.selected = true;
+            if (idx === 0) opt.selected = true;
             editSelect.appendChild(opt);
           });
         }
