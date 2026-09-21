@@ -85,7 +85,7 @@ contextBridge.exposeInMainWorld('api', {
   isProfileRunning: (profileId) => ipcRenderer.invoke('browser:is-running', profileId),
   detectBrowsers: () => ipcRenderer.invoke('browser:detect'),
   getAvailableCores: () => ipcRenderer.invoke('browser:get-cores'),
-  downloadCore: (url) => ipcRenderer.invoke('driver:download-core', url),
+  downloadCore: (url, name) => ipcRenderer.invoke('driver:download-core', url, name),
   fetchUpdateList: (serverUrl) => ipcRenderer.invoke('driver:get-update-list', serverUrl),
   onDownloadProgress: (callback) => {
     const handler = (event, data) => callback(data);

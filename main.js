@@ -666,12 +666,12 @@ ipcMain.handle('browser:get-cores', async () => {
 const DriverDownloader = require('./driverDownloader');
 const driverDownloader = new DriverDownloader(resourceBase);
 
-ipcMain.handle('driver:download-core', async (event, downloadUrl) => {
+ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName) => {
   return driverDownloader.downloadAndInstall(downloadUrl, (msg) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('driver:download-progress', msg);
     }
-  });
+  }, coreName);
 });
 
 ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {

@@ -140,13 +140,18 @@ class BrowserLauncher extends EventEmitter {
           if (exePath) {
             // Tìm version từ thư mục con trong Chrome-bin hoặc trực tiếp trong folder
             const chromeBinDir = path.join(folderPath, 'Chrome-bin');
-            if (fs.existsSync(chromeBinDir)) {
-              const sub = fs.readdirSync(chromeBinDir).find(n => /^\d+\.\d+\.\d+/.test(n));
-              if (sub) version = sub;
-            }
-            if (!version) {
-              const sub = fs.readdirSync(folderPath).find(n => /^\d+\.\d+\.\d+/.test(n));
-              if (sub) version = sub;
+            const searchDirs = [chromeBinDir, folderPath].filter(d => fs.existsSync(d));
+            for (const sDir of searchDirs) {
+              const subFolders = fs.readdirSync(sDir).filter(n => /^\d+\.\d+\.\d+/.test(n));
+              if (subFolders.length > 0) {
+                // Sắp xếp version giảm dần
+                subFolders.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+                const matchFolderMajor = item.name.match(/v?(\d+)/i);
+                const targetMajor = matchFolderMajor ? matchFolderMajor[1] : null;
+                const matchingVer = targetMajor ? subFolders.find(v => v.startsWith(targetMajor + '.')) : null;
+                version = matchingVer || subFolders[0];
+                break;
+              }
             }
 
             if (!version) {

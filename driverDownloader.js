@@ -15,7 +15,7 @@ class DriverDownloader {
    * @param {string} url - Link download chrome.7z hoặc link tag GitHub
    * @param {function} onProgress - Callback tiến trình (string)
    */
-  async downloadAndInstall(url, onProgress = console.log) {
+  async downloadAndInstall(url, onProgress = console.log, targetName = '') {
     if (!url || typeof url !== 'string') {
       throw new Error('URL không hợp lệ');
     }
@@ -27,12 +27,26 @@ class DriverDownloader {
       downloadUrl = downloadUrl.replace('/releases/tag/', '/releases/download/') + '/chrome.7z';
     }
 
-    // Trích xuất version từ URL (ví dụ: v153.0.8010.37 -> majorVersion: 153)
-    const versionMatch = downloadUrl.match(/v?(\d+)(\.\d+\.\d+\.\d+)?/i);
-    const majorVersion = versionMatch ? versionMatch[1] : 'latest';
-    const fullVersion = versionMatch && versionMatch[2] ? `${versionMatch[1]}${versionMatch[2]}` : `${majorVersion}.0.0.0`;
+    // Trích xuất version chuẩn (ưu tiên sau /download/v hoặc \bv153..., tránh khớp số 64 trong win64)
+    let majorVersion = '';
+    let fullVersion = '';
 
-    const folderName = `ChromiumCore_v${majorVersion}`;
+    const vMatch = downloadUrl.match(/(?:download|tag)\/v?(\d+)(?:\.(\d+)\.(\d+)\.(\d+))?/i) ||
+                   downloadUrl.match(/\bv(\d+)(?:\.(\d+)\.(\d+)\.(\d+))?/i);
+    if (vMatch) {
+      majorVersion = vMatch[1];
+      fullVersion = vMatch[0].replace(/^(?:download|tag)\/v?/i, '').replace(/^v/i, '');
+    }
+
+    if (!majorVersion && targetName) {
+      const matchTarget = targetName.match(/v?(\d+)/i);
+      if (matchTarget) majorVersion = matchTarget[1];
+    }
+
+    if (!majorVersion) majorVersion = 'latest';
+    if (!fullVersion) fullVersion = `${majorVersion}.0.0.0`;
+
+    const folderName = targetName ? targetName.trim() : `ChromiumCore_v${majorVersion}`;
     const targetDir = path.join(this.driversDir, folderName);
     const tempFileName = `temp_download_${Date.now()}.7z`;
     const tempFile = path.join(targetDir, tempFileName);

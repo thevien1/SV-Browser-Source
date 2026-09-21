@@ -2801,7 +2801,7 @@ export class ModalsComponent {
         btn.innerText = 'Đang tải...';
 
         try {
-          const res = await window.api.downloadCore(downloadUrl);
+          const res = await window.api.downloadCore(downloadUrl, coreName);
           if (res && res.success) {
             btn.innerText = '✓ Hoàn tất!';
             setTimeout(() => {
