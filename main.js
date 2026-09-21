@@ -148,6 +148,18 @@ function createWindow() {
       });
     }
   });
+
+  // Chạy ngầm tự động kiểm tra / đồng bộ bản quyền với server định kỳ mỗi 30 giây
+  licenseManager.startAutoSync(30, (status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('license:status-changed', status);
+    }
+  });
+
+  mainWindow.on('closed', () => {
+    licenseManager.stopAutoSync();
+    mainWindow = null;
+  });
 }
 
 // Window IPC
@@ -1030,6 +1042,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  licenseManager.stopAutoSync();
   browserLauncher.closeAllProfiles();
   if (process.platform !== 'darwin') {
     app.quit();

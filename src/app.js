@@ -168,6 +168,39 @@ class App {
         this.profilesView.updateProfileIp(data.profileId, data.ip, data.country);
       });
     }
+
+    // Lắng nghe sự kiện đồng bộ bản quyền ngầm từ Backend (Auto-Sync khi server chặn hoặc gia hạn key)
+    if (window.api && window.api.onLicenseStatusChanged) {
+      window.api.onLicenseStatusChanged((status) => {
+        const wasValid = this.licenseStatus && this.licenseStatus.isActivated && !this.licenseStatus.isExpired;
+        this.licenseStatus = status;
+        this.sidebar.updateLicenseStatus(status);
+        this.modals.setLicenseInfo(status);
+        this.settingsView.loadData(status);
+        this.profilesView.setLicenseStatus(status);
+
+        if (!status || !status.isActivated || status.isExpired) {
+          // Bị khóa hoặc hết hạn từ server: hiện cảnh báo và bật popup nhập key
+          this.modals.openModal('modal-license');
+          if (window.showGlobalToast) {
+            const msg = status?.message || '⚠️ Bản quyền đã bị khóa hoặc hết hạn trên máy chủ!';
+            window.showGlobalToast(msg, true);
+          }
+        } else if (status.isActivated && !status.isExpired) {
+          // Được kích hoạt hoặc gia hạn thành công từ server
+          if (!wasValid) {
+            this.modals.closeModal('modal-license');
+            if (window.showGlobalToast) {
+              window.showGlobalToast(`🎉 Bản quyền đã được cập nhật từ máy chủ! Hạn dùng: ${status.daysLeft || status.expiresAtFormatted}`);
+            }
+          } else {
+            if (window.showGlobalToast) {
+              window.showGlobalToast(`Đã đồng bộ bản quyền: ${status.daysLeft || status.expiresAtFormatted}`);
+            }
+          }
+        }
+      });
+    }
   }
 
   async checkLocalStorageSetup() {

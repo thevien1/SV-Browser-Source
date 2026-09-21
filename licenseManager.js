@@ -259,23 +259,40 @@ class LicenseManager {
       };
     }
 
-    // 1. Thử đồng bộ với server nếu có serverUrl
+    // 1. Thử đồng bộ với server nếu có serverUrl (Ưu tiên GET query parameters, fallback sang POST)
+    // Server là nguồn sự thật tối thượng: Nếu server mở khóa hoặc gia hạn, tự động cập nhật
     if (this.serverUrl) {
       try {
-        const serverRes = await this.requestServer('/api/v1/license/check', 'POST', {
-          key: stored.key,
-          hwid: currentHwid
-        });
+        const query = `?key=${encodeURIComponent(stored.key)}&hwid=${encodeURIComponent(currentHwid)}`;
+        let serverRes = await this.requestServer(`/api/v1/license/check${query}`, 'GET');
+
+        // Nếu endpoint GET trả về lỗi method not allowed (405) hoặc 404, fallback sang POST
+        if (!serverRes.ok && (serverRes.status === 404 || serverRes.status === 405)) {
+          serverRes = await this.requestServer('/api/v1/license/check', 'POST', {
+            key: stored.key,
+            hwid: currentHwid
+          });
+        }
 
         if (serverRes.ok && serverRes.data) {
           const sData = serverRes.data;
           if (sData.valid) {
-            if (sData.expiresAt) stored.expiresAt = new Date(sData.expiresAt).getTime();
+            // Admin cập nhật / gia hạn key hoặc MỞ KHÓA: Cập nhật thời hạn mới và gỡ chặn
+            if (sData.expiresAt !== undefined) {
+              stored.expiresAt = sData.expiresAt ? new Date(sData.expiresAt).getTime() : 0;
+            }
+            if (sData.payload && typeof sData.payload === 'object') {
+              stored.payload = { ...stored.payload, ...sData.payload };
+            }
+            stored.isBlocked = false;
+            delete stored.blockReason;
             stored.lastCheck = Date.now();
             stored.serverSynced = true;
+
             try {
               fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
             } catch (e) {}
+
             const licStatus = this.getLicenseStatus(stored);
             return {
               isActivated: true,
@@ -287,10 +304,27 @@ class LicenseManager {
               maxMachines: sData.maxMachines || licStatus.maxMachines,
               activeMachinesCount: sData.activeMachinesCount || licStatus.activeMachinesCount
             };
-          } else if (sData.status === 'REVOKED' || sData.status === 'EXPIRED' || sData.status === 'BANNED') {
+          } else if (
+            sData.valid === false ||
+            sData.status === 'REVOKED' ||
+            sData.status === 'EXPIRED' ||
+            sData.status === 'BANNED' ||
+            sData.status === 'BLOCKED' ||
+            sData.status === 'DISABLED'
+          ) {
+            // Admin chặn key hoặc key hết hạn trên máy chủ: Ghi đè vào file local để vô hiệu hóa
+            stored.isBlocked = true;
+            stored.blockReason = sData.message || 'Bản quyền đã bị khóa hoặc hết hạn trên máy chủ';
+            stored.expiresAt = 1; // Đánh dấu hết hạn ngay lập tức
+            stored.lastCheck = Date.now();
+            try {
+              fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
+            } catch (e) {}
+
             return {
               isActivated: false,
               isExpired: true,
+              isBlocked: true,
               hwid: currentHwid,
               key: stored.key,
               serverOnline: true,
@@ -302,7 +336,22 @@ class LicenseManager {
       } catch (e) {}
     }
 
-    // 2. Chế độ OFFLINE (hoặc khi Server không phản hồi / 404):
+    // 2. Chế độ OFFLINE (hoặc khi Server không phản hồi / 404 / mất mạng):
+    // Nếu trước đó đã bị server khóa (isBlocked = true), chặn ngay cả khi offline
+    if (stored.isBlocked) {
+      return {
+        isActivated: false,
+        isExpired: true,
+        isBlocked: true,
+        hwid: currentHwid,
+        key: stored.key,
+        serverOnline: false,
+        serverUrl: this.serverUrl,
+        message: stored.blockReason || 'Bản quyền đã bị khóa hoặc thu hồi trên máy chủ'
+      };
+    }
+
+    // 2. Chế độ OFFLINE (hoặc khi Server không phản hồi / 404 / mất mạng):
     // Bản quyền đã lưu trong file license.dat (đã mã hóa AES-256 nội bộ)
     // Kiểm tra tính ràng buộc phần cứng HWID
     if (stored.activatedHwids && Array.isArray(stored.activatedHwids) && stored.activatedHwids.length > 0) {
@@ -338,6 +387,69 @@ class LicenseManager {
       serverUrl: this.serverUrl,
       ...this.getLicenseStatus(stored)
     };
+  }
+
+  startAutoSync(intervalSeconds = 30, onStatusChanged = null) {
+    this.stopAutoSync();
+    this.onStatusChangedCallback = onStatusChanged;
+    const intervalMs = Math.max(1, Number(intervalSeconds) || 30) * 1000;
+
+    // Khởi tạo chữ ký trạng thái hiện tại để so sánh
+    const initialStored = this.getStoredLicense();
+    if (initialStored) {
+      const initStatus = this.getLicenseStatus(initialStored);
+      this._lastStatusSignature = JSON.stringify({
+        isActivated: initStatus.isActivated && !initialStored.isBlocked,
+        isExpired: initStatus.isExpired,
+        isBlocked: initialStored.isBlocked || false,
+        key: initialStored.key || '',
+        daysLeft: initStatus.daysLeft || '',
+        expiresAtFormatted: initStatus.expiresAtFormatted || '',
+        message: initialStored.blockReason || ''
+      });
+    } else {
+      this._lastStatusSignature = JSON.stringify({
+        isActivated: false,
+        isExpired: false,
+        isBlocked: false,
+        key: '',
+        daysLeft: '',
+        expiresAtFormatted: '',
+        message: ''
+      });
+    }
+
+    // Chạy kiểm tra định kỳ
+    this.syncIntervalTimer = setInterval(async () => {
+      try {
+        const currentStatus = await this.checkStatus();
+        const signature = JSON.stringify({
+          isActivated: currentStatus.isActivated,
+          isExpired: currentStatus.isExpired,
+          isBlocked: currentStatus.isBlocked || false,
+          key: currentStatus.key || '',
+          daysLeft: currentStatus.daysLeft || '',
+          expiresAtFormatted: currentStatus.expiresAtFormatted || '',
+          message: currentStatus.message || ''
+        });
+
+        if (this._lastStatusSignature !== null && this._lastStatusSignature !== signature) {
+          if (typeof this.onStatusChangedCallback === 'function') {
+            this.onStatusChangedCallback(currentStatus);
+          }
+        }
+        this._lastStatusSignature = signature;
+      } catch (err) {
+        // Bỏ qua lỗi kết nối mạng tạm thời
+      }
+    }, intervalMs);
+  }
+
+  stopAutoSync() {
+    if (this.syncIntervalTimer) {
+      clearInterval(this.syncIntervalTimer);
+      this.syncIntervalTimer = null;
+    }
   }
 
   async activate(key) {

@@ -121,5 +121,10 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('profile-ip-updated', handler);
     return () => ipcRenderer.removeListener('profile-ip-updated', handler);
+  },
+  onLicenseStatusChanged: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('license:status-changed', handler);
+    return () => ipcRenderer.removeListener('license:status-changed', handler);
   }
 });
