@@ -201,9 +201,7 @@ async function run() {
   // Chuẩn bị danh sách extraResources
   const extraResources = [];
 
-  if (fs.existsSync(path.join(rootDir, 'Extensions'))) {
-    extraResources.push({ from: path.join(rootDir, 'Extensions'), to: 'Extensions', filter: ['**/*'] });
-  }
+  // KHÔNG đóng gói thư mục Extensions vào bộ cài (người dùng tự thêm hoặc tải theo nhu cầu để bộ cài nhẹ)
   if (fs.existsSync(path.join(rootDir, 'tools'))) {
     extraResources.push({ from: path.join(rootDir, 'tools'), to: 'tools', filter: ['**/*'] });
   }

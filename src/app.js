@@ -91,6 +91,7 @@ class App {
         if (window.showGlobalToast) {
           window.showGlobalToast('🎉 Kích hoạt bản quyền thành công!');
         }
+        await this.checkLocalStorageSetup();
       }
     });
     this.profilesView.modals = this.modals;
@@ -149,7 +150,12 @@ class App {
     await this.profilesView.loadProfiles();
     await this.settingsView.loadData(this.licenseStatus);
 
-    // 3. Đăng ký lắng nghe sự kiện thay đổi trạng thái Profile từ Backend
+    // 3. Kiểm tra thiết lập thư mục lưu trữ Local Storage lần đầu
+    if (this.licenseStatus?.isActivated && !this.licenseStatus?.isExpired) {
+      await this.checkLocalStorageSetup();
+    }
+
+    // 4. Đăng ký lắng nghe sự kiện thay đổi trạng thái Profile từ Backend
     if (window.api && window.api.onProfileStatusChanged) {
       window.api.onProfileStatusChanged((data) => {
         this.profilesView.updateProfileStatus(data.profileId, data.isRunning);
@@ -161,6 +167,21 @@ class App {
       window.api.onProfileIpUpdated((data) => {
         this.profilesView.updateProfileIp(data.profileId, data.ip, data.country);
       });
+    }
+  }
+
+  async checkLocalStorageSetup() {
+    if (!window.api || !window.api.getSettings) return;
+    try {
+      const s = await window.api.getSettings();
+      if (!s.hasConfiguredStoragePath || !s.localStoragePath) {
+        this.modals.openStorageSetupModal(s.localStoragePath, async (newPath) => {
+          await this.profilesView.loadProfiles();
+          await this.settingsView.loadData(this.licenseStatus);
+        });
+      }
+    } catch (err) {
+      console.error('Lỗi kiểm tra cài đặt lưu trữ:', err);
     }
   }
 

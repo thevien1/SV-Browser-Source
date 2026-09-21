@@ -8,10 +8,18 @@ const { shell } = require('electron');
 
 class ExtensionStore {
   constructor(baseDir, dataDir) {
+    const isAsar = __dirname.includes('app.asar');
     const rootDir = baseDir ? path.resolve(baseDir) : path.resolve(__dirname);
-    this.extensionsDir = path.resolve(rootDir, 'Extensions');
     this.dataDir = dataDir ? path.resolve(dataDir) : path.resolve(rootDir, 'app_data');
     this.configFilePath = path.join(this.dataDir, 'extensions.json');
+
+    // Nếu chạy dev và có folder Extensions thì dùng, khi đóng gói thì lưu vào AppData của người dùng
+    const localExtDir = path.join(rootDir, 'Extensions');
+    if (!isAsar && fs.existsSync(localExtDir)) {
+      this.extensionsDir = localExtDir;
+    } else {
+      this.extensionsDir = path.join(this.dataDir, 'Extensions');
+    }
 
     if (!fs.existsSync(this.extensionsDir)) {
       try { fs.mkdirSync(this.extensionsDir, { recursive: true }); } catch (e) {}

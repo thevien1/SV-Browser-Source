@@ -101,19 +101,19 @@ export class SettingsViewComponent {
             <input type="text" class="form-control" id="settings-private-server-url" value="https://" style="max-width: 680px;">
           </div>
 
-          <!-- Đường dẫn tới GPM Automate -->
+          <!-- Đường dẫn tới SV Browser -->
           <div class="settings-group">
             <div class="settings-group-title">
-              Đường dẫn tới GPM Automate <span class="check-green">✔</span>
+              Đường dẫn tới SV Browser <span class="check-green">✔</span>
             </div>
             <div class="settings-desc">
-              GPM Automate là phần mềm độc lập không cần mã do GPM Softwares phát triển, có thể chạy với nhiều loại trình duyệt và trình duyệt chống phát hiện và có cộng đồng lớn, cửa hàng ứng dụng có hơn 2000 ứng dụng do người dùng tải lên, xem tại đây https://app.gpmautomate.com
+              Đường dẫn thư mục cài đặt thực tế của phần mềm SV Browser trên máy tính. Hệ thống tự động nhận diện chính xác theo vị trí cài đặt của từng người dùng.
             </div>
             <div class="settings-input-action-row">
-              <button class="btn btn-outline" id="settings-btn-choose-automate">
-                📁 Thay đổi
+              <button class="btn btn-outline" id="settings-btn-choose-automate" title="Mở thư mục cài đặt trong File Explorer">
+                📁 Mở thư mục
               </button>
-              <input type="text" class="form-control" id="settings-automate-path" value="C:\\Users\\Admin\\AppData\\Local\\Programs\\GPMAutomate\\Editor">
+              <input type="text" class="form-control" id="settings-automate-path" readonly value="" placeholder="Tự động nhận diện thư mục cài đặt SV Browser...">
             </div>
           </div>
 
@@ -369,15 +369,12 @@ export class SettingsViewComponent {
       }
     });
 
-    // Chọn thư mục GPM Automate
+    // Mở thư mục cài đặt SV Browser trong File Explorer
     this.container.querySelector('#settings-btn-choose-automate')?.addEventListener('click', async () => {
       const input = this.container.querySelector('#settings-automate-path');
-      const current = input ? input.value : '';
-      if (window.api && window.api.selectDirectory) {
-        const selected = await window.api.selectDirectory(current);
-        if (selected) {
-          input.value = selected;
-        }
+      const targetDir = input ? input.value : '';
+      if (window.api && window.api.openFolder) {
+        await window.api.openFolder(targetDir);
       }
     });
 
@@ -767,8 +764,17 @@ export class SettingsViewComponent {
       }
 
       const inputAutomate = this.container.querySelector('#settings-automate-path');
-      if (inputAutomate && this.settings.gpmAutomatePath) {
-        inputAutomate.value = this.settings.gpmAutomatePath;
+      if (inputAutomate) {
+        if (window.api && window.api.getAppInstallInfo) {
+          try {
+            const appInfo = await window.api.getAppInstallInfo();
+            inputAutomate.value = appInfo.installDir || appInfo.exePath || this.settings.gpmAutomatePath || '';
+          } catch (e) {
+            inputAutomate.value = this.settings.gpmAutomatePath || '';
+          }
+        } else {
+          inputAutomate.value = this.settings.gpmAutomatePath || '';
+        }
       }
 
       const selectIp = this.container.querySelector('#settings-ip-server');

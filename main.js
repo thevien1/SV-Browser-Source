@@ -857,10 +857,12 @@ ipcMain.handle('dialog:select-zip-file', async (event) => {
 // Automation & GPMAutomateEditor IPC
 function findGpmAutomateInstallation() {
   const settings = profileStore.getSettings();
+  const localAppData = process.env.LOCALAPPDATA || '';
   const candidates = [
-    'D:\\Phần mềm\\GPMAutomateEditor',
     settings.gpmAutomatePath,
-    'C:\\Users\\Admin\\AppData\\Local\\Programs\\GPMAutomate\\Editor'
+    localAppData ? path.join(localAppData, 'Programs', 'GPMAutomate', 'Editor') : null,
+    'C:\\Program Files\\GPMAutomate\\Editor',
+    'D:\\GPMAutomateEditor'
   ].filter(Boolean);
 
   for (const dir of candidates) {
@@ -894,12 +896,32 @@ function findGpmAutomateInstallation() {
 
   return {
     installed: false,
-    targetPath: 'D:\\Phần mềm\\GPMAutomateEditor',
+    targetPath: settings.gpmAutomatePath || (localAppData ? path.join(localAppData, 'Programs', 'GPMAutomate', 'Editor') : 'C:\\Program Files\\GPMAutomate\\Editor'),
     downloadUrl: 'https://gpmautomate.com/',
     appStoreUrl: 'https://app.gpmautomate.com/',
     docsUrl: 'https://docs.gpmautomate.com/'
   };
 }
+
+ipcMain.handle('app:get-install-info', async () => {
+  const exePath = process.execPath;
+  const installDir = app.isPackaged ? path.dirname(exePath) : path.resolve(__dirname);
+  return {
+    installDir,
+    exePath,
+    appName: 'SV Browser',
+    isPackaged: app.isPackaged
+  };
+});
+
+ipcMain.handle('system:open-folder', async (event, folderPath) => {
+  const target = folderPath || (app.isPackaged ? path.dirname(process.execPath) : path.resolve(__dirname));
+  if (fs.existsSync(target)) {
+    shell.openPath(target);
+    return true;
+  }
+  return false;
+});
 
 ipcMain.handle('automation:check-installed', async () => {
   return findGpmAutomateInstallation();

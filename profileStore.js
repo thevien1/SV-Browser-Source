@@ -34,9 +34,7 @@ class ProfileStore {
     this.profiles = [];
     this.trash = [];
     this.groups = ['Default group'];
-    const defaultAutomatePath = fs.existsSync('D:\\Phần mềm\\GPMAutomateEditor')
-      ? 'D:\\Phần mềm\\GPMAutomateEditor'
-      : 'C:\\Users\\Admin\\AppData\\Local\\Programs\\GPMAutomate\\Editor';
+    const appInstallDir = isAsar ? path.dirname(process.execPath) : path.resolve(__dirname);
 
     this.settings = {
       theme: 'light',
@@ -44,8 +42,10 @@ class ProfileStore {
       defaultBrowser: 'chrome',
       useGpu: false,
       localStoragePath: this.localStorageDefault,
+      hasConfiguredStoragePath: false,
       privateServerUrl: 'https://',
-      gpmAutomatePath: defaultAutomatePath,
+      gpmAutomatePath: appInstallDir,
+      appInstallPath: appInstallDir,
       ipServer: 'Public server 02 - myip.link',
       // Browser trigger & settings (Chuẩn Hình 1)
       autoClearCache: true,
@@ -75,21 +75,42 @@ class ProfileStore {
   }
 
   updateSettings(newSettings) {
+    if (newSettings.localStoragePath) {
+      newSettings.hasConfiguredStoragePath = true;
+      try {
+        if (!fs.existsSync(newSettings.localStoragePath)) {
+          fs.mkdirSync(newSettings.localStoragePath, { recursive: true });
+        }
+      } catch (e) {}
+    }
     this.settings = { ...this.settings, ...newSettings };
     this.saveSettings();
     return this.settings;
   }
 
   loadData() {
+    let settingsFileExists = false;
     try {
       if (fs.existsSync(this.settingsFilePath)) {
+        settingsFileExists = true;
         this.settings = { ...this.settings, ...JSON.parse(fs.readFileSync(this.settingsFilePath, 'utf8')) };
       }
       if (this.settings.localStoragePath && this.settings.localStoragePath.includes('app.asar')) {
         this.settings.localStoragePath = this.localStorageDefault;
       }
-      if ((!this.settings.gpmAutomatePath || !fs.existsSync(this.settings.gpmAutomatePath)) && fs.existsSync('D:\\Phần mềm\\GPMAutomateEditor')) {
-        this.settings.gpmAutomatePath = 'D:\\Phần mềm\\GPMAutomateEditor';
+      // Nếu chưa có file settings.json hoặc chưa được lưu, đánh dấu chưa cấu hình
+      if (!settingsFileExists) {
+        this.settings.hasConfiguredStoragePath = false;
+      } else if (this.settings.hasConfiguredStoragePath === undefined) {
+        this.settings.hasConfiguredStoragePath = !!(this.settings.localStoragePath && fs.existsSync(this.settings.localStoragePath));
+      }
+
+      // Tự động nhận diện đường dẫn cài đặt thực tế của ứng dụng
+      const isAsar = __dirname.includes('app.asar');
+      const appInstallDir = isAsar ? path.dirname(process.execPath) : path.resolve(__dirname);
+      this.settings.appInstallPath = appInstallDir;
+      if (!this.settings.gpmAutomatePath || this.settings.gpmAutomatePath.includes('Admin\\AppData') || this.settings.gpmAutomatePath.includes('GPMAutomateEditor')) {
+        this.settings.gpmAutomatePath = appInstallDir;
       }
     } catch (e) {}
 

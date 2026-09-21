@@ -86,6 +86,8 @@ contextBridge.exposeInMainWorld('api', {
   // Settings & System Dialogs
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (newSettings) => ipcRenderer.invoke('settings:update', newSettings),
+  getAppInstallInfo: () => ipcRenderer.invoke('app:get-install-info'),
+  openFolder: (dirPath) => ipcRenderer.invoke('system:open-folder', dirPath),
   selectDirectory: (defaultPath) => ipcRenderer.invoke('dialog:select-directory', defaultPath),
   selectZipFile: () => ipcRenderer.invoke('dialog:select-zip-file'),
   getApiGatewayStatus: () => ipcRenderer.invoke('api-gateway:get-status'),

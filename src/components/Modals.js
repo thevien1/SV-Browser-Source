@@ -540,6 +540,41 @@ export class ModalsComponent {
         </div>
       </div>
 
+      <!-- MODAL: Thiết lập thư mục lưu trữ Local Storage lần đầu -->
+      <div class="modal-overlay" id="modal-storage-setup">
+        <div class="modal-dialog" style="max-width: 540px;">
+          <div class="modal-header">
+            <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>📁</span> Thiết Lập Thư Mục Lưu Trữ (Local Storage)
+            </div>
+          </div>
+          <div class="modal-body">
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #166534; line-height: 1.5;">
+              <strong>Chào mừng bạn đến với SV Browser!</strong><br>
+              Vui lòng chọn thư mục trên máy tính của bạn để lưu trữ dữ liệu các profile trình duyệt (Local Storage). Bạn có thể chọn lưu ở ổ đĩa C:, D:, E:... tùy ý.
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: block;">Đường dẫn thư mục Local Storage:</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" class="form-control" id="input-setup-storage-path" readonly placeholder="Chọn đường dẫn thư mục..." style="flex: 1; font-size: 13px; background: var(--table-header);">
+                <button type="button" class="btn btn-outline" id="btn-browse-setup-storage" style="white-space: nowrap; padding: 0 14px;">
+                  📁 Chọn thư mục
+                </button>
+              </div>
+              <small style="color: var(--text-muted); font-size: 12px; margin-top: 6px; display: block;">
+                Thư mục này sẽ dùng để lưu trữ toàn bộ dữ liệu, cookies và bộ nhớ cache của các profile Chrome.
+              </small>
+            </div>
+          </div>
+          <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn btn-primary" id="btn-save-setup-storage" style="padding: 8px 22px; background-color: #0284c7; font-weight: 600;">
+              💾 Lưu Đường Dẫn & Bắt Đầu
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODAL: Admin Key Generator -->
       <div class="modal-dialog-wrapper modal-overlay" id="modal-admin-keygen">
         <div class="modal-dialog" style="width: 580px;">
@@ -1408,6 +1443,42 @@ export class ModalsComponent {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         this.container.querySelector('#btn-submit-activate')?.click();
+      }
+    });
+
+    // Thiết lập thư mục lưu trữ Local Storage lần đầu
+    this.container.querySelector('#btn-browse-setup-storage')?.addEventListener('click', async () => {
+      const input = this.container.querySelector('#input-setup-storage-path');
+      const current = input ? input.value : '';
+      if (window.api && window.api.selectDirectory) {
+        const selected = await window.api.selectDirectory(current);
+        if (selected) {
+          input.value = selected;
+        }
+      }
+    });
+
+    this.container.querySelector('#btn-save-setup-storage')?.addEventListener('click', async () => {
+      const input = this.container.querySelector('#input-setup-storage-path');
+      const pathVal = input ? input.value.trim() : '';
+      if (!pathVal) {
+        alert('Vui lòng chọn thư mục để lưu trữ dữ liệu profile!');
+        return;
+      }
+
+      if (window.api && window.api.updateSettings) {
+        await window.api.updateSettings({
+          localStoragePath: pathVal,
+          hasConfiguredStoragePath: true
+        });
+      }
+
+      this.closeModal('modal-storage-setup');
+      if (window.showGlobalToast) {
+        window.showGlobalToast(`✔ Đã thiết lập thư mục lưu trữ: ${pathVal}`);
+      }
+      if (this.onStorageConfiguredCallback) {
+        this.onStorageConfiguredCallback(pathVal);
       }
     });
 
@@ -2858,4 +2929,17 @@ export class ModalsComponent {
     modal.classList.add('active');
     setTimeout(() => textarea?.focus(), 50);
   }
+
+  openStorageSetupModal(defaultPath, callback) {
+    this.onStorageConfiguredCallback = callback;
+    const input = this.container?.querySelector('#input-setup-storage-path');
+    if (input) {
+      input.value = defaultPath || 'D:\\SVBrowserProfiles';
+    }
+    const modal = this.container?.querySelector('#modal-storage-setup');
+    if (modal) {
+      modal.classList.add('active');
+    }
+  }
 }
+
