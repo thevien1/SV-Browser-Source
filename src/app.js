@@ -289,7 +289,7 @@ class App {
       // Các tab phụ (Plugins, Automation, Appstore...)
       const tabNames = {
         plugins: 'Quản lý Plugins',
-        automation: 'Kịch bản Tự động hóa (Automation)',
+        automation: 'SV Browser Automate Editor',
         appstore: 'Cửa hàng Ứng dụng (App Store)',
         developer: 'Tài liệu Dành cho Lập trình viên (Developer)',
         log: 'Nhật ký Hoạt động (Logs)',

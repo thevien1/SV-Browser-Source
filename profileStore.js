@@ -46,6 +46,7 @@ class ProfileStore {
       privateServerUrl: 'https://',
       gpmAutomatePath: appInstallDir,
       appInstallPath: appInstallDir,
+      automateEditorPath: 'D:\\Phần mềm\\GPMAutomateEditor',
       ipServer: 'Public server 02 - myip.link',
       // Browser trigger & settings (Chuẩn Hình 1)
       autoClearCache: true,
@@ -105,11 +106,14 @@ class ProfileStore {
         this.settings.hasConfiguredStoragePath = !!(this.settings.localStoragePath && fs.existsSync(this.settings.localStoragePath));
       }
 
-      // Tự động nhận diện đường dẫn cài đặt thực tế của ứng dụng
+      // Tự động nhận diện đường dẫn cài đặt thực tế của ứng dụng SV Browser
       const isAsar = __dirname.includes('app.asar');
       const appInstallDir = isAsar ? path.dirname(process.execPath) : path.resolve(__dirname);
       this.settings.appInstallPath = appInstallDir;
-      if (!this.settings.gpmAutomatePath || this.settings.gpmAutomatePath.includes('Admin\\AppData') || this.settings.gpmAutomatePath.includes('GPMAutomateEditor')) {
+      if (!this.settings.automateEditorPath) {
+        this.settings.automateEditorPath = 'D:\\Phần mềm\\GPMAutomateEditor';
+      }
+      if (!this.settings.gpmAutomatePath || this.settings.gpmAutomatePath.includes('Admin\\AppData')) {
         this.settings.gpmAutomatePath = appInstallDir;
       }
     } catch (e) {}

@@ -95,10 +95,11 @@ contextBridge.exposeInMainWorld('api', {
   testApiGateway: () => ipcRenderer.invoke('api-gateway:test'),
   openExternal: (url) => ipcRenderer.invoke('api-gateway:open-external', url),
 
-  // Automation & GPMAutomateEditor
+  // Automation & SV Browser Automate Editor
   checkAutomateInstalled: () => ipcRenderer.invoke('automation:check-installed'),
   launchAutomate: () => ipcRenderer.invoke('automation:launch'),
   openAutomateFolder: () => ipcRenderer.invoke('automation:open-folder'),
+  setAutomatePath: (dirPath) => ipcRenderer.invoke('automation:set-path', dirPath),
 
   // Event listeners
   onProfileStatusChanged: (callback) => {

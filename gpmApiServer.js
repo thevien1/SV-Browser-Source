@@ -243,6 +243,7 @@ class GpmApiServer {
             id: p.id,
             name: p.name,
             group_id: p.group_id || p.group || 'all',
+            group_name: p.group || p.group_name || p.group_id || 'Default group',
             storage_path: p.storage_path || p.profilePath || `${storagePath}\\${p.id}`,
             raw_proxy: p.raw_proxy !== undefined ? p.raw_proxy : (p.proxy && p.proxy !== 'No Proxy' ? p.proxy : ''),
             browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
@@ -261,7 +262,8 @@ class GpmApiServer {
               per_page: pageSize,
               total: total,
               last_page: Math.ceil(total / pageSize) || 1,
-              data: items
+              data: items,
+              profiles: items
             },
             message: 'OK',
             sender: 'SV Browser v5.0.8-stable'

@@ -854,39 +854,86 @@ ipcMain.handle('dialog:select-zip-file', async (event) => {
   return null;
 });
 
-// Automation & GPMAutomateEditor IPC
-function findGpmAutomateInstallation() {
+// Automation & SV Browser Automate Editor IPC
+function findAutomateEditorInstallation() {
   const settings = profileStore.getSettings();
   const localAppData = process.env.LOCALAPPDATA || '';
+  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+  const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+
   const candidates = [
-    settings.gpmAutomatePath,
+    settings.automateEditorPath,
+    'D:\\Phần mềm\\GPMAutomateEditor\\release\\win-unpacked',
+    'D:\\Phần mềm\\GPMAutomateEditor',
+    'D:\\Phần mềm\\SV Browser Automate Editor',
+    localAppData ? path.join(localAppData, 'Programs', 'SV Browser Automate Editor') : null,
+    localAppData ? path.join(localAppData, 'Programs', 'sv-browser-automate-editor') : null,
     localAppData ? path.join(localAppData, 'Programs', 'GPMAutomate', 'Editor') : null,
-    'C:\\Program Files\\GPMAutomate\\Editor',
-    'D:\\GPMAutomateEditor'
+    path.join(programFiles, 'SV Browser Automate Editor'),
+    path.join(programFilesX86, 'SV Browser Automate Editor'),
+    path.join(programFiles, 'GPMAutomate', 'Editor'),
+    'D:\\GPMAutomateEditor',
+    settings.gpmAutomatePath && settings.gpmAutomatePath !== settings.appInstallPath ? settings.gpmAutomatePath : null
   ].filter(Boolean);
+
+  const exeCandidates = [
+    'SV Browser Automate Editor.exe',
+    'SV Browser Automate Editor 3.0.9.exe',
+    'SV Browser Automate Editor 3.0.8.exe',
+    'sv-browser-automate-editor.exe',
+    'GPM Automate Editor.exe',
+    'GPMAutomateEditor.exe',
+    'GPMAutomate.exe',
+    'GPM Automate.exe'
+  ];
 
   for (const dir of candidates) {
     try {
       if (fs.existsSync(dir)) {
-        // Ưu tiên file thực thi .exe
-        const exeCandidates = ['GPM Automate Editor.exe', 'GPMAutomateEditor.exe', 'GPMAutomate.exe', 'GPM Automate.exe'];
+        // 1. Kiểm tra trực tiếp file thực thi trong thư mục
         for (const exeName of exeCandidates) {
           const exePath = path.join(dir, exeName);
           if (fs.existsSync(exePath)) {
             return { installed: true, path: dir, executable: exePath, type: 'exe' };
           }
         }
-        // Kiểm tra file launcher Chay_Phan_Mem.bat
+
+        // 2. Kiểm tra trong thư mục con release\win-unpacked
+        const winUnpacked = path.join(dir, 'release', 'win-unpacked');
+        if (fs.existsSync(winUnpacked)) {
+          for (const exeName of exeCandidates) {
+            const exePath = path.join(winUnpacked, exeName);
+            if (fs.existsSync(exePath)) {
+              return { installed: true, path: winUnpacked, executable: exePath, type: 'exe' };
+            }
+          }
+        }
+
+        // 3. Kiểm tra trong thư mục con release
+        const releaseDir = path.join(dir, 'release');
+        if (fs.existsSync(releaseDir)) {
+          for (const exeName of exeCandidates) {
+            const exePath = path.join(releaseDir, exeName);
+            if (fs.existsSync(exePath)) {
+              return { installed: true, path: releaseDir, executable: exePath, type: 'exe' };
+            }
+          }
+        }
+
+        // 4. Kiểm tra file launcher Chay_Phan_Mem.bat
         const batPath = path.join(dir, 'Chay_Phan_Mem.bat');
         if (fs.existsSync(batPath)) {
           return { installed: true, path: dir, executable: batPath, type: 'bat' };
         }
-        // Kiểm tra electron runtime có sẵn
+
+        // 5. Kiểm tra electron runtime có sẵn
+        const electronCli = path.join(dir, 'node_modules', 'electron', 'cli.js');
         const electronExe = path.join(dir, 'node_modules', 'electron', 'dist', 'electron.exe');
-        if (fs.existsSync(electronExe)) {
-          return { installed: true, path: dir, executable: electronExe, type: 'electron' };
+        if (fs.existsSync(electronCli) || fs.existsSync(electronExe)) {
+          return { installed: true, path: dir, executable: electronExe || electronCli, type: 'electron' };
         }
-        // Thư mục tồn tại kèm package.json
+
+        // 6. Thư mục tồn tại kèm package.json
         if (fs.existsSync(path.join(dir, 'package.json'))) {
           return { installed: true, path: dir, executable: null, type: 'folder' };
         }
@@ -896,12 +943,14 @@ function findGpmAutomateInstallation() {
 
   return {
     installed: false,
-    targetPath: settings.gpmAutomatePath || (localAppData ? path.join(localAppData, 'Programs', 'GPMAutomate', 'Editor') : 'C:\\Program Files\\GPMAutomate\\Editor'),
+    targetPath: settings.automateEditorPath || 'D:\\Phần mềm\\GPMAutomateEditor',
     downloadUrl: 'https://gpmautomate.com/',
     appStoreUrl: 'https://app.gpmautomate.com/',
     docsUrl: 'https://docs.gpmautomate.com/'
   };
 }
+
+const findGpmAutomateInstallation = findAutomateEditorInstallation;
 
 ipcMain.handle('app:get-install-info', async () => {
   const exePath = process.execPath;
@@ -924,13 +973,21 @@ ipcMain.handle('system:open-folder', async (event, folderPath) => {
 });
 
 ipcMain.handle('automation:check-installed', async () => {
-  return findGpmAutomateInstallation();
+  return findAutomateEditorInstallation();
+});
+
+ipcMain.handle('automation:set-path', async (event, customPath) => {
+  if (customPath && fs.existsSync(customPath)) {
+    profileStore.updateSettings({ automateEditorPath: customPath });
+    return findAutomateEditorInstallation();
+  }
+  return { success: false, error: 'Đường dẫn không tồn tại!' };
 });
 
 ipcMain.handle('automation:launch', async () => {
-  const info = findGpmAutomateInstallation();
+  const info = findAutomateEditorInstallation();
   if (!info.installed) {
-    return { success: false, error: 'Chưa cài đặt GPM Automate Editor' };
+    return { success: false, error: 'Chưa cài đặt SV Browser Automate Editor' };
   }
 
   try {
@@ -940,7 +997,7 @@ ipcMain.handle('automation:launch', async () => {
 
     if (info.type === 'exe' && info.executable && fs.existsSync(info.executable)) {
       const child = spawn(info.executable, [], {
-        cwd: dir,
+        cwd: path.dirname(info.executable),
         detached: true,
         stdio: 'ignore'
       });
@@ -967,14 +1024,14 @@ ipcMain.handle('automation:launch', async () => {
       return { success: false, error: 'Không tìm thấy file thực thi phù hợp trong thư mục.' };
     }
   } catch (err) {
-    console.error('Lỗi khi mở GPM Automate Editor:', err);
+    console.error('Lỗi khi mở SV Browser Automate Editor:', err);
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle('automation:open-folder', async () => {
-  const info = findGpmAutomateInstallation();
-  const folderToOpen = info.installed ? info.path : 'D:\\Phần mềm\\GPMAutomateEditor';
+  const info = findAutomateEditorInstallation();
+  const folderToOpen = info.installed ? info.path : (profileStore.getSettings().automateEditorPath || 'D:\\Phần mềm\\GPMAutomateEditor');
   if (fs.existsSync(folderToOpen)) {
     shell.openPath(folderToOpen);
     return true;
