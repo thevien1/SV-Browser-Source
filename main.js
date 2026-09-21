@@ -677,16 +677,40 @@ ipcMain.handle('driver:download-core', async (event, downloadUrl) => {
 ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   const localCores = browserLauncher.getAvailableChromiumCores();
 
-  let remoteData = null;
-  if (customServerUrl && typeof customServerUrl === 'string' && customServerUrl.startsWith('http')) {
-    try {
-      const response = await fetch(customServerUrl);
-      if (response.ok) {
-        remoteData = await response.json();
-      }
-    } catch (e) {
-      console.warn('Không thể kết nối đến server cập nhật:', e.message);
+  // Mặc định tự động kết nối đến server updates/cores của SV Browser
+  const DEFAULT_UPDATE_SERVER_URL = 'https://api-v2.kokenshop.site/api/v1/updates/cores';
+  const targetServerUrl = (customServerUrl && typeof customServerUrl === 'string' && customServerUrl.startsWith('http'))
+    ? customServerUrl.trim()
+    : DEFAULT_UPDATE_SERVER_URL;
+
+  let remoteCores = [];
+  let appVersion = '5.0.8-stable';
+
+  try {
+    const response = await fetch(targetServerUrl, { signal: AbortSignal.timeout(6000) });
+    if (response.ok) {
+      const json = await response.json();
+      if (json.appVersion) appVersion = json.appVersion;
+
+      // Hỗ trợ cả json.cores lẫn json.data (định dạng server Prisma trả về)
+      const rawList = Array.isArray(json.cores) ? json.cores : (Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []));
+      remoteCores = rawList.map(item => {
+        const vStr = String(item.coreVersion || item.version || item.majorVersion || '153');
+        const major = item.majorVersion ? String(item.majorVersion) : String(Math.floor(parseFloat(vStr)) || vStr.replace(/\D/g, ''));
+        const name = item.name || `ChromiumCore_v${major}`;
+        return {
+          id: item.id || name,
+          name: name,
+          type: item.type || (name.toLowerCase().includes('firefox') ? 'firefox' : 'chromium'),
+          majorVersion: major,
+          version: item.coreVersion || item.version || '1.0.0',
+          description: item.description || `Antidetect browser based on ${name}`,
+          downloadUrl: item.downloadUrl || ''
+        };
+      });
     }
+  } catch (e) {
+    console.warn('Không thể kết nối đến server cập nhật:', e.message);
   }
 
   // Danh sách các Core phát hành chuẩn của hệ sinh thái GPMLogin
@@ -698,7 +722,7 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
       majorVersion: '153',
       version: '1.0.0',
       description: 'Antidetect browser based on Chromium core v153',
-      downloadUrl: 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.37-r1681091/chrome.7z'
+      downloadUrl: 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.53-r1681091/chrome.7z'
     },
     {
       id: 'FirefoxCore_v152',
@@ -716,7 +740,7 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
       majorVersion: '152',
       version: '1.0.0',
       description: 'Antidetect browser based on Chromium core v152',
-      downloadUrl: ''
+      downloadUrl: 'https://github.com/Hibbiki/chromium-win64/releases/download/v152.0.7977.83-r1669021/chrome.7z'
     },
     {
       id: 'ChromiumCore_v151',
@@ -765,9 +789,27 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     }
   ];
 
-  const coreList = (remoteData && Array.isArray(remoteData.cores)) ? remoteData.cores : defaultCores;
+  // Hợp nhất dữ liệu: Các core từ server cập nhật sẽ ghi đè link, version và mô tả
+  const mergedCores = [...defaultCores];
+  for (const rc of remoteCores) {
+    const idx = mergedCores.findIndex(dc => 
+      dc.name.toLowerCase() === rc.name.toLowerCase() ||
+      (dc.majorVersion && rc.majorVersion && String(dc.majorVersion) === String(rc.majorVersion))
+    );
+    if (idx !== -1) {
+      mergedCores[idx] = {
+        ...mergedCores[idx],
+        ...rc,
+        downloadUrl: rc.downloadUrl || mergedCores[idx].downloadUrl,
+        version: rc.version || mergedCores[idx].version,
+        description: rc.description || mergedCores[idx].description
+      };
+    } else {
+      mergedCores.unshift(rc);
+    }
+  }
 
-  const results = coreList.map(item => {
+  const results = mergedCores.map(item => {
     const isInstalled = localCores.some(c => 
       c.name.toLowerCase() === item.name.toLowerCase() || 
       (item.majorVersion && String(c.majorVersion) === String(item.majorVersion))
@@ -779,8 +821,8 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   });
 
   return {
-    appVersion: (remoteData && remoteData.appVersion) || '5.0.8-stable',
-    serverUrl: customServerUrl || '',
+    appVersion,
+    serverUrl: targetServerUrl,
     cores: results
   };
 });

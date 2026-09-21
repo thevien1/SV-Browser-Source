@@ -2678,7 +2678,7 @@ export class ModalsComponent {
       </div>
     `;
 
-    const savedServerUrl = localStorage.getItem('gpm_update_server_url') || '';
+    const savedServerUrl = localStorage.getItem('gpm_update_server_url') || 'https://api-v2.kokenshop.site/api/v1/updates/cores';
     const inputUrl = this.container.querySelector('#input-update-server-url');
     if (inputUrl) inputUrl.value = savedServerUrl;
 
