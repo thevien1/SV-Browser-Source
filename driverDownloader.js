@@ -10,6 +10,22 @@ class DriverDownloader {
     this.iconManager = new DriverIconManager(this.baseDir);
   }
 
+  getArchiverPath() {
+    const candidates = [
+      path.join(this.baseDir, 'tools', '7za.exe'),
+      path.join(this.baseDir, 'tools', '7z.exe'),
+      path.join(__dirname, 'tools', '7za.exe'),
+      path.join(__dirname, 'tools', '7z.exe'),
+      (process.resourcesPath ? path.join(process.resourcesPath, 'tools', '7za.exe') : null),
+      (process.resourcesPath ? path.join(process.resourcesPath, 'tools', '7z.exe') : null),
+    ].filter(Boolean);
+
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    return null;
+  }
+
   /**
    * Tự động tải, giải nén và nạp icon cho ChromiumCore từ link GitHub hoặc link trực tiếp
    * @param {string} url - Link download chrome.7z hoặc link tag GitHub
@@ -47,8 +63,13 @@ class DriverDownloader {
     if (!fullVersion) fullVersion = `${majorVersion}.0.0.0`;
 
     const folderName = targetName ? targetName.trim() : `ChromiumCore_v${majorVersion}`;
-    const targetDir = path.join(this.driversDir, folderName);
-    const tempFileName = `temp_download_${Date.now()}.7z`;
+    let ext = '.7z';
+    const lowerUrl = downloadUrl.toLowerCase();
+    if (lowerUrl.includes('.zip')) ext = '.zip';
+    else if (lowerUrl.includes('.rar')) ext = '.rar';
+    else if (lowerUrl.includes('.tar.gz') || lowerUrl.includes('.tgz')) ext = '.tar.gz';
+
+    const tempFileName = `temp_download_${Date.now()}${ext}`;
     const tempFile = path.join(targetDir, tempFileName);
 
     if (!fs.existsSync(this.driversDir)) {
@@ -89,18 +110,58 @@ class DriverDownloader {
 
     onProgress(`[2/4] Đã tải xong (~${(fs.statSync(tempFile).size / (1024 * 1024)).toFixed(1)} MB). Đang giải nén vào ${folderName}...`);
 
-    // Sử dụng tar.exe của Windows 10/11 với cwd là targetDir và tên file tương đối để tránh lỗi ký tự tiếng Việt
-    const extractRes = spawnSync('tar.exe', ['-xf', tempFileName], {
-      cwd: targetDir,
-      encoding: 'utf8',
-      windowsHide: true
-    });
+    // Hỗ trợ giải nén đa năng (7za.exe > tar.exe > powershell Expand-Archive)
+    // 7za.exe xử lý hoàn hảo định dạng 7z mã hóa LZMA/LZMA2 trên mọi phiên bản Windows 10/11
+    const archiverExe = this.getArchiverPath();
+    let extractSuccess = false;
+    let extractError = '';
+
+    if (archiverExe) {
+      const res = spawnSync(archiverExe, ['x', '-y', tempFileName], {
+        cwd: targetDir,
+        encoding: 'utf8',
+        windowsHide: true
+      });
+      if (res.status === 0) {
+        extractSuccess = true;
+      } else {
+        extractError = res.stderr || res.stdout || '7za.exe giải nén thất bại';
+      }
+    }
+
+    if (!extractSuccess) {
+      // Fallback sang tar.exe của Windows
+      const tarRes = spawnSync('tar.exe', ['-xf', tempFileName], {
+        cwd: targetDir,
+        encoding: 'utf8',
+        windowsHide: true
+      });
+      if (tarRes.status === 0) {
+        extractSuccess = true;
+      } else {
+        extractError = (extractError ? extractError + '\n' : '') + (tarRes.stderr || 'tar.exe không giải nén được file');
+      }
+    }
+
+    if (!extractSuccess && (ext === '.zip' || lowerUrl.includes('.zip'))) {
+      // Fallback cho file .zip bằng PowerShell Expand-Archive
+      const psRes = spawnSync('powershell.exe', ['-NoProfile', '-Command', `Expand-Archive -LiteralPath "${tempFileName}" -DestinationPath "." -Force`], {
+        cwd: targetDir,
+        encoding: 'utf8',
+        windowsHide: true
+      });
+      if (psRes.status === 0) {
+        extractSuccess = true;
+      } else {
+        extractError = (extractError ? extractError + '\n' : '') + (psRes.stderr || 'PowerShell Expand-Archive thất bại');
+      }
+    }
 
     // Xóa file tạm sau khi giải nén
     try { fs.unlinkSync(tempFile); } catch (e) {}
 
-    if (extractRes.status !== 0) {
-      throw new Error(`Lỗi giải nén: ${extractRes.stderr || 'tar.exe không giải nén được file'}`);
+    if (!extractSuccess) {
+      throw new Error(`Lỗi giải nén: ${extractError || 'Không thể giải nén file driver'}`);
     }
 
     // Đảm bảo cấu trúc chuẩn Chrome-bin
