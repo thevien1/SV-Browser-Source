@@ -512,7 +512,7 @@ export class ModalsComponent {
         <div class="modal-dialog" style="max-width: 520px;">
           <div class="modal-header">
             <div class="modal-title">Kích Hoạt Bản Quyền</div>
-            <button class="window-btn close" data-close="modal-license" id="btn-close-license-modal">✕</button>
+            <button class="window-btn close" id="btn-close-license-modal" title="Thoát phần mềm">✕</button>
           </div>
           <div class="modal-body">
             <!-- HWID ẩn xử lý tự động trong hệ thống, không hiển thị ra giao diện -->
@@ -534,7 +534,7 @@ export class ModalsComponent {
             </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-outline" data-close="modal-license" id="btn-cancel-license-modal">Đóng</button>
+            <button class="btn btn-outline" id="btn-cancel-license-modal">Thoát ứng dụng</button>
             <button class="btn btn-primary" id="btn-submit-activate">Kích Hoạt Ngay</button>
           </div>
         </div>
@@ -1413,9 +1413,16 @@ export class ModalsComponent {
             this.currentLicenseStatus = res.license || { isActivated: true, isExpired: false };
             const closeBtn = this.container.querySelector('#btn-close-license-modal');
             const cancelBtn = this.container.querySelector('#btn-cancel-license-modal');
-            if (closeBtn) closeBtn.style.display = '';
-            if (cancelBtn) cancelBtn.style.display = '';
-            this.closeModal('modal-license');
+            if (closeBtn) {
+              closeBtn.style.display = '';
+              closeBtn.title = 'Đóng';
+            }
+            if (cancelBtn) {
+              cancelBtn.style.display = '';
+              cancelBtn.innerText = 'Đóng';
+            }
+            const modal = this.container.querySelector('#modal-license');
+            if (modal) modal.classList.remove('active');
             if (keyInput) keyInput.value = '';
             this.onLicenseActivated();
           } else {
@@ -1431,6 +1438,25 @@ export class ModalsComponent {
         }
       }
     });
+
+    // Xử lý nút [✕] và nút Đóng/Thoát của Modal License:
+    // Nếu chưa có License hợp lệ (chưa kích hoạt hoặc hết hạn) -> Thoát hẳn phần mềm khi bấm [✕] hoặc nút Thoát
+    // Nếu đã kích hoạt hợp lệ -> Đóng modal bình thường
+    const handleLicenseCloseOrExit = () => {
+      const isOk = !!(this.currentLicenseStatus && this.currentLicenseStatus.isActivated && !this.currentLicenseStatus.isExpired);
+      if (isOk) {
+        const modal = this.container.querySelector('#modal-license');
+        if (modal) modal.classList.remove('active');
+      } else {
+        if (window.api && window.api.closeWindow) {
+          window.api.closeWindow();
+        } else {
+          window.close();
+        }
+      }
+    };
+    this.container.querySelector('#btn-close-license-modal')?.addEventListener('click', handleLicenseCloseOrExit);
+    this.container.querySelector('#btn-cancel-license-modal')?.addEventListener('click', handleLicenseCloseOrExit);
 
     // Cho phép nhấn Enter trong ô nhập key để kích hoạt luôn
     this.container.querySelector('#input-license-key')?.addEventListener('keydown', (e) => {
@@ -1891,8 +1917,14 @@ export class ModalsComponent {
 
     // Kiểm tra xem đã kích hoạt hợp lệ và chưa hết hạn hay chưa
     const isOk = !!(status && status.isActivated && !status.isExpired);
-    if (closeBtn) closeBtn.style.display = isOk ? '' : 'none';
-    if (cancelBtn) cancelBtn.style.display = isOk ? '' : 'none';
+    if (closeBtn) {
+      closeBtn.style.display = '';
+      closeBtn.title = isOk ? 'Đóng' : 'Thoát phần mềm';
+    }
+    if (cancelBtn) {
+      cancelBtn.style.display = '';
+      cancelBtn.innerText = isOk ? 'Đóng' : 'Thoát ứng dụng';
+    }
 
     if (serverBadge) {
       serverBadge.style.display = 'none';
@@ -1960,12 +1992,18 @@ export class ModalsComponent {
             keyInput.select();
           }, 150);
         }
-        // Đảm bảo nút đóng bị ẩn nếu chưa kích hoạt
+        // Luôn hiển thị nút đóng/thoát
         const isOk = !!(this.currentLicenseStatus && this.currentLicenseStatus.isActivated && !this.currentLicenseStatus.isExpired);
         const closeBtn = this.container.querySelector('#btn-close-license-modal');
         const cancelBtn = this.container.querySelector('#btn-cancel-license-modal');
-        if (closeBtn) closeBtn.style.display = isOk ? '' : 'none';
-        if (cancelBtn) cancelBtn.style.display = isOk ? '' : 'none';
+        if (closeBtn) {
+          closeBtn.style.display = '';
+          closeBtn.title = isOk ? 'Đóng' : 'Thoát phần mềm';
+        }
+        if (cancelBtn) {
+          cancelBtn.style.display = '';
+          cancelBtn.innerText = isOk ? 'Đóng' : 'Thoát ứng dụng';
+        }
       }
       modal.classList.add('active');
     }
