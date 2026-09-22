@@ -16,7 +16,7 @@ export class TitlebarComponent {
     this.container.innerHTML = `
       <div class="titlebar-left">
         <span class="title-badge">SV Browser</span>
-        <span>v5.0.8-stable [Multi-Browser & Automation Platform]</span>
+        <span id="titlebar-app-ver-text">v1.0.1 [Multi-Browser & Automation Platform]</span>
       </div>
       <div class="titlebar-right">
         <button class="icon-btn" id="btn-open-updates" title="Trình quản lý cập nhật (Cores & App)">
@@ -61,6 +61,15 @@ export class TitlebarComponent {
   }
 
   bindEvents() {
+    if (window.api && window.api.getAppVersion) {
+      window.api.getAppVersion().then(ver => {
+        const verEl = this.container.querySelector('#titlebar-app-ver-text');
+        if (verEl && ver) {
+          verEl.textContent = `v${ver} [Multi-Browser & Automation Platform]`;
+        }
+      }).catch(() => {});
+    }
+
     const maxBtn = this.container.querySelector('#btn-max');
 
     const updateMaxBtnState = (isMaximized) => {

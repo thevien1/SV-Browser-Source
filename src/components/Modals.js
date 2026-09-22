@@ -1252,43 +1252,52 @@ export class ModalsComponent {
     if (!window.api || !window.api.getAvailableCores) return;
     try {
       const cores = await window.api.getAvailableCores();
+      const select = this.container.querySelector('#quick-browser-core');
+      const batchSelect = this.container.querySelector('#batch-browser-version');
+      const editSelect = this.container.querySelector('#edit-quick-browser-core');
+
       if (cores && cores.length > 0) {
-        const select = this.container.querySelector('#quick-browser-core');
         if (select) {
           select.innerHTML = '';
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
-            opt.textContent = `Chrome - ${c.version.split('.')[0]} (${c.version})`;
+            opt.textContent = `Chrome - ${c.version.split('.')[0]} (v${c.version} - Đã cài đặt ✓)`;
             if (idx === 0) opt.selected = true;
             select.appendChild(opt);
           });
           this.updateSummary();
         }
 
-        const batchSelect = this.container.querySelector('#batch-browser-version');
         if (batchSelect) {
           batchSelect.innerHTML = '';
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = c.version;
-            opt.textContent = c.version;
+            opt.textContent = `Chrome - ${c.version.split('.')[0]} (v${c.version} - Đã cài đặt ✓)`;
             if (idx === 0) opt.selected = true;
             batchSelect.appendChild(opt);
           });
         }
 
-        const editSelect = this.container.querySelector('#edit-quick-browser-core');
         if (editSelect) {
           editSelect.innerHTML = '';
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
-            opt.textContent = `Chrome - ${c.version.split('.')[0]} (${c.version})`;
+            opt.textContent = `Chrome - ${c.version.split('.')[0]} (v${c.version} - Đã cài đặt ✓)`;
             if (idx === 0) opt.selected = true;
             editSelect.appendChild(opt);
           });
         }
+      } else {
+        const noCoreOpt = (sel) => {
+          if (!sel) return;
+          sel.innerHTML = '<option value="" disabled selected>⚠️ Chưa có Core nào trong máy (Mở Trình quản lý cập nhật để tải)</option>';
+        };
+        noCoreOpt(select);
+        noCoreOpt(batchSelect);
+        noCoreOpt(editSelect);
       }
     } catch (e) {
       console.error('Lỗi load available cores:', e);
@@ -2700,9 +2709,11 @@ export class ModalsComponent {
 
     let html = '';
 
-    // 1. Dòng GPM Login Global
+    const appVer = data.installedAppVersion || data.appVersion || '1.0.1';
+
+    // 1. Dòng SV Browser (Ứng dụng chính)
     html += `
-      <div class="update-manager-item">
+      <div class="update-manager-item" style="border: 1.5px solid #bae6fd; background: #f0f9ff;">
         <div class="update-item-left">
           <div class="update-item-icon" style="background: #e0f2fe; color: #0284c7;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -2711,17 +2722,20 @@ export class ModalsComponent {
             </svg>
           </div>
           <div>
-            <div style="display: flex; align-items: center;">
-              <span class="update-item-title">SV Browser</span>
-              <span class="update-item-version">⑂ ${data.appVersion || '5.0.8-stable'}</span>
-            </div>
-            <div class="update-item-desc">Manager application</div>
-            <div style="display: flex; align-items: center; margin-top: 5px;">
-              <span class="update-item-status-latest" style="margin-top: 0;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
-                Phiên bản mới nhất
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="update-item-title" style="font-size: 15px; font-weight: 700;">SV Browser</span>
+              <span style="background: #0284c7; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">v${appVer}</span>
+              <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 3px;">
+                ✓ Đã cài đặt phiên bản mới nhất
               </span>
-              <button class="btn-repair-action" onclick="alert('Ứng dụng đang ở phiên bản mới nhất!')">Sửa chữa</button>
+            </div>
+            <div class="update-item-desc">Phần mềm quản lý Profile & Tự động hóa Antidetect SV Browser</div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+              <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
+                Hệ thống đang chạy phiên bản chính xác: v${appVer}
+              </span>
+              <button class="btn-repair-action" onclick="alert('SV Browser đang ở phiên bản mới nhất v${appVer}!')">Kiểm tra lại</button>
             </div>
           </div>
         </div>
@@ -2755,26 +2769,38 @@ export class ModalsComponent {
               ${iconSvg}
             </div>
             <div>
-              <div style="display: flex; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="update-item-title">${core.name}</span>
-                <span class="update-item-version">⑂ ${core.version || '1.0.0'}</span>
+                ${core.isInstalled ? `
+                  <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+                    ✓ Đã cài đặt (v${core.installedVersion || core.version})
+                  </span>
+                ` : `
+                  <span style="background: #fff7ed; color: #c2410c; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #ffedd5;">
+                    Chưa cài đặt (Cần tải)
+                  </span>
+                `}
               </div>
               <div class="update-item-desc">${core.description || `Antidetect browser based on ${core.name}`}</div>
               ${core.isInstalled ? `
-                <div style="display: flex; align-items: center; margin-top: 5px;">
-                  <span class="update-item-status-latest" style="margin-top: 0;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                  <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
-                    Phiên bản mới nhất
+                    Sẵn sàng sử dụng trong Profile
                   </span>
-                  <button class="btn-repair-action btn-core-action" data-action="repair" data-url="${core.downloadUrl || ''}" data-name="${core.name}">Sửa chữa</button>
+                  <button class="btn-repair-action btn-core-action" data-action="repair" data-url="${core.downloadUrl || ''}" data-name="${core.name}">Cài lại / Sửa chữa</button>
                 </div>
-              ` : ''}
+              ` : `
+                <div style="display: flex; align-items: center; margin-top: 5px;">
+                  <span style="color: #64748b; font-size: 12px;">Chưa có trên máy tính này. Bấm nút "⬇ Tải & Cài đặt" để tải tự động.</span>
+                </div>
+              `}
             </div>
           </div>
           <div>
             ${!core.isInstalled ? `
               <button class="btn-update-action btn-core-action" data-action="download" data-url="${core.downloadUrl || ''}" data-name="${core.name}">
-                Cập nhật
+                ⬇ Tải & Cài đặt
               </button>
             ` : ''}
           </div>

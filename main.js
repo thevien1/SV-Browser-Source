@@ -674,8 +674,11 @@ ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName) => {
   }, coreName);
 });
 
+ipcMain.handle('app:get-version', () => app.getVersion());
+
 ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   const localCores = browserLauncher.getAvailableChromiumCores();
+  const currentAppVersion = app.getVersion();
 
   // Mặc định tự động kết nối đến server updates/cores của SV Browser
   const DEFAULT_UPDATE_SERVER_URL = 'https://api-v2.kokenshop.site/api/v1/updates/cores';
@@ -684,7 +687,7 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     : DEFAULT_UPDATE_SERVER_URL;
 
   let remoteCores = [];
-  let appVersion = '5.0.8-stable';
+  let serverAppVersion = currentAppVersion;
 
   try {
     const response = await fetch(targetServerUrl, { signal: AbortSignal.timeout(6000) });
@@ -808,19 +811,25 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   }
 
   const results = coreList.map(item => {
-    const isInstalled = localCores.some(c => 
+    const matchedLocal = localCores.find(c => 
       c.name.toLowerCase() === item.name.toLowerCase() || 
       (item.majorVersion && String(c.majorVersion) === String(item.majorVersion))
     );
+    const isInstalled = Boolean(matchedLocal);
     return {
       ...item,
-      isInstalled
+      isInstalled,
+      installedVersion: matchedLocal ? matchedLocal.version : null,
+      installedPath: matchedLocal ? matchedLocal.path : null
     };
   });
 
   return {
-    appVersion,
+    appVersion: currentAppVersion,
+    installedAppVersion: currentAppVersion,
+    serverAppVersion: serverAppVersion,
     serverUrl: targetServerUrl,
+    driversCount: localCores.length,
     cores: results
   };
 });
