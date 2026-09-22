@@ -296,6 +296,131 @@ class ProxyChecker {
     });
   }
 
+  static testHttpsTunnel(host, port, user, pass, timeoutMs = 4000) {
+    const tls = require('tls');
+    return new Promise((resolve) => {
+      const headers = {
+        'Host': 'api.ipify.org:443',
+        'Proxy-Connection': 'keep-alive',
+        'User-Agent': 'SVBrowser/1.0'
+      };
+      if (user && pass) {
+        headers['Proxy-Authorization'] = 'Basic ' + Buffer.from(user + ':' + pass).toString('base64');
+      }
+
+      const req = http.request({
+        host,
+        port,
+        method: 'CONNECT',
+        path: 'api.ipify.org:443',
+        headers,
+        timeout: timeoutMs
+      });
+
+      let finished = false;
+      const finish = (res) => {
+        if (!finished) {
+          finished = true;
+          try { req.destroy(); } catch (e) {}
+          resolve(res);
+        }
+      };
+
+      req.on('connect', (res, socket) => {
+        if (res.statusCode === 407) {
+          try { socket.destroy(); } catch (e) {}
+          return finish({
+            live: false,
+            status: 'No connection',
+            ip: host,
+            country: 'vn',
+            error: 'Proxy Authentication Required (407)'
+          });
+        }
+        if (res.statusCode !== 200) {
+          try { socket.destroy(); } catch (e) {}
+          return finish({
+            live: false,
+            status: 'No connection',
+            ip: host,
+            country: 'vn',
+            error: `Proxy CONNECT status: ${res.statusCode}`
+          });
+        }
+
+        const tlsSocket = tls.connect({
+          socket,
+          servername: 'api.ipify.org',
+          timeout: timeoutMs
+        }, () => {
+          tlsSocket.write('GET /?format=json HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n');
+        });
+
+        let body = '';
+        tlsSocket.on('data', (d) => body += d.toString());
+        tlsSocket.on('end', async () => {
+          try {
+            const jsonMatch = body.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const j = JSON.parse(jsonMatch[0]);
+              if (j && j.ip) {
+                const geo = await ProxyChecker.queryHostGeo(j.ip);
+                return finish({
+                  live: true,
+                  status: 'Live',
+                  ip: j.ip,
+                  country: geo.country || 'us'
+                });
+              }
+            }
+          } catch (e) {}
+          finish({
+            live: false,
+            status: 'No connection',
+            ip: host,
+            country: 'vn',
+            error: 'Tunnel established but invalid response'
+          });
+        });
+        tlsSocket.on('error', (err) => finish({
+          live: false,
+          status: 'No connection',
+          ip: host,
+          country: 'vn',
+          error: `TLS Error: ${err.message}`
+        }));
+        tlsSocket.on('timeout', () => {
+          try { tlsSocket.destroy(); } catch (e) {}
+          finish({
+            live: false,
+            status: 'No connection',
+            ip: host,
+            country: 'vn',
+            error: 'TLS Timeout'
+          });
+        });
+      });
+
+      req.on('error', (err) => finish({
+        live: false,
+        status: 'No connection',
+        ip: host,
+        country: 'vn',
+        error: err.message || 'CONNECT failed'
+      }));
+
+      req.on('timeout', () => finish({
+        live: false,
+        status: 'No connection',
+        ip: host,
+        country: 'vn',
+        error: 'Proxy CONNECT timeout'
+      }));
+
+      req.end();
+    });
+  }
+
   static async testProxy(proxyStr, proxyType = '') {
     const parsed = this.parseProxy(proxyStr, proxyType);
     if (parsed.isDirect) {
@@ -310,24 +435,20 @@ class ProxyChecker {
     }
 
     // HTTP / HTTPS
+    // 1. Thử qua HTTP GET trước
     const res = await this.testHttpProxy(host, port, user, pass, 3500);
     if (res.live) {
       return res;
     }
 
-    // Fallback nếu HTTP GET trực tiếp bị proxy chặn: kiểm tra TCP socket cơ bản
-    const isTcpAlive = await this.checkTcpSocket(host, port, 2000);
-    if (isTcpAlive && !res.error.includes('407')) {
-      const geo = await this.queryHostGeo(host);
-      return {
-        live: true,
-        status: 'Live',
-        ip: geo.ip || host,
-        country: geo.country || 'us'
-      };
+    // 2. Nếu HTTP GET thất bại (nhiều proxy chỉ cho phép HTTPS CONNECT), thử qua HTTPS Tunnel thật
+    const tunnelRes = await this.testHttpsTunnel(host, port, user, pass, 4000);
+    if (tunnelRes.live) {
+      return tunnelRes;
     }
 
-    return res;
+    // Trả về lỗi chi tiết, tuyệt đối không fallback TCP ảo gây hiểu lầm Live
+    return (res.error && res.error.includes('407')) ? res : tunnelRes;
   }
 
   static getLangFromCountry(countryCode) {
