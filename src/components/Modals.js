@@ -2654,7 +2654,10 @@ export class ModalsComponent {
   async openUpdateManager() {
     this.openModal('modal-update-manager');
     this.initUpdateManagerEvents();
-    await this.loadUpdateList();
+    // Không tải lại danh sách nếu đang có Core đang tải ngầm dở
+    if (!this._downloadingCores || this._downloadingCores.size === 0) {
+      await this.loadUpdateList();
+    }
   }
 
   initUpdateManagerEvents() {
@@ -2663,20 +2666,41 @@ export class ModalsComponent {
 
     // Nút Refresh danh sách
     this.container.querySelector('#btn-refresh-update-list')?.addEventListener('click', () => {
+      if (this._downloadingCores && this._downloadingCores.size > 0) {
+        if (!confirm('Đang có Core trình duyệt đang tải, bạn có chắc chắn muốn làm mới danh sách không?')) {
+          return;
+        }
+      }
       this.loadUpdateList();
     });
 
     // Lắng nghe tiến trình tải từ backend
     if (window.api && window.api.onDownloadProgress) {
-      window.api.onDownloadProgress((msg) => {
-        if (this._currentDownloadingBtn) {
+      window.api.onDownloadProgress((payload) => {
+        let msg = '';
+        let coreName = null;
+        if (typeof payload === 'string') {
+          msg = payload;
+        } else if (payload && typeof payload === 'object') {
+          msg = payload.msg || '';
+          coreName = payload.coreName || null;
+        }
+
+        let targetBtn = null;
+        if (coreName && this._downloadingCores && this._downloadingCores.has(coreName)) {
+          targetBtn = this._downloadingCores.get(coreName);
+        } else if (this._currentDownloadingBtn) {
+          targetBtn = this._currentDownloadingBtn;
+        }
+
+        if (targetBtn) {
           const match = msg.match(/(\d+[\d\.]*%|\d+[\d\.]*\s*M|\d+[\d\.]*\s*k)/i);
           if (match) {
-            this._currentDownloadingBtn.innerText = `Đang tải ${match[0]}...`;
+            targetBtn.innerText = `Đang tải ${match[0]}...`;
           } else if (msg.includes('giải nén')) {
-            this._currentDownloadingBtn.innerText = `Đang giải nén...`;
+            targetBtn.innerText = `Đang giải nén...`;
           } else if (msg.includes('icon')) {
-            this._currentDownloadingBtn.innerText = `Đang đổi icon...`;
+            targetBtn.innerText = `Đang đổi icon...`;
           }
         }
       });
@@ -2721,7 +2745,7 @@ export class ModalsComponent {
     // Cảnh báo nếu chưa cài đặt Core nào (giống như chưa nhập key)
     if (!anyCoreInstalled) {
       html += `
-        <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-left: 4px solid #ea580c; padding: 12px 16px; border-radius: 6px; display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+        <div id="no-core-warning-box" style="background: #fff7ed; border: 1.5px solid #fed7aa; border-left: 4px solid #ea580c; padding: 12px 16px; border-radius: 6px; display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
           <span style="font-size: 24px;">⚠️</span>
           <div>
             <div style="font-weight: 700; color: #9a3412; font-size: 13.5px;">Chưa cài đặt Core trình duyệt nào!</div>
@@ -2783,8 +2807,10 @@ export class ModalsComponent {
         </svg>
       `;
 
+      const isCurrentlyDownloading = this._downloadingCores && this._downloadingCores.has(core.name);
+
       html += `
-        <div class="update-manager-item" data-core-id="${core.id}">
+        <div class="update-manager-item" data-core-id="${core.id || core.name}">
           <div class="update-item-left">
             <div class="update-item-icon" style="background: ${iconBg};">
               ${iconSvg}
@@ -2792,36 +2818,40 @@ export class ModalsComponent {
             <div>
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="update-item-title">${core.name}</span>
-                ${core.isInstalled ? `
-                  <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
-                    ✓ Đã cài đặt (v${core.installedVersion || core.version})
-                  </span>
-                ` : `
-                  <span style="background: #fff7ed; color: #c2410c; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #ffedd5;">
-                    Chưa cài đặt (Cần tải)
-                  </span>
-                `}
+                <span class="core-installed-badge">
+                  ${core.isInstalled ? `
+                    <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+                      ✓ Đã cài đặt (v${core.installedVersion || core.version})
+                    </span>
+                  ` : `
+                    <span style="background: #fff7ed; color: #c2410c; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #ffedd5;">
+                      Chưa cài đặt (Cần tải)
+                    </span>
+                  `}
+                </span>
               </div>
               <div class="update-item-desc">${core.description || `Antidetect browser based on ${core.name}`}</div>
-              ${core.isInstalled ? `
-                <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                  <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
-                    Sẵn sàng sử dụng trong Profile
-                  </span>
-                  <button class="btn-repair-action btn-core-action" data-action="repair" data-url="${core.downloadUrl || ''}" data-name="${core.name}">Cài lại / Sửa chữa</button>
-                </div>
-              ` : `
-                <div style="display: flex; align-items: center; margin-top: 5px;">
-                  <span style="color: #64748b; font-size: 12px;">Chưa có trên máy tính này. Bấm nút "⬇ Tải & Cài đặt" để tải tự động.</span>
-                </div>
-              `}
+              <div class="core-status-section">
+                ${core.isInstalled ? `
+                  <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                    <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
+                      Sẵn sàng sử dụng trong Profile
+                    </span>
+                    <button class="btn-repair-action btn-core-action" data-action="repair" data-url="${core.downloadUrl || ''}" data-name="${core.name}">Cài lại / Sửa chữa</button>
+                  </div>
+                ` : `
+                  <div style="display: flex; align-items: center; margin-top: 5px;">
+                    <span style="color: #64748b; font-size: 12px;">Chưa có trên máy tính này. Bấm nút "⬇ Tải & Cài đặt" để tải tự động.</span>
+                  </div>
+                `}
+              </div>
             </div>
           </div>
-          <div>
+          <div class="core-right-action">
             ${!core.isInstalled ? `
-              <button class="btn-update-action btn-core-action" data-action="download" data-url="${core.downloadUrl || ''}" data-name="${core.name}">
-                ⬇ Tải & Cài đặt
+              <button class="btn-update-action btn-core-action" data-action="download" data-url="${core.downloadUrl || ''}" data-name="${core.name}" ${isCurrentlyDownloading ? 'disabled' : ''}>
+                ${isCurrentlyDownloading ? 'Đang tải...' : '⬇ Tải & Cài đặt'}
               </button>
             ` : ''}
           </div>
@@ -2833,42 +2863,112 @@ export class ModalsComponent {
 
     // Gắn sự kiện click cho các nút Cập nhật & Sửa chữa
     listEl.querySelectorAll('.btn-core-action').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        let downloadUrl = btn.getAttribute('data-url');
-        const coreName = btn.getAttribute('data-name');
+      const coreName = btn.getAttribute('data-name');
+      if (this._downloadingCores && this._downloadingCores.has(coreName)) {
+        // Cập nhật lại tham chiếu nút trong trường hợp vừa re-render
+        this._downloadingCores.set(coreName, btn);
+      }
+      this.bindCoreActionButton(btn);
+    });
+  }
 
-        if (!downloadUrl) {
-          downloadUrl = prompt(`Nhập link tải (downloadUrl của chrome.7z) cho ${coreName}:`, 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.37-r1681091/chrome.7z');
-          if (!downloadUrl) return;
-        }
+  bindCoreActionButton(btn) {
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      let downloadUrl = btn.getAttribute('data-url');
+      const coreName = btn.getAttribute('data-name');
 
-        this._currentDownloadingBtn = btn;
-        const originalText = btn.innerText;
-        btn.disabled = true;
-        btn.innerText = 'Đang tải...';
+      if (!downloadUrl) {
+        downloadUrl = prompt(`Nhập link tải (downloadUrl của chrome.7z) cho ${coreName}:`, 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.37-r1681091/chrome.7z');
+        if (!downloadUrl) return;
+      }
 
-        try {
-          const res = await window.api.downloadCore(downloadUrl, coreName);
-          if (res && res.success) {
-            btn.innerText = '✓ Hoàn tất!';
-            setTimeout(() => {
-              this.loadUpdateList();
-              this.loadAvailableCores();
-            }, 1000);
-          } else {
-            alert('Tải thất bại: ' + (res.message || 'Lỗi không xác định'));
-            btn.disabled = false;
-            btn.innerText = originalText;
-          }
-        } catch (err) {
-          alert('Lỗi khi tải Core: ' + err.message);
+      if (!this._downloadingCores) this._downloadingCores = new Map();
+      this._downloadingCores.set(coreName, btn);
+      this._currentDownloadingBtn = btn;
+      const originalText = btn.innerText;
+      btn.disabled = true;
+      btn.innerText = 'Đang tải...';
+
+      try {
+        const res = await window.api.downloadCore(downloadUrl, coreName);
+        if (res && res.success) {
+          btn.innerText = '✓ Hoàn tất!';
+          // CẬP NHẬT CỤC BỘ DÒNG CORE NÀY - TUYỆT ĐỐI KHÔNG REFRESH TOÀN BỘ DANH SÁCH
+          setTimeout(() => {
+            this.markCoreAsInstalledInUI(coreName, res.version || res.majorVersion, downloadUrl);
+            this.loadAvailableCores();
+          }, 800);
+        } else {
+          alert('Tải thất bại: ' + (res.message || 'Lỗi không xác định'));
           btn.disabled = false;
           btn.innerText = originalText;
-        } finally {
+        }
+      } catch (err) {
+        alert('Lỗi khi tải Core: ' + err.message);
+        btn.disabled = false;
+        btn.innerText = originalText;
+      } finally {
+        if (this._downloadingCores) {
+          this._downloadingCores.delete(coreName);
+        }
+        if (this._currentDownloadingBtn === btn) {
           this._currentDownloadingBtn = null;
         }
-      });
+      }
     });
+  }
+
+  markCoreAsInstalledInUI(coreName, version, downloadUrl) {
+    // 1. Tắt cảnh báo màu cam "Chưa cài đặt Core trình duyệt nào" nếu có
+    const warningBox = this.container.querySelector('#no-core-warning-box');
+    if (warningBox) {
+      warningBox.style.display = 'none';
+    }
+
+    // 2. Tìm phần tử DOM của Core vừa tải xong
+    const itemEl = this.container.querySelector(`.update-manager-item[data-core-id="${coreName}"]`) ||
+      Array.from(this.container.querySelectorAll('.update-manager-item')).find(el => {
+        const title = el.querySelector('.update-item-title')?.textContent?.trim();
+        return title === coreName;
+      });
+
+    if (!itemEl) return;
+
+    // Cập nhật Badge "✓ Đã cài đặt"
+    const badgeContainer = itemEl.querySelector('.core-installed-badge');
+    if (badgeContainer) {
+      const vText = version ? ` (v${version})` : '';
+      badgeContainer.innerHTML = `
+        <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+          ✓ Đã cài đặt${vText}
+        </span>
+      `;
+    }
+
+    // Cập nhật phần thông tin trạng thái & chuyển sang nút "Cài lại / Sửa chữa"
+    const statusContainer = itemEl.querySelector('.core-status-section');
+    if (statusContainer) {
+      statusContainer.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+          <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
+            Sẵn sàng sử dụng trong Profile
+          </span>
+          <button class="btn-repair-action btn-core-action" data-action="repair" data-url="${downloadUrl || ''}" data-name="${coreName}">Cài lại / Sửa chữa</button>
+        </div>
+      `;
+      const repairBtn = statusContainer.querySelector('.btn-repair-action');
+      if (repairBtn) {
+        this.bindCoreActionButton(repairBtn);
+      }
+    }
+
+    // Xóa nút tải ở cột bên phải
+    const rightContainer = itemEl.querySelector('.core-right-action');
+    if (rightContainer) {
+      rightContainer.innerHTML = '';
+    }
   }
 
   openConfirmDeleteModal({ count = 1, profileName = '', onConfirm }) {

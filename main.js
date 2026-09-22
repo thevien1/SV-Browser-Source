@@ -669,7 +669,7 @@ const driverDownloader = new DriverDownloader(resourceBase);
 ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName) => {
   return driverDownloader.downloadAndInstall(downloadUrl, (msg) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('driver:download-progress', msg);
+      mainWindow.webContents.send('driver:download-progress', { coreName, msg });
     }
   }, coreName);
 });

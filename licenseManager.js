@@ -182,7 +182,13 @@ class LicenseManager {
       const subParts = prefix.split('-');
       if (subParts.length < 3) return { valid: false, message: 'Cấu trúc key không hợp lệ' };
       const base64 = subParts.slice(2).join('-');
-      const jsonStr = Buffer.from(base64, 'base64').toString('utf8');
+      let jsonStr;
+      try {
+        jsonStr = Buffer.from(base64, 'base64url').toString('utf8');
+        JSON.parse(jsonStr);
+      } catch (e) {
+        jsonStr = Buffer.from(base64, 'base64').toString('utf8');
+      }
       const payload = JSON.parse(jsonStr);
 
       const knownSalts = [
@@ -199,7 +205,7 @@ class LicenseManager {
           .digest('hex')
           .substring(0, 16)
           .toUpperCase();
-        if (expectedSig === sig.toUpperCase()) {
+        if (expectedSig === sig.toUpperCase() || (sig.length >= 8 && expectedSig.startsWith(sig.toUpperCase()))) {
           sigMatched = true;
           break;
         }
