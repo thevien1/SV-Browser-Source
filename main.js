@@ -681,7 +681,7 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   const currentAppVersion = app.getVersion();
 
   // Mặc định tự động kết nối đến server updates/cores của SV Browser
-  const DEFAULT_UPDATE_SERVER_URL = 'https://api-v2.kokenshop.site/api/v1/updates/cores';
+  const DEFAULT_UPDATE_SERVER_URL = 'https://api.svbrowser.site/api/v1/updates/cores';
   const targetServerUrl = (customServerUrl && typeof customServerUrl === 'string' && customServerUrl.startsWith('http'))
     ? customServerUrl.trim()
     : DEFAULT_UPDATE_SERVER_URL;
@@ -792,7 +792,7 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     }
   ];
 
-  // CHỈ HIỂN THỊ CÁC CORE TỪ SERVER API https://api-v2.kokenshop.site/api/v1/updates/cores
+  // CHỈ HIỂN THỊ CÁC CORE TỪ SERVER API https://api.svbrowser.site/api/v1/updates/cores
   // Nếu server API trả về danh sách, hiển thị CHÍNH XÁC danh sách đó theo yêu cầu của bạn, không trộn thêm các core khác
   let coreList = [];
   if (remoteCores && remoteCores.length > 0) {

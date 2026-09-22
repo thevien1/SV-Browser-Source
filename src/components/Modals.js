@@ -529,7 +529,7 @@ export class ModalsComponent {
               <label id="label-license-input" style="font-weight: 600;">Nhập License Key để kích hoạt phần mềm:</label>
               <textarea class="form-control" id="input-license-key" placeholder="Dán mã key kích hoạt của bạn vào đây (Ví dụ: SV-TRIA-eyJp...)" style="height: 70px; font-family: monospace; font-size: 12.5px;"></textarea>
               <small id="license-input-hint" style="color: var(--text-muted); font-size: 11.5px; margin-top: 6px; display: block;">
-                Vui lòng nhập License Key hợp lệ do quản trị viên cấp để mở khóa toàn bộ tính năng phần mềm.
+                Vui lòng nhập License Key hợp lệ hoặc quản lý, gia hạn bản quyền tại <a href="https://manager.svbrowser.site" target="_blank" style="color: #0284c7; text-decoration: underline; font-weight: 600;">manager.svbrowser.site</a>.
               </small>
             </div>
           </div>
@@ -2695,7 +2695,7 @@ export class ModalsComponent {
     `;
 
     // Luôn luôn lấy từ URL server cố định theo yêu cầu của bạn
-    const FIXED_UPDATE_SERVER_URL = 'https://api-v2.kokenshop.site/api/v1/updates/cores';
+    const FIXED_UPDATE_SERVER_URL = 'https://api.svbrowser.site/api/v1/updates/cores';
 
     try {
       if (!window.api || !window.api.fetchUpdateList) {

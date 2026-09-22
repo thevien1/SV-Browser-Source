@@ -16,6 +16,51 @@ export class PlaceholderViewComponent {
       return;
     }
 
+    if (tabName === 'about') {
+      this.container.innerHTML = `
+        <div style="padding: 30px; display: flex; flex-direction: column; gap: 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main);">Giới thiệu SV Browser</h2>
+            <span style="font-size: 12px; background: #ecfdf5; color: #059669; padding: 3px 10px; border-radius: 12px; font-weight: 600;">Bản quyền chính thức</span>
+          </div>
+
+          <p style="color: var(--text-muted); font-size: 13.5px; max-width: 650px; line-height: 1.6;">
+            <strong>SV Browser</strong> là giải pháp quản lý đa hồ sơ trình duyệt (Antidetect Browser) & Tự động hóa chuyên nghiệp, bảo vệ vân tay số và phục vụ quy trình làm việc hiệu suất cao.
+          </p>
+
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; max-width: 700px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="font-weight: 600; font-size: 15px; color: var(--text-main); margin-bottom: 4px;">🌐 Kênh Chính Thức & Cổng Quản Trị</div>
+            
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
+              <span style="color: var(--text-muted); width: 150px;">Trang chủ chính thức:</span>
+              <a href="https://svbrowser.site" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">https://svbrowser.site</a>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
+              <span style="color: var(--text-muted); width: 150px;">Cổng Quản Lý Bản Quyền:</span>
+              <a href="https://manager.svbrowser.site" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">https://manager.svbrowser.site</a>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
+              <span style="color: var(--text-muted); width: 150px;">Hệ thống API:</span>
+              <span style="color: var(--text-main); font-family: monospace;">https://api.svbrowser.site</span>
+            </div>
+
+            <div style="margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; gap: 12px;">
+              <button class="btn btn-primary" onclick="window.sidebarComp?.setActiveTab('profiles'); window.appSwitchTab?.('profiles');">
+                ← Quay lại Quản lý Profiles
+              </button>
+              <a href="https://manager.svbrowser.site" target="_blank" class="btn btn-outline" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; color: #0284c7;">
+                🔑 Quản lý bản quyền online
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+      this.container.style.display = 'flex';
+      return;
+    }
+
     this.container.innerHTML = `
       <div style="padding: 30px; display: flex; flex-direction: column; gap: 20px;">
         <div style="display: flex; align-items: center; gap: 12px;">

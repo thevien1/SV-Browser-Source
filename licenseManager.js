@@ -13,7 +13,7 @@ class LicenseManager {
     }
     this.licenseFilePath = path.join(this.dataDir, 'license.dat');
     this.cachedHwid = null;
-    this.serverUrl = (process.env.LICENSE_SERVER_URL || 'https://api-v2.kokenshop.site').replace(/\/+$/, '');
+    this.serverUrl = (process.env.LICENSE_SERVER_URL || 'https://api.svbrowser.site').replace(/\/+$/, '');
   }
 
   getMachineName() {
