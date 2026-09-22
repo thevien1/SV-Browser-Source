@@ -239,21 +239,28 @@ class GpmApiServer {
           const startIndex = (page - 1) * pageSize;
           const paginated = filtered.slice(startIndex, startIndex + pageSize);
 
-          const items = paginated.map(p => ({
-            id: p.id,
-            name: p.name,
-            group_id: p.group_id || p.group || 'all',
-            group_name: p.group || p.group_name || p.group_id || 'Default group',
-            storage_path: p.storage_path || p.profilePath || `${storagePath}\\${p.id}`,
-            raw_proxy: p.raw_proxy !== undefined ? p.raw_proxy : (p.proxy && p.proxy !== 'No Proxy' ? p.proxy : ''),
-            browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
-            os: p.os || 'windows',
-            note: p.note || p.notes || '',
-            status: this.browserLauncher.isProfileRunning(p.id) ? 'running' : 'ready',
-            created_at: typeof p.createdAt === 'number' ? new Date(p.createdAt).toISOString() : (p.createdAt || new Date().toISOString()),
-            updated_at: typeof p.updatedAt === 'number' ? new Date(p.updatedAt).toISOString() : (p.updatedAt || new Date().toISOString()),
-            tags: Array.isArray(p.tags) ? p.tags : []
-          }));
+          const items = paginated.map(p => {
+            const runInfo = this.browserLauncher.runningProfiles.get(p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              group_id: p.group_id || p.group || 'all',
+              group_name: p.group || p.group_name || p.group_id || 'Default group',
+              storage_path: p.storage_path || p.profilePath || `${storagePath}\\${p.id}`,
+              raw_proxy: p.raw_proxy !== undefined ? p.raw_proxy : (p.proxy && p.proxy !== 'No Proxy' ? p.proxy : ''),
+              browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
+              os: p.os || 'windows',
+              note: p.note || p.notes || '',
+              status: runInfo ? 'running' : 'ready',
+              port: runInfo ? runInfo.debugPort : null,
+              remote_debugging_port: runInfo ? runInfo.debugPort : null,
+              remote_debugging_address: runInfo ? runInfo.remote_debugging_address : null,
+              websocket_debugging_url: runInfo ? runInfo.websocket_debugging_url : null,
+              created_at: typeof p.createdAt === 'number' ? new Date(p.createdAt).toISOString() : (p.createdAt || new Date().toISOString()),
+              updated_at: typeof p.updatedAt === 'number' ? new Date(p.updatedAt).toISOString() : (p.updatedAt || new Date().toISOString()),
+              tags: Array.isArray(p.tags) ? p.tags : []
+            };
+          });
 
           return sendJson(200, {
             success: true,
@@ -292,6 +299,10 @@ class GpmApiServer {
               os: p.os || 'windows',
               note: p.note || p.notes || '',
               status: this.browserLauncher.isProfileRunning(p.id) ? 'running' : 'ready',
+              port: this.browserLauncher.runningProfiles.get(p.id)?.debugPort || null,
+              remote_debugging_port: this.browserLauncher.runningProfiles.get(p.id)?.debugPort || null,
+              remote_debugging_address: this.browserLauncher.runningProfiles.get(p.id)?.remote_debugging_address || null,
+              websocket_debugging_url: this.browserLauncher.runningProfiles.get(p.id)?.websocket_debugging_url || null,
               created_at: typeof p.createdAt === 'number' ? new Date(p.createdAt).toISOString() : (p.createdAt || new Date().toISOString()),
               updated_at: typeof p.updatedAt === 'number' ? new Date(p.updatedAt).toISOString() : (p.updatedAt || new Date().toISOString()),
               tags: Array.isArray(p.tags) ? p.tags : [],
