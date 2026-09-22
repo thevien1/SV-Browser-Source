@@ -102,12 +102,27 @@ async function run() {
 
   const startTime = Date.now();
 
+  // Tự động tăng số phiên bản lên 1 (ví dụ: 1.0.1 -> 1.0.2)
+  const pkgPath = path.join(rootDir, 'package.json');
+  const rootPkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  const oldVer = rootPkg.version || "1.0.1";
+  const verParts = oldVer.split('.');
+  if (verParts.length >= 3 && !isNaN(parseInt(verParts[verParts.length - 1], 10))) {
+    verParts[verParts.length - 1] = parseInt(verParts[verParts.length - 1], 10) + 1;
+  } else {
+    verParts.push(1);
+  }
+  const appVersion = verParts.join('.');
+  rootPkg.version = appVersion;
+  fs.writeFileSync(pkgPath, JSON.stringify(rootPkg, null, 2), 'utf8');
+  console.log(`[Phiên bản mới]: Tự động tăng phiên bản: v${oldVer} -> v${appVersion}\n`);
+
   // 1. Dọn dẹp thư mục staging & các file build cũ trong dist
-  console.log('[Bước 1/4] Chuẩn bị thư mục staging & dọn dẹp các bản build cũ trong dist...');
+  console.log('[Bước 1/4] Chuẩn bị thư mục staging & xóa sạch bản build cũ trong dist...');
   cleanDir(stagingDir);
   fs.mkdirSync(stagingDir, { recursive: true });
 
-  // Tự động xóa các file cài đặt / portable cũ trong dist/ để tránh tích tụ tăng dần dung lượng sau mỗi lần build
+  // Tự động xóa sạch các file cài đặt / portable cũ trong dist/ để tránh tích tụ tăng dần dung lượng sau mỗi lần build
   if (fs.existsSync(distDir)) {
     try {
       const distFiles = fs.readdirSync(distDir);
@@ -206,10 +221,6 @@ async function run() {
   if (fs.existsSync(assetsDir)) {
     copyDirRecursive(assetsDir, path.join(stagingDir, 'assets'));
   }
-
-  // Lấy version từ package.json gốc
-  const rootPkg = require(path.join(rootDir, 'package.json'));
-  const appVersion = rootPkg.version || "1.0.1";
 
   // Tạo package.json sạch cho ứng dụng (chỉ chứa metadata cần thiết, không lộ keygen hay devDependencies)
   const appPkg = {
