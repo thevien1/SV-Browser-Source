@@ -1135,6 +1135,8 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         resolve({ ip: p.ip || '127.0.0.1', country: p.proxyCountry || 'vn' });
       });
     });
+  }
+
   getDpapiHelperPath() {
     const candidates = [
       path.join(process.resourcesPath || '', 'tools', 'dpapi_helper.ps1'),
