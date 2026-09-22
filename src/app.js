@@ -150,9 +150,10 @@ class App {
     await this.profilesView.loadProfiles();
     await this.settingsView.loadData(this.licenseStatus);
 
-    // 3. Kiểm tra thiết lập thư mục lưu trữ Local Storage lần đầu
+    // 3. Kiểm tra thiết lập thư mục lưu trữ Local Storage & Core trình duyệt lần đầu
     if (this.licenseStatus?.isActivated && !this.licenseStatus?.isExpired) {
       await this.checkLocalStorageSetup();
+      await this.checkBrowserCoresSetup();
     }
 
     // 4. Đăng ký lắng nghe sự kiện thay đổi trạng thái Profile từ Backend
@@ -188,6 +189,7 @@ class App {
           }
         } else if (status.isActivated && !status.isExpired) {
           // Được kích hoạt hoặc gia hạn thành công từ server
+          this.checkBrowserCoresSetup();
           if (!wasValid) {
             this.modals.closeModal('modal-license');
             if (window.showGlobalToast) {
@@ -215,6 +217,30 @@ class App {
       }
     } catch (err) {
       console.error('Lỗi kiểm tra cài đặt lưu trữ:', err);
+    }
+  }
+
+  async checkBrowserCoresSetup() {
+    if (!window.api || !window.api.getAvailableCores) return;
+    try {
+      const cores = await window.api.getAvailableCores();
+      const hasCores = Array.isArray(cores) && cores.length > 0;
+
+      if (this.profilesView && this.profilesView.setNoCoresWarning) {
+        this.profilesView.setNoCoresWarning(!hasCores);
+      }
+
+      // Nếu chưa cài đặt Core nào: TỰ ĐỘNG BẬT POPUP TRÌNH QUẢN LÝ CẬP NHẬT GIỐNG NHƯ KHI CHƯA NHẬP KEY!
+      if (!hasCores) {
+        setTimeout(() => {
+          this.modals.openUpdateManager();
+          if (window.showGlobalToast) {
+            window.showGlobalToast('⚠️ Chưa cài đặt Core trình duyệt. Vui lòng tải & cài đặt Core để sử dụng!', true);
+          }
+        }, 500);
+      }
+    } catch (err) {
+      console.error('Lỗi kiểm tra Core trình duyệt:', err);
     }
   }
 

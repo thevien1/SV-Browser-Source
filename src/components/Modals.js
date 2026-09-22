@@ -1124,28 +1124,13 @@ export class ModalsComponent {
             <button class="window-btn close" data-close="modal-update-manager" style="font-size: 16px; border: none; background: none; cursor: pointer; color: #64748b;">✕</button>
           </div>
 
-          <!-- Subheader & Server Web Config -->
+          <!-- Subheader & Actions -->
           <div style="padding: 10px 20px; background: #f8fafc; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center;">
             <a href="https://github.com/Hibbiki/chromium-win64/releases" target="_blank" style="color: #0284c7; font-size: 13px; font-weight: 500; text-decoration: none;">Xem chi tiết các bản phát hành</a>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <button type="button" id="btn-toggle-server-config" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #475569; display: flex; align-items: center; gap: 5px;">
-                <span>⚙</span> Server Web
+              <button type="button" id="btn-refresh-update-list" title="Quét & Làm mới từ Server" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 10px; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #0284c7; font-weight: 600;">
+                <span>🔄</span> Làm mới
               </button>
-              <button type="button" id="btn-refresh-update-list" title="Quét & Làm mới" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; width: 28px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;">
-                🔄
-              </button>
-            </div>
-          </div>
-
-          <!-- Form nhập Server Web URL -->
-          <div id="box-server-config" style="display: none; padding: 12px 20px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
-            <div style="font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 5px;">URL Server Web phân phối Core của bạn:</div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="input-update-server-url" class="form-control" placeholder="https://your-server.com/api/updates.json" style="flex: 1; height: 32px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0 10px;">
-              <button type="button" id="btn-save-server-url" style="background: #0284c7; color: white; border: none; border-radius: 4px; padding: 0 14px; font-size: 12px; font-weight: 600; cursor: pointer;">Lưu & Quét</button>
-            </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 5px;">
-              Khi có bản mới, server của bạn chỉ cần trả về mảng JSON chứa <code>downloadUrl</code> của file <code>chrome.7z</code>.
             </div>
           </div>
 
@@ -2638,22 +2623,6 @@ export class ModalsComponent {
     if (this._updateEventsInited) return;
     this._updateEventsInited = true;
 
-    // Toggle form cấu hình Server Web
-    const toggleBtn = this.container.querySelector('#btn-toggle-server-config');
-    const configBox = this.container.querySelector('#box-server-config');
-    toggleBtn?.addEventListener('click', () => {
-      if (configBox) {
-        configBox.style.display = configBox.style.display === 'none' ? 'block' : 'none';
-      }
-    });
-
-    // Nút Lưu & Quét Server Web
-    this.container.querySelector('#btn-save-server-url')?.addEventListener('click', () => {
-      const url = this.container.querySelector('#input-update-server-url')?.value.trim() || '';
-      localStorage.setItem('gpm_update_server_url', url);
-      this.loadUpdateList();
-    });
-
     // Nút Refresh danh sách
     this.container.querySelector('#btn-refresh-update-list')?.addEventListener('click', () => {
       this.loadUpdateList();
@@ -2687,16 +2656,15 @@ export class ModalsComponent {
       </div>
     `;
 
-    const savedServerUrl = localStorage.getItem('gpm_update_server_url') || 'https://api-v2.kokenshop.site/api/v1/updates/cores';
-    const inputUrl = this.container.querySelector('#input-update-server-url');
-    if (inputUrl) inputUrl.value = savedServerUrl;
+    // Luôn luôn lấy từ URL server cố định theo yêu cầu của bạn
+    const FIXED_UPDATE_SERVER_URL = 'https://api-v2.kokenshop.site/api/v1/updates/cores';
 
     try {
       if (!window.api || !window.api.fetchUpdateList) {
         listEl.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">API không khả dụng</div>`;
         return;
       }
-      const data = await window.api.fetchUpdateList(savedServerUrl);
+      const data = await window.api.fetchUpdateList(FIXED_UPDATE_SERVER_URL);
       this.renderUpdateItems(data);
     } catch (e) {
       listEl.innerHTML = `<div style="color: #ef4444; padding: 20px; text-align: center;">Lỗi tải danh sách: ${e.message}</div>`;
@@ -2709,7 +2677,23 @@ export class ModalsComponent {
 
     let html = '';
 
-    const appVer = data.installedAppVersion || data.appVersion || '1.0.1';
+    const cores = (data && data.cores) || [];
+    const anyCoreInstalled = cores.some(c => c.isInstalled);
+
+    // Cảnh báo nếu chưa cài đặt Core nào (giống như chưa nhập key)
+    if (!anyCoreInstalled) {
+      html += `
+        <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-left: 4px solid #ea580c; padding: 12px 16px; border-radius: 6px; display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
+          <span style="font-size: 24px;">⚠️</span>
+          <div>
+            <div style="font-weight: 700; color: #9a3412; font-size: 13.5px;">Chưa cài đặt Core trình duyệt nào!</div>
+            <div style="color: #c2410c; font-size: 12px; margin-top: 2px;">Hệ thống chưa có Core Chromium để chạy Profile. Vui lòng bấm nút <b>"⬇ Tải & Cài đặt"</b> ở một trong các phiên bản Chromium Core bên dưới để bắt đầu sử dụng.</div>
+          </div>
+        </div>
+      `;
+    }
+
+    const appVer = data.installedAppVersion || data.appVersion || '1.0.2';
 
     // 1. Dòng SV Browser (Ứng dụng chính)
     html += `
@@ -2743,7 +2727,6 @@ export class ModalsComponent {
     `;
 
     // 2. Danh sách các Core
-    const cores = (data && data.cores) || [];
     cores.forEach(core => {
       const isFirefox = core.type === 'firefox' || core.name.toLowerCase().includes('firefox');
       const iconBg = isFirefox ? '#450a0a' : '#0f172a';

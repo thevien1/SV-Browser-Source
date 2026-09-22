@@ -26,6 +26,9 @@ export class ProfilesViewComponent {
       <!-- License Warning Banner (Hiện khi chưa kích hoạt hoặc đã hết hạn) -->
       <div id="profiles-license-warning-bar" style="display: none; margin-bottom: 14px;"></div>
 
+      <!-- Core Warning Banner (Hiện khi chưa cài đặt Core nào trong máy) -->
+      <div id="profiles-core-warning-bar" style="display: none; margin-bottom: 14px;"></div>
+
       <!-- Action Toolbar -->
       <div class="action-toolbar">
         <div class="action-buttons-group">
@@ -1956,6 +1959,44 @@ export class ProfilesViewComponent {
     } else {
       bannerEl.innerHTML = '';
       bannerEl.style.display = 'none';
+    }
+  }
+
+  setNoCoresWarning(show) {
+    const bar = this.container?.querySelector('#profiles-core-warning-bar');
+    if (!bar) return;
+    if (show) {
+      bar.innerHTML = `
+        <div style="background: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #ea580c; border-radius: 8px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 15px; box-shadow: 0 1px 3px rgba(234, 88, 12, 0.08);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: #ffedd5; color: #ea580c; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;">
+              ⚠️
+            </div>
+            <div>
+              <div style="font-weight: 700; font-size: 13.5px; color: #9a3412;">
+                Hệ thống chưa có Core trình duyệt nào!
+              </div>
+              <div style="font-size: 12.5px; color: #c2410c; margin-top: 1px;">
+                Vui lòng tải & cài đặt Chromium Core để bắt đầu tạo và chạy Profile.
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <button type="button" class="btn btn-primary" id="btn-banner-open-update-manager" style="height: 34px; padding: 0 16px; font-size: 13px; font-weight: 600; background: #ea580c; border-color: #ea580c; display: inline-flex; align-items: center; gap: 6px;">
+              ⬇ Tải & Cài đặt Core ngay
+            </button>
+          </div>
+        </div>
+      `;
+      bar.style.display = 'block';
+
+      bar.querySelector('#btn-banner-open-update-manager')?.addEventListener('click', () => {
+        if (this.modals) this.modals.openUpdateManager();
+        else if (window.modalsComp) window.modalsComp.openUpdateManager();
+      });
+    } else {
+      bar.innerHTML = '';
+      bar.style.display = 'none';
     }
   }
 
