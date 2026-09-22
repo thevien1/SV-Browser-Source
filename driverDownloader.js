@@ -63,6 +63,7 @@ class DriverDownloader {
     if (!fullVersion) fullVersion = `${majorVersion}.0.0.0`;
 
     const folderName = targetName ? targetName.trim() : `ChromiumCore_v${majorVersion}`;
+    const targetDir = path.join(this.driversDir, folderName);
     let ext = '.7z';
     const lowerUrl = downloadUrl.toLowerCase();
     if (lowerUrl.includes('.zip')) ext = '.zip';
