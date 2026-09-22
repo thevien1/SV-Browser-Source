@@ -548,7 +548,7 @@ export class ProfilesViewComponent {
 
           <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
             <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main);">URL trang khởi động:</label>
-            <input type="text" id="bulk-start-url-input" class="form-control" placeholder="https://..." style="width: 100%; height: 38px; font-size: 13.5px; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-main);" />
+            <input type="text" id="bulk-start-url-input" class="form-control" placeholder="" style="width: 100%; height: 38px; font-size: 13.5px; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-main);" />
             <div style="font-size: 12px; color: var(--text-muted);">Để trống nếu muốn mở trang trắng hoặc trang mặc định.</div>
           </div>
 

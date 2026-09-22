@@ -130,7 +130,7 @@ export class ModalsComponent {
                 <!-- Row 2: URL khởi động -->
                 <div style="margin-bottom: 16px;">
                   <label class="field-label">URL khởi động</label>
-                  <input type="text" class="form-control" id="quick-start-url" placeholder="https://" style="height: 38px;">
+                  <input type="text" class="form-control" id="quick-start-url" placeholder="" style="height: 38px;">
                 </div>
 
                 <!-- Row 3: Loại proxy & Chọn từ thư viện -->
@@ -719,7 +719,7 @@ export class ModalsComponent {
 
                 <div style="margin-bottom: 16px;">
                   <label class="field-label">URL khởi động</label>
-                  <input type="text" class="form-control" id="edit-quick-start-url" placeholder="https://" style="height: 38px;">
+                  <input type="text" class="form-control" id="edit-quick-start-url" placeholder="" style="height: 38px;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
