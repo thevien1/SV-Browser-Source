@@ -190,11 +190,14 @@ async function run() {
   processSrcDir(path.join(rootDir, 'src'));
 
   // Sao chép các script hỗ trợ nếu có
-  const helperFiles = ['generate_icon.ps1', 'taskbar_helper.ps1'];
+  const helperFiles = ['generate_icon.ps1', 'taskbar_helper.ps1', 'dpapi_helper.ps1'];
   for (const hf of helperFiles) {
     const src = path.join(rootDir, hf);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, path.join(stagingDir, hf));
+    const srcTools = path.join(rootDir, 'tools', hf);
+    const srcScripts = path.join(rootDir, 'scripts', hf);
+    const actualSrc = fs.existsSync(src) ? src : (fs.existsSync(srcTools) ? srcTools : (fs.existsSync(srcScripts) ? srcScripts : null));
+    if (actualSrc) {
+      fs.copyFileSync(actualSrc, path.join(stagingDir, hf));
     }
   }
 

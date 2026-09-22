@@ -1135,6 +1135,39 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         resolve({ ip: p.ip || '127.0.0.1', country: p.proxyCountry || 'vn' });
       });
     });
+  getDpapiHelperPath() {
+    const candidates = [
+      path.join(process.resourcesPath || '', 'tools', 'dpapi_helper.ps1'),
+      path.join(path.dirname(process.execPath || ''), 'tools', 'dpapi_helper.ps1'),
+      path.join(__dirname, 'tools', 'dpapi_helper.ps1'),
+      path.join(__dirname, 'scripts', 'dpapi_helper.ps1')
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    return path.join(__dirname, 'tools', 'dpapi_helper.ps1');
+  }
+
+  exportProfileDpapiKeys(targetDir) {
+    try {
+      const helper = this.getDpapiHelperPath();
+      if (fs.existsSync(helper)) {
+        execSync(`powershell -ExecutionPolicy Bypass -File "${helper}" -Action "batch-export" -TargetDir "${targetDir}"`, { stdio: 'ignore' });
+      }
+    } catch (e) {
+      console.warn('Lỗi export DPAPI keys:', e.message);
+    }
+  }
+
+  importProfileDpapiKeys(targetDir) {
+    try {
+      const helper = this.getDpapiHelperPath();
+      if (fs.existsSync(helper)) {
+        execSync(`powershell -ExecutionPolicy Bypass -File "${helper}" -Action "batch-import" -TargetDir "${targetDir}"`, { stdio: 'ignore' });
+      }
+    } catch (e) {
+      console.warn('Lỗi import DPAPI keys:', e.message);
+    }
   }
 
   /**
@@ -1152,6 +1185,9 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       console.error(`Lỗi copy thư mục profile từ ${srcDir} sang ${destDir}:`, err);
       return null;
     }
+
+    // 1b. Tái mã hóa DPAPI MasterKey cho máy hiện tại để bảo toàn nguyên vẹn phiên đăng nhập (Cookies/Sessions)
+    this.importProfileDpapiKeys(destDir);
 
     // 2. Đọc thông tin có sẵn nếu có
     let info = this.readProfileInfoTxt(destDir, newId);
@@ -1305,6 +1341,10 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         // Ghi file metadata ở thư mục gốc của file zip
         fs.writeFileSync(path.join(tempStagingDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
 
+        // Đồng bộ và giải mã khóa phiên đăng nhập (Cookies/Sessions) cho máy khác
+        report(80, '', 'Đang đồng bộ khóa phiên đăng nhập (Cookies/Sessions)...');
+        this.exportProfileDpapiKeys(tempStagingDir);
+
         report(85, '', 'Đang nén file ZIP (Zipping)...');
 
         // Nén toàn bộ staging vào đúng 1 file ZIP duy nhất
@@ -1347,7 +1387,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
           if (!profile) continue;
 
           const pName = profile.name || id;
-          const currentPct = Math.round(((i + 1) / total) * 98);
+          const currentPct = Math.round(((i + 1) / total) * 95);
           report(currentPct, pName, `Đang export ${i + 1}/${total}: ${pName}`);
 
           const profileDir = profile.profilePath || path.join(storagePath, id);
@@ -1374,6 +1414,10 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         }
 
         fs.writeFileSync(path.join(destExportDir, 'profiles_export.json'), JSON.stringify(exportMetadata, null, 2), 'utf8');
+
+        // Đồng bộ và giải mã khóa phiên đăng nhập (Cookies/Sessions) cho máy khác
+        report(98, '', 'Đang đồng bộ khóa phiên đăng nhập (Cookies/Sessions)...');
+        this.exportProfileDpapiKeys(destExportDir);
 
         report(100, '', 'Hoàn thành export!');
 
