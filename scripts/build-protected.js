@@ -102,10 +102,28 @@ async function run() {
 
   const startTime = Date.now();
 
-  // 1. Dọn dẹp thư mục staging
-  console.log('[Bước 1/4] Chuẩn bị thư mục staging...');
+  // 1. Dọn dẹp thư mục staging & các file build cũ trong dist
+  console.log('[Bước 1/4] Chuẩn bị thư mục staging & dọn dẹp các bản build cũ trong dist...');
   cleanDir(stagingDir);
   fs.mkdirSync(stagingDir, { recursive: true });
+
+  // Tự động xóa các file cài đặt / portable cũ trong dist/ để tránh tích tụ tăng dần dung lượng sau mỗi lần build
+  if (fs.existsSync(distDir)) {
+    try {
+      const distFiles = fs.readdirSync(distDir);
+      for (const f of distFiles) {
+        if (f.endsWith('.exe') || f.endsWith('.blockmap') || f.endsWith('.zip')) {
+          const fp = path.join(distDir, f);
+          try {
+            fs.unlinkSync(fp);
+            console.log(`  ✓ Đã xóa file build cũ: ${f}`);
+          } catch (delErr) {
+            console.warn(`  ! Không thể xóa file cũ ${f}:`, delErr.message);
+          }
+        }
+      }
+    } catch (e) {}
+  }
 
   // Đảm bảo icon app tồn tại
   const iconPath = path.join(rootDir, 'assets', 'icon.ico');

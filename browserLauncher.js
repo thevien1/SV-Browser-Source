@@ -503,8 +503,8 @@ class BrowserLauncher extends EventEmitter {
           if (isSocks) {
             proxyArg = `--proxy-server=socks5://${host}:${port}`;
           } else {
-            // Định dạng có tiền tố http:// theo yêu cầu của bạn
-            proxyArg = `--proxy-server=http://${host}:${port}`;
+            // Định dạng chuẩn GPMLoginGlobal: --proxy-server=host:port (không có tiền tố http:// để Chromium áp dụng cho cả HTTP và HTTPS CONNECT)
+            proxyArg = `--proxy-server=${host}:${port}`;
           }
 
           // Nếu có user/pass, tự động tạo extension xác thực proxy Manifest V3
@@ -571,7 +571,7 @@ try {
             proxyArg = `--proxy-server=socks5://${cleanProxy}`;
           } else {
             const cleanProxy = proxyStr.replace(/^http:\/\//i, '');
-            proxyArg = `--proxy-server=http://${cleanProxy}`;
+            proxyArg = `--proxy-server=${cleanProxy}`;
           }
         }
       }
