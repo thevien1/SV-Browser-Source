@@ -452,12 +452,48 @@ class BrowserLauncher extends EventEmitter {
             user = decodeURIComponent(urlObj.username || '');
             pass = decodeURIComponent(urlObj.password || '');
           } catch (e) {}
+        } else if (proxyStr.includes('@')) {
+          const atIdx = proxyStr.lastIndexOf('@');
+          const authPart = proxyStr.substring(0, atIdx);
+          const hostPart = proxyStr.substring(atIdx + 1);
+          if (authPart.includes(':')) {
+            const cIdx = authPart.indexOf(':');
+            user = authPart.substring(0, cIdx);
+            pass = authPart.substring(cIdx + 1);
+          } else {
+            user = authPart;
+          }
+          if (hostPart.includes(':')) {
+            const [h, p] = hostPart.split(':');
+            host = h;
+            port = p;
+          } else {
+            host = hostPart;
+            port = '80';
+          }
         } else {
           const parts = proxyStr.split(':');
           if (parts.length === 4) {
-            [host, port, user, pass] = parts;
+            const p1Num = parseInt(parts[1], 10);
+            const p3Num = parseInt(parts[3], 10);
+            const p1IsPort = !isNaN(p1Num) && p1Num > 0 && p1Num <= 65535;
+            const p3IsPort = !isNaN(p3Num) && p3Num > 0 && p3Num <= 65535;
+
+            if (p1IsPort && !p3IsPort) {
+              // host:port:user:pass
+              [host, port, user, pass] = parts;
+            } else if (!p1IsPort && p3IsPort) {
+              // user:pass:host:port
+              [user, pass, host, port] = parts;
+            } else if (/^\d+\.\d+\.\d+\.\d+$/.test(parts[0]) || parts[0].includes('.')) {
+              [host, port, user, pass] = parts;
+            } else {
+              [user, pass, host, port] = parts;
+            }
           } else if (parts.length === 2) {
             [host, port] = parts;
+          } else if (parts.length === 3) {
+            [host, port, user] = parts;
           }
         }
 
@@ -491,18 +527,36 @@ class BrowserLauncher extends EventEmitter {
                   service_worker: "background.js"
                 }
               };
-              const bgJs = `chrome.webRequest.onAuthRequired.addListener(
-  function(details) {
-    return {
-      authCredentials: {
-        username: ${JSON.stringify(user)},
-        password: ${JSON.stringify(pass)}
-      }
-    };
-  },
-  { urls: ["<all_urls>"] },
-  ["blocking"]
-);`;
+              const bgJs = `// SV Proxy Auth - Manifest V3
+try {
+  chrome.webRequest.onAuthRequired.addListener(
+    function(details, callback) {
+      callback({
+        authCredentials: {
+          username: ${JSON.stringify(user)},
+          password: ${JSON.stringify(pass)}
+        }
+      });
+    },
+    { urls: ["<all_urls>"] },
+    ["asyncBlocking"]
+  );
+} catch (e1) {
+  try {
+    chrome.webRequest.onAuthRequired.addListener(
+      function(details) {
+        return {
+          authCredentials: {
+            username: ${JSON.stringify(user)},
+            password: ${JSON.stringify(pass)}
+          }
+        };
+      },
+      { urls: ["<all_urls>"] },
+      ["blocking"]
+    );
+  } catch (e2) {}
+}`;
               fs.writeFileSync(path.join(authExtDir, 'manifest.json'), JSON.stringify(manifestJson, null, 2), 'utf8');
               fs.writeFileSync(path.join(authExtDir, 'background.js'), bgJs, 'utf8');
               allExts.push(authExtDir);
