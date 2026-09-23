@@ -152,15 +152,37 @@ class GpmApiServer {
             addition_args: query.addition_args || undefined
           };
 
-          // Kiểm tra kết nối proxy (trừ khi có cờ skip_proxy_check=true)
-          if (!launchOptions.skip_proxy_check && profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
-            const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
-            if (!proxyCheck.live) {
-              return sendJson(500, {
-                success: false,
-                message: `Proxy ${profile.proxy} không kết nối được (No connection). Đã hủy mở trình duyệt!`,
-                sender: 'SV Browser v5.0.8-stable'
+          // Kiểm tra kết nối proxy & kiểm tra IP trước khi mở Chrome (trừ khi có cờ skip_proxy_check=true)
+          if (!launchOptions.skip_proxy_check) {
+            if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
+              const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+              if (!proxyCheck.live) {
+                return sendJson(500, {
+                  success: false,
+                  message: `Proxy ${profile.proxy} không kết nối được (No connection). Đã hủy mở trình duyệt!`,
+                  sender: 'SV Browser v5.0.8-stable'
+                });
+              }
+              // Cập nhật thông tin IP & Quốc gia (đã kiểm tra qua ipinfo.io/json) vào profile trước khi mở Chrome
+              if (proxyCheck.ip) profile.ip = proxyCheck.ip;
+              if (proxyCheck.country) profile.proxyCountry = proxyCheck.country;
+              profile.status = 'Live';
+              this.profileStore.updateProfile(profile.id, {
+                ip: profile.ip,
+                proxyCountry: profile.proxyCountry,
+                status: 'Live'
               });
+            } else {
+              // Trường hợp không dùng proxy: kiểm tra IP thực tế qua ipinfo.io/json trước khi mở Chrome
+              const directCheck = await ProxyChecker.checkDirect();
+              if (directCheck && directCheck.ip) {
+                profile.ip = directCheck.ip;
+                profile.proxyCountry = directCheck.country || profile.proxyCountry;
+                this.profileStore.updateProfile(profile.id, {
+                  ip: profile.ip,
+                  proxyCountry: profile.proxyCountry
+                });
+              }
             }
           }
 
@@ -176,9 +198,13 @@ class GpmApiServer {
                 remote_debugging_address: result.remote_debugging_address || `127.0.0.1:${port}`,
                 websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
+                ip: profile.ip || '',
+                country: profile.proxyCountry || '',
                 addition_info: result.addition_info || {
                   process_id: result.pid,
                   profile_name: profile.name || '',
+                  ip: profile.ip || '',
+                  country: profile.proxyCountry || '',
                   window_handle: null,
                   exec_time: 0
                 }

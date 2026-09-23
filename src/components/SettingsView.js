@@ -122,6 +122,7 @@ export class SettingsViewComponent {
             <div class="settings-group-title">Server truy vấn IP</div>
             <div style="display: flex; align-items: center; gap: 10px;">
               <select class="select-input" id="settings-ip-server" style="min-width: 330px; height: 38px;">
+                <option value="Public server - ipinfo.io/json">Public server - ipinfo.io/json (Khuyên dùng)</option>
                 <option value="Private server 01 (ipv4 + ipv6 support)">Private server 01 (ipv4 + ipv6 support)</option>
                 <option value="Private server 02 (ipv4 + ipv6 support)">Private server 02 (ipv4 + ipv6 support)</option>
                 <option value="Public server 01 - ip-api.com">Public server 01 - ip-api.com</option>
@@ -179,7 +180,7 @@ export class SettingsViewComponent {
 
             <div>
               <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">URL khởi động</label>
-              <input type="text" class="form-control" id="settings-browser-startup-url" value="" placeholder="" style="width: 100%; height: 38px; font-size: 13px;">
+              <input type="text" class="form-control" id="settings-browser-startup-url" value="" placeholder="Mặc định: https://ipinfo.io/json" style="width: 100%; height: 38px; font-size: 13px;">
             </div>
 
             <div>

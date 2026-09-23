@@ -1796,6 +1796,47 @@ textarea.form-control {
   border-color: #334155 !important;
 }
 
+.dark #modal-edit-note .modal-dialog {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.dark #modal-edit-note textarea {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.note-row-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-text-display {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: color 0.15s ease;
+}
+
+.note-text-display:hover {
+  color: #0284c7 !important;
+  text-decoration: underline;
+}
+
+.dark .note-text-display {
+  color: #e2e8f0 !important;
+}
+
+.dark .note-text-display:hover {
+  color: #38bdf8 !important;
+}
+
 /* ==========================================================================
    EDIT PROFILE MODAL, CLONE MODAL, AND COLOR PICKER
    ========================================================================== */

@@ -93,6 +93,28 @@ class ProxyChecker {
 
   static queryHostGeo(host, timeoutMs = 2500) {
     return new Promise((resolve) => {
+      // Ưu tiên truy vấn ipinfo.io
+      const req = https.get(`https://ipinfo.io/${host}/json`, { headers: { 'User-Agent': 'curl/8.0.0' }, timeout: timeoutMs }, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const j = JSON.parse(data);
+            if (j && j.ip) {
+              return resolve({ ip: j.ip || host, country: (j.country || 'us').toLowerCase() });
+            }
+          } catch (e) {}
+          // Fallback sang ip-api
+          ProxyChecker.fallbackIpApi(host, timeoutMs).then(resolve);
+        });
+      });
+      req.on('error', () => ProxyChecker.fallbackIpApi(host, timeoutMs).then(resolve));
+      req.on('timeout', () => { req.destroy(); ProxyChecker.fallbackIpApi(host, timeoutMs).then(resolve); });
+    });
+  }
+
+  static fallbackIpApi(host, timeoutMs = 2000) {
+    return new Promise((resolve) => {
       const req = http.get(`http://ip-api.com/json/${host}?fields=status,country,countryCode,query`, { timeout: timeoutMs }, (res) => {
         let data = '';
         res.on('data', c => data += c);
@@ -112,6 +134,32 @@ class ProxyChecker {
   }
 
   static checkDirect(timeoutMs = 2500) {
+    return new Promise((resolve) => {
+      // Ưu tiên truy vấn trực tiếp https://ipinfo.io/json
+      const req = https.get('https://ipinfo.io/json', { headers: { 'User-Agent': 'curl/8.0.0' }, timeout: timeoutMs }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const j = JSON.parse(data);
+            if (j && j.ip) {
+              return resolve({
+                live: true,
+                status: 'Live',
+                ip: j.ip,
+                country: (j.country || 'vn').toLowerCase()
+              });
+            }
+          } catch (e) {}
+          ProxyChecker.fallbackCheckDirect(timeoutMs).then(resolve);
+        });
+      });
+      req.on('error', () => ProxyChecker.fallbackCheckDirect(timeoutMs).then(resolve));
+      req.on('timeout', () => { req.destroy(); ProxyChecker.fallbackCheckDirect(timeoutMs).then(resolve); });
+    });
+  }
+
+  static fallbackCheckDirect(timeoutMs = 2000) {
     return new Promise((resolve) => {
       const req = https.get('https://myip.link/cdn-cgi/trace', { timeout: timeoutMs }, (res) => {
         let data = '';
@@ -157,9 +205,9 @@ class ProxyChecker {
   static testHttpProxy(host, port, user, pass, timeoutMs = 3500) {
     return new Promise((resolve) => {
       const headers = {
-        'Host': 'ip-api.com',
+        'Host': 'ipinfo.io',
         'Proxy-Connection': 'close',
-        'User-Agent': 'GPMLoginGlobal/1.0'
+        'User-Agent': 'curl/8.0.0'
       };
       if (user && pass) {
         headers['Proxy-Authorization'] = 'Basic ' + Buffer.from(user + ':' + pass).toString('base64');
@@ -169,7 +217,7 @@ class ProxyChecker {
         host,
         port,
         method: 'GET',
-        path: 'http://ip-api.com/json?fields=status,country,countryCode,query',
+        path: 'http://ipinfo.io/json',
         headers,
         timeout: timeoutMs
       }, (res) => {
@@ -179,12 +227,14 @@ class ProxyChecker {
           if (res.statusCode === 200) {
             try {
               const j = JSON.parse(data);
-              if (j && j.status === 'success') {
+              if (j && j.ip) {
                 return resolve({
                   live: true,
                   status: 'Live',
-                  ip: j.query || host,
-                  country: (j.countryCode || 'us').toLowerCase()
+                  ip: j.ip || host,
+                  country: (j.country || 'us').toLowerCase(),
+                  city: j.city || '',
+                  org: j.org || ''
                 });
               }
             } catch (e) {}

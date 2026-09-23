@@ -133,6 +133,12 @@ export class ModalsComponent {
                   <input type="text" class="form-control" id="quick-start-url" placeholder="" style="height: 38px;">
                 </div>
 
+                <!-- Row 2b: Ghi chú profile -->
+                <div style="margin-bottom: 16px;">
+                  <label class="field-label">Ghi chú profile</label>
+                  <input type="text" class="form-control" id="quick-notes" placeholder="Nhập ghi chú cho profile này (tùy chọn)..." style="height: 38px;">
+                </div>
+
                 <!-- Row 3: Loại proxy & Chọn từ thư viện -->
                 <div style="margin-bottom: 16px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -720,6 +726,11 @@ export class ModalsComponent {
                 <div style="margin-bottom: 16px;">
                   <label class="field-label">URL khởi động</label>
                   <input type="text" class="form-control" id="edit-quick-start-url" placeholder="" style="height: 38px;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                  <label class="field-label">Ghi chú profile</label>
+                  <input type="text" class="form-control" id="edit-quick-notes" placeholder="Nhập ghi chú cho profile này..." style="height: 38px;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
@@ -1817,6 +1828,7 @@ export class ModalsComponent {
     }
 
     const cookies = this.container.querySelector('#tab-cookies-input')?.value.trim() || '';
+    const notes = this.container.querySelector('#quick-notes')?.value.trim() || '';
 
     const hardware = {
       canvas: this.container.querySelector('#hw-canvas')?.value || 'Noise',
@@ -1855,6 +1867,8 @@ export class ModalsComponent {
           proxyType,
           os: this.selectedOs || 'Windows',
           cookies,
+          notes,
+          note: notes,
           hardware,
           software
         });
@@ -2060,6 +2074,9 @@ export class ModalsComponent {
 
     const startUrlEl = this.container.querySelector('#edit-quick-start-url');
     if (startUrlEl) startUrlEl.value = profile.startUrl || '';
+
+    const notesEl = this.container.querySelector('#edit-quick-notes');
+    if (notesEl) notesEl.value = profile.notes || profile.note || '';
 
     const staticFilesEl = this.container.querySelector('#edit-quick-static-files');
     if (staticFilesEl) staticFilesEl.value = profile.bypassStaticFiles || '';
@@ -2311,6 +2328,9 @@ export class ModalsComponent {
       if (raw) proxy = raw;
     }
 
+    const notesInput = this.container.querySelector('#edit-quick-notes');
+    const notes = notesInput ? notesInput.value.trim() : (this.editingProfile.notes || '');
+
     const hardware = {
       canvas: this.container.querySelector('#edit-hw-canvas')?.value || 'Noise',
       clientrect: this.container.querySelector('#edit-hw-clientrect')?.value || 'Noise',
@@ -2347,6 +2367,8 @@ export class ModalsComponent {
           proxy,
           proxyType,
           os: this.editSelectedOs || 'Windows',
+          notes,
+          note: notes,
           hardware,
           software
         });

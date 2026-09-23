@@ -1062,47 +1062,44 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         const rawProxy = p.proxy.trim().replace(/^socks5:\/\//i, '').replace(/^http:\/\//i, '').replace(/^https:\/\//i, '');
         const host = rawProxy.split(':')[0];
 
-        const req = http.get(`http://ip-api.com/json/${host}`, { timeout: 4000 }, (res) => {
+        // Ưu tiên kiểm tra qua https://ipinfo.io/${host}/json
+        const req = https.get(`https://ipinfo.io/${host}/json`, { headers: { 'User-Agent': 'curl/8.0.0' }, timeout: 4000 }, (res) => {
           let data = '';
           res.on('data', chunk => data += chunk);
           res.on('end', () => {
             try {
               const j = JSON.parse(data);
-              if (j.status === 'success') {
-                p.ip = j.query || host;
-                p.proxyCountry = (j.countryCode || 'us').toLowerCase();
+              if (j && j.ip) {
+                p.ip = j.ip || host;
+                p.proxyCountry = (j.country || 'us').toLowerCase();
                 this.saveProfiles();
                 if (p.profilePath) this.writeProfileInfoTxt(p, p.profilePath);
                 return resolve({ ip: p.ip, country: p.proxyCountry });
               }
             } catch (e) {}
-            p.ip = host;
-            p.proxyCountry = p.proxyCountry || 'us';
-            this.saveProfiles();
-            resolve({ ip: p.ip, country: p.proxyCountry });
+            // Fallback sang ip-api nếu ipinfo lỗi
+            this.fallbackCheckProxyHost(host, p).then(resolve);
           });
         });
         req.on('error', () => {
-          p.ip = host;
-          p.proxyCountry = p.proxyCountry || 'us';
-          this.saveProfiles();
-          resolve({ ip: p.ip, country: p.proxyCountry });
+          this.fallbackCheckProxyHost(host, p).then(resolve);
         });
       } else {
-        // Trường hợp 2: Không dùng Proxy (No Proxy) -> Kiểm tra IP qua https://myip.link/cdn-cgi/trace
-        const req = https.get('https://myip.link/cdn-cgi/trace', { timeout: 4000 }, (res) => {
+        // Trường hợp 2: Không dùng Proxy (No Proxy) -> Kiểm tra IP trực tiếp qua https://ipinfo.io/json
+        const req = https.get('https://ipinfo.io/json', { headers: { 'User-Agent': 'curl/8.0.0' }, timeout: 4000 }, (res) => {
           let data = '';
           res.on('data', chunk => data += chunk);
           res.on('end', () => {
-            const ipMatch = data.match(/ip=([^\r\n]+)/);
-            const locMatch = data.match(/loc=([^\r\n]+)/);
-            if (ipMatch && locMatch) {
-              p.ip = ipMatch[1].trim();
-              p.proxyCountry = locMatch[1].trim().toLowerCase();
-              this.saveProfiles();
-              if (p.profilePath) this.writeProfileInfoTxt(p, p.profilePath);
-              return resolve({ ip: p.ip, country: p.proxyCountry });
-            }
+            try {
+              const j = JSON.parse(data);
+              if (j && j.ip) {
+                p.ip = j.ip;
+                p.proxyCountry = (j.country || 'vn').toLowerCase();
+                this.saveProfiles();
+                if (p.profilePath) this.writeProfileInfoTxt(p, p.profilePath);
+                return resolve({ ip: p.ip, country: p.proxyCountry });
+              }
+            } catch (e) {}
             this.fallbackCheckDirect(p).then(resolve);
           });
         });
@@ -1110,6 +1107,36 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
           this.fallbackCheckDirect(p).then(resolve);
         });
       }
+    });
+  }
+
+  fallbackCheckProxyHost(host, p) {
+    return new Promise((resolve) => {
+      http.get(`http://ip-api.com/json/${host}`, { timeout: 3000 }, (res) => {
+        let d = '';
+        res.on('data', c => d += c);
+        res.on('end', () => {
+          try {
+            const j = JSON.parse(d);
+            if (j.status === 'success') {
+              p.ip = j.query || host;
+              p.proxyCountry = (j.countryCode || 'us').toLowerCase();
+              this.saveProfiles();
+              if (p.profilePath) this.writeProfileInfoTxt(p, p.profilePath);
+              return resolve({ ip: p.ip, country: p.proxyCountry });
+            }
+          } catch (e) {}
+          p.ip = host;
+          p.proxyCountry = p.proxyCountry || 'us';
+          this.saveProfiles();
+          resolve({ ip: p.ip, country: p.proxyCountry });
+        });
+      }).on('error', () => {
+        p.ip = host;
+        p.proxyCountry = p.proxyCountry || 'us';
+        this.saveProfiles();
+        resolve({ ip: p.ip, country: p.proxyCountry });
+      });
     });
   }
 

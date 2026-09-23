@@ -283,6 +283,50 @@ export class ProfilesViewComponent {
         </div>
       </div>
 
+      <!-- MODAL: Sửa Ghi chú Profile -->
+      <div class="modal-overlay" id="modal-edit-note">
+        <div class="modal-dialog" style="width: 480px; max-width: 92%;">
+          <div class="modal-header">
+            <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              <span>Ghi chú Profile</span>
+            </div>
+            <button class="window-btn close" id="btn-close-edit-note" style="font-size: 16px;">✕</button>
+          </div>
+
+          <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Profile: <strong id="edit-note-profile-name" style="color: #0284c7;">Profile Name</strong>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">
+                Nội dung ghi chú:
+              </label>
+              <textarea id="edit-note-input-value" class="form-control" rows="3" placeholder="Nhập ghi chú cho profile này...&#10;Để trống nếu không muốn ghi chú." style="width: 100%; height: 85px; font-size: 13px; padding: 8px 12px; resize: vertical; box-sizing: border-box;"></textarea>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+                <span style="font-size: 12px; color: var(--text-muted);">Nhấn Ctrl+Enter hoặc bấm Lưu để hoàn tất</span>
+                <button type="button" id="btn-clear-note" style="background: none; border: none; color: #ef4444; font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: underline;">
+                  Xóa ghi chú
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button id="btn-cancel-edit-note" class="btn btn-outline" style="height: 36px; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer;">
+              Hủy
+            </button>
+            <button id="btn-save-edit-note" class="btn btn-primary" style="height: 36px; padding: 0 20px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">
+              Lưu thay đổi
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODAL: Export profiles (Chuẩn 100% theo Hình 2) -->
       <div class="modal-overlay" id="modal-export-profiles">
         <div class="modal-dialog" style="width: 490px; max-width: 95%;">
@@ -1420,36 +1464,41 @@ export class ProfilesViewComponent {
     this.container.querySelector('#btn-tool-check-proxy')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       this.closeAllBulkDropdowns();
-      const targetIds = Array.from(this.selectedIds);
-      if (targetIds.length === 0) return;
+      const targetProfiles = this.getSelectedProfilesInOrder();
+      if (targetProfiles.length === 0) return;
 
-      // Cập nhật trạng thái đang kiểm tra trên UI
-      targetIds.forEach(id => {
-        const p = this.profiles.find(x => x.id === id);
-        if (p) p.status = 'checking';
-      });
-      this.renderTableRows();
+      if (this._isCheckingProxies) {
+        if (window.showGlobalToast) window.showGlobalToast('Đang có tiến trình kiểm tra proxy, vui lòng đợi...');
+        return;
+      }
+      this._isCheckingProxies = true;
 
-      // Kiểm tra lần lượt hoặc đồng thời các profile được chọn
-      for (const id of targetIds) {
-        try {
-          if (window.api && window.api.checkProxy) {
-            const res = await window.api.checkProxy(id);
-            if (res && res.result) {
-              const p = this.profiles.find(x => x.id === id);
-              if (p) {
-                p.status = res.result.status; // 'Live' hoặc 'No connection'
-                if (res.result.country) p.proxyCountry = res.result.country;
-                if (res.result.ip) p.ip = res.result.ip;
+      try {
+        // Kiểm tra lần lượt từng profile giống hệt hình ảnh mẫu
+        for (const p of targetProfiles) {
+          // 1. Chỉ hiển thị "Đang kiểm tra" cho RIÊNG dòng đang được test
+          this.updateProfileRowStatus(p.id, 'checking');
+
+          try {
+            if (window.api && window.api.checkProxy) {
+              const res = await window.api.checkProxy(p.id);
+              if (res && res.result) {
+                const finalStatus = res.result.status || 'Live';
+                const country = res.result.country || p.proxyCountry;
+                const ip = res.result.ip || p.ip;
+                // 2. Cập nhật ngay kết quả Live / No connection cho dòng này trước khi sang dòng tiếp theo
+                this.updateProfileRowStatus(p.id, finalStatus, country, ip);
+              } else {
+                this.updateProfileRowStatus(p.id, 'No connection');
               }
             }
+          } catch (err) {
+            this.updateProfileRowStatus(p.id, 'No connection');
           }
-        } catch (err) {
-          const p = this.profiles.find(x => x.id === id);
-          if (p) p.status = 'No connection';
         }
+      } finally {
+        this._isCheckingProxies = false;
       }
-      this.renderTableRows();
     });
 
     // Tool: Xóa cache
@@ -1579,6 +1628,54 @@ export class ProfilesViewComponent {
       }
     });
 
+    // Modal Edit Note Events
+    const btnCloseNote = this.container.querySelector('#btn-close-edit-note');
+    const btnCancelNote = this.container.querySelector('#btn-cancel-edit-note');
+    const btnSaveNote = this.container.querySelector('#btn-save-edit-note');
+    const btnClearNote = this.container.querySelector('#btn-clear-note');
+    const inputNoteVal = this.container.querySelector('#edit-note-input-value');
+
+    const closeNoteModal = () => this.closeEditNoteModal();
+    const modalNote = this.container.querySelector('#modal-edit-note');
+    modalNote?.addEventListener('click', (e) => {
+      if (e.target === modalNote) closeNoteModal();
+    });
+    btnCloseNote?.addEventListener('click', closeNoteModal);
+    btnCancelNote?.addEventListener('click', closeNoteModal);
+    btnClearNote?.addEventListener('click', () => {
+      if (inputNoteVal) inputNoteVal.value = '';
+    });
+
+    btnSaveNote?.addEventListener('click', async () => {
+      if (!this.currentEditingNoteProfileId) return;
+      const newNote = inputNoteVal ? inputNoteVal.value.trim() : '';
+
+      try {
+        btnSaveNote.disabled = true;
+        btnSaveNote.innerText = 'Đang lưu...';
+        if (window.api && window.api.updateProfile) {
+          await window.api.updateProfile(this.currentEditingNoteProfileId, {
+            notes: newNote,
+            note: newNote
+          });
+          closeNoteModal();
+          await this.loadProfiles();
+        }
+      } catch (err) {
+        alert('Lỗi lưu ghi chú: ' + err.message);
+      } finally {
+        btnSaveNote.disabled = false;
+        btnSaveNote.innerText = 'Lưu thay đổi';
+      }
+    });
+
+    inputNoteVal?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        btnSaveNote?.click();
+      }
+    });
+
     // Table row event delegation
     this.container.querySelector('#profiles-tbody')?.addEventListener('click', async (e) => {
       // Copy Proxy
@@ -1604,6 +1701,17 @@ export class ProfilesViewComponent {
         const name = btnEdit.getAttribute('data-name');
         const proxyVal = btnEdit.getAttribute('data-proxy') || '';
         this.openEditProxyModal(id, name, proxyVal);
+        return;
+      }
+
+      // Sửa Ghi chú
+      const btnEditNote = e.target.closest('.btn-edit-note');
+      if (btnEditNote) {
+        e.stopPropagation();
+        const id = btnEditNote.getAttribute('data-id');
+        const name = btnEditNote.getAttribute('data-name');
+        const noteVal = btnEditNote.getAttribute('data-note') || '';
+        this.openEditNoteModal(id, name, noteVal);
         return;
       }
 
@@ -1701,6 +1809,12 @@ export class ProfilesViewComponent {
     menu.setAttribute('data-profile-id', profileId);
 
     menu.innerHTML = `
+      <button class="context-menu-item" data-action="check-proxy">
+        <span class="menu-icon">🔗</span> Kiểm tra proxy
+      </button>
+      <button class="context-menu-item" data-action="note">
+        <span class="menu-icon">📝</span> Ghi chú
+      </button>
       <button class="context-menu-item" data-action="edit">
         <span class="menu-icon">✏️</span> Sửa
       </button>
@@ -1736,7 +1850,24 @@ export class ProfilesViewComponent {
       const action = item.getAttribute('data-action');
       this.closeContextMenu();
 
-      if (action === 'open-folder') {
+      if (action === 'check-proxy') {
+        this.updateProfileRowStatus(profileId, 'checking');
+        try {
+          if (window.api && window.api.checkProxy) {
+            const res = await window.api.checkProxy(profileId);
+            if (res && res.result) {
+              const finalStatus = res.result.status || 'Live';
+              const country = res.result.country;
+              const ip = res.result.ip;
+              this.updateProfileRowStatus(profileId, finalStatus, country, ip);
+            } else {
+              this.updateProfileRowStatus(profileId, 'No connection');
+            }
+          }
+        } catch (err) {
+          this.updateProfileRowStatus(profileId, 'No connection');
+        }
+      } else if (action === 'open-folder') {
         if (window.api && window.api.openProfileFolder) {
           await window.api.openProfileFolder(profileId);
         }
@@ -1785,6 +1916,11 @@ export class ProfilesViewComponent {
           if (confirm('Bạn có chắc chắn muốn xóa profile này không?')) {
             doDelete({ permanent: false });
           }
+        }
+      } else if (action === 'note') {
+        const p = this.profiles.find(x => x.id === profileId);
+        if (p) {
+          this.openEditNoteModal(p.id, p.name, p.notes || p.note || '');
         }
       } else if (action === 'edit') {
         const p = this.profiles.find(x => x.id === profileId);
@@ -1884,6 +2020,30 @@ export class ProfilesViewComponent {
     const modal = this.container.querySelector('#modal-edit-proxy');
     if (modal) modal.classList.remove('active');
     this.currentEditingProfileId = null;
+  }
+
+  openEditNoteModal(profileId, profileName, currentNote) {
+    const modal = this.container.querySelector('#modal-edit-note');
+    const nameEl = this.container.querySelector('#edit-note-profile-name');
+    const inputEl = this.container.querySelector('#edit-note-input-value');
+    if (!modal) return;
+
+    this.currentEditingNoteProfileId = profileId;
+    if (nameEl) nameEl.innerText = profileName || `Profile ${profileId}`;
+    if (inputEl) {
+      inputEl.value = currentNote || '';
+      setTimeout(() => {
+        inputEl.focus();
+        inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length);
+      }, 50);
+    }
+    modal.classList.add('active');
+  }
+
+  closeEditNoteModal() {
+    const modal = this.container.querySelector('#modal-edit-note');
+    if (modal) modal.classList.remove('active');
+    this.currentEditingNoteProfileId = null;
   }
 
   async loadProfiles() {
@@ -2012,7 +2172,8 @@ export class ProfilesViewComponent {
         const matchName = p.name.toLowerCase().includes(q);
         const matchProxy = p.proxy.toLowerCase().includes(q);
         const matchTag = p.tags && p.tags.toLowerCase().includes(q);
-        if (!matchName && !matchProxy && !matchTag) return false;
+        const matchNote = (p.notes || p.note || '').toLowerCase().includes(q);
+        if (!matchName && !matchProxy && !matchTag && !matchNote) return false;
       }
       if (this.filter.group && p.group !== this.filter.group) {
         return false;
@@ -2097,6 +2258,7 @@ export class ProfilesViewComponent {
         profileIndex = match ? parseInt(match[1], 10) : (rowIndex + 1);
       }
       const tr = document.createElement('tr');
+      tr.setAttribute('data-id', p.id);
       tr.innerHTML = `
         <td>
           <input type="checkbox" class="profile-checkbox" data-id="${p.id}" ${isChecked ? 'checked' : ''}>
@@ -2113,12 +2275,12 @@ export class ProfilesViewComponent {
             </div>
           </div>
         </td>
-        <td>
+        <td class="col-proxy">
           <div class="proxy-cell">
             ${this.getProxyDisplay(p.proxyCountry, p.proxy, p.id, p.name)}
           </div>
         </td>
-        <td>
+        <td class="col-status">
           ${this.getStatusHtml(p, isRunning)}
         </td>
         <td style="color: var(--text-muted); font-size: 12.5px;">
@@ -2127,8 +2289,8 @@ export class ProfilesViewComponent {
         <td>
           <span style="font-size: 12px; color: #0284c7; font-weight: 500;">${this.escape(p.tags || '')}</span>
         </td>
-        <td style="font-size: 12.5px; color: var(--text-muted);">
-          ${this.escape(p.notes || '')}
+        <td class="col-notes">
+          ${this.getNoteDisplay(p.notes || p.note || '', p.id, p.name)}
         </td>
         <td style="text-align: right;">
           <div class="row-actions" style="justify-content: flex-end;">
@@ -2223,7 +2385,7 @@ export class ProfilesViewComponent {
       return `
         <div class="status-pill">
           <div class="status-dot checking"></div>
-          <span style="color: #64748b;">Đang kiểm tra...</span>
+          <span style="color: #1e293b; font-weight: 500;">Đang kiểm tra</span>
         </div>
       `;
     }
@@ -2252,6 +2414,48 @@ export class ProfilesViewComponent {
         <span>Sẵn sàng</span>
       </div>
     `;
+  }
+
+  updateProfileRowStatus(profileId, status, country, ip) {
+    const p = this.profiles.find(x => x.id === profileId);
+    if (!p) return;
+    if (status !== undefined) p.status = status;
+    if (country) p.proxyCountry = country;
+    if (ip) p.ip = ip;
+
+    const tr = this.container?.querySelector(`#profiles-tbody tr[data-id="${profileId}"]`);
+    if (!tr) return;
+
+    // 1. Cập nhật ô Trạng thái
+    const statusCell = tr.querySelector('.col-status');
+    if (statusCell) {
+      const isRunning = p.status === 'running';
+      statusCell.innerHTML = this.getStatusHtml(p, isRunning);
+    }
+
+    // 2. Cập nhật ô Proxy nếu có thay đổi cờ / IP
+    if (country) {
+      const proxyCell = tr.querySelector('.col-proxy');
+      if (proxyCell) {
+        proxyCell.innerHTML = `
+          <div class="proxy-cell">
+            ${this.getProxyDisplay(p.proxyCountry, p.proxy, p.id, p.name)}
+          </div>
+        `;
+        proxyCell.querySelector('.btn-copy-proxy')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (p.proxy) {
+            navigator.clipboard.writeText(p.proxy);
+            if (window.showGlobalToast) window.showGlobalToast('Đã copy proxy vào clipboard!');
+          }
+        });
+        proxyCell.querySelector('.btn-edit-proxy')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (this.modals) this.modals.openEditProfileModal(p);
+          else if (window.modalsComp) window.modalsComp.openEditProfileModal(p);
+        });
+      }
+    }
   }
 
   updateProfileStatus(profileId, isRunning) {
@@ -2334,6 +2538,36 @@ export class ProfilesViewComponent {
             </svg>
           </button>
         </div>
+      </div>
+    `;
+  }
+
+  getNoteDisplay(notes, profileId, profileName) {
+    const hasNote = notes && notes.trim().length > 0;
+    const noteVal = hasNote ? notes.trim() : '';
+
+    if (!hasNote) {
+      return `
+        <div class="note-row-wrapper" style="display: inline-flex; align-items: center; gap: 8px;">
+          <button class="proxy-action-btn btn-edit-note" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-note="" data-tooltip="Thêm ghi chú">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+          </button>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="note-row-wrapper" style="display: inline-flex; align-items: center; gap: 8px;">
+        <span class="note-text-display btn-edit-note" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-note="${this.escape(noteVal)}" title="${this.escape(noteVal)}" style="font-size: 12.5px; color: var(--text-main); font-weight: 500; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;">${this.escape(noteVal)}</span>
+        <button class="proxy-action-btn btn-edit-note" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-note="${this.escape(noteVal)}" data-tooltip="Sửa">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </button>
       </div>
     `;
   }
