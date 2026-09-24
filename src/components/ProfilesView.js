@@ -1901,6 +1901,9 @@ export class ProfilesViewComponent {
         <span class="menu-icon">📁</span> Mở thư mục profile
       </button>
       <div class="context-menu-divider"></div>
+      <button class="context-menu-item" data-action="open-incognito">
+        <span class="menu-icon">🕶️</span> Mở ẩn danh (Incognito)
+      </button>
       <button class="context-menu-item" data-action="remote-port">
         <span class="menu-icon">&gt;_</span> Chạy với remote port
       </button>
@@ -1953,6 +1956,17 @@ export class ProfilesViewComponent {
       } else if (action === 'copy-id') {
         navigator.clipboard.writeText(profileId);
         alert(`Đã copy ID profile: ${profileId}`);
+      } else if (action === 'open-incognito') {
+        if (window.api && window.api.launchProfile) {
+          const p = this.profiles.find(x => x.id === profileId);
+          const index = p ? (p.index || p.order || p.stt) : null;
+          this.updateProfileRowStatus(profileId, 'checking');
+          const res = await window.api.launchProfile(profileId, index ? parseInt(index, 10) : null, { incognito: true });
+          if (!res || !res.success) {
+            alert((res && res.message) || 'Không thể mở profile ở chế độ ẩn danh!');
+            await this.loadProfiles();
+          }
+        }
       } else if (action === 'remote-port') {
         const p = this.profiles.find(x => x.id === profileId);
         if (p) {

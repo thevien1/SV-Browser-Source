@@ -143,13 +143,16 @@ class GpmApiServer {
           }
 
           // Xử lý các query params theo chuẩn GPMLogin API
+          const isIncognito = query.incognito === 'true' || query.incognito === '1' ||
+                              query.is_incognito === 'true' || query.is_incognito === '1';
           const launchOptions = {
             remote_debugging_port: query.remote_debugging_port ? parseInt(query.remote_debugging_port, 10) : undefined,
             window_scale: query.window_scale ? parseFloat(query.window_scale) : undefined,
             window_pos: query.window_pos || undefined,
             window_size: query.window_size || undefined,
             skip_proxy_check: query.skip_proxy_check === 'true' || query.skip_proxy_check === true || query.skip_proxy_check === '1',
-            addition_args: query.addition_args || undefined
+            addition_args: query.addition_args || undefined,
+            incognito: isIncognito
           };
 
           // Kiểm tra kết nối proxy & kiểm tra IP trước khi mở Chrome (trừ khi có cờ skip_proxy_check=true)
@@ -198,11 +201,13 @@ class GpmApiServer {
                 remote_debugging_address: result.remote_debugging_address || `127.0.0.1:${port}`,
                 websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
+                is_incognito: !!result.is_incognito,
                 ip: profile.ip || '',
                 country: profile.proxyCountry || '',
                 addition_info: result.addition_info || {
                   process_id: result.pid,
                   profile_name: profile.name || '',
+                  is_incognito: !!result.is_incognito,
                   ip: profile.ip || '',
                   country: profile.proxyCountry || '',
                   window_handle: null,
@@ -216,6 +221,120 @@ class GpmApiServer {
             return sendJson(500, {
               success: false,
               message: result ? result.message : 'Không thể mở profile',
+              sender: 'SV Browser v5.0.8-stable'
+            });
+          }
+        }
+
+        // 2b. MỞ TRÌNH DUYỆT ẨN DANH (START INCOGNITO / ANONYMOUS SESSION)
+        // Chuẩn SV Browser: GET hoặc POST /api/v1/profiles/start-incognito/{id} hoặc /api/v1/profiles/start-incognito
+        // Hỗ trợ cả profile có sẵn lẫn phiên ẩn danh tạm thời (Ephemeral Profile tự động dọn dẹp khi đóng)
+        const startIncognitoMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/start-incognito(?:\/([^\/]+))?$/i);
+        if (startIncognitoMatch && (req.method === 'GET' || req.method === 'POST')) {
+          let body = query;
+          if (req.method === 'POST') {
+            const rawBody = await this.readBody(req);
+            try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+
+          let profileId = extractId(startIncognitoMatch) || body.id || body.profile_id;
+          let profile = null;
+
+          if (profileId) {
+            profile = this.profileStore.getProfile(profileId);
+          }
+
+          if (profile) {
+            // Mở profile có sẵn ở chế độ ẩn danh, cho phép ghi đè proxy / startUrl nếu có truyền
+            if (body.proxy || body.raw_proxy) {
+              profile = { ...profile, proxy: body.raw_proxy || body.proxy };
+            }
+            if (body.proxy_type || body.proxyType) {
+              profile = { ...profile, proxyType: body.proxy_type || body.proxyType };
+            }
+            if (body.start_url || body.startUrl || body.url) {
+              profile = { ...profile, startUrl: body.start_url || body.startUrl || body.url };
+            }
+          } else {
+            // Khởi tạo phiên ẩn danh tạm thời (Ephemeral Incognito Profile)
+            profileId = profileId || `incognito_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            profile = {
+              id: profileId,
+              name: body.name || `Incognito ${profileId.slice(-6)}`,
+              isEphemeral: true,
+              incognito: true,
+              browserType: this.normalizeBrowserType(body.browser_type || body.browserType || (body.browser && body.browser.name) || 'chrome'),
+              version: body.browser_version || body.version || (body.browser && body.browser.version) || '151.0.7922.76',
+              proxy: body.raw_proxy || body.proxy || 'No Proxy',
+              proxyType: body.proxy_type || body.proxyType || 'http',
+              startUrl: body.start_url || body.startUrl || body.url || ''
+            };
+          }
+
+          const launchOptions = {
+            remote_debugging_port: (body.remote_debugging_port || query.remote_debugging_port) ? parseInt(body.remote_debugging_port || query.remote_debugging_port, 10) : undefined,
+            window_scale: (body.window_scale || query.window_scale) ? parseFloat(body.window_scale || query.window_scale) : undefined,
+            window_pos: body.window_pos || query.window_pos || undefined,
+            window_size: body.window_size || query.window_size || undefined,
+            skip_proxy_check: body.skip_proxy_check === 'true' || body.skip_proxy_check === true || body.skip_proxy_check === '1' || query.skip_proxy_check === 'true' || query.skip_proxy_check === true || query.skip_proxy_check === '1',
+            addition_args: body.addition_args || query.addition_args || undefined,
+            incognito: true
+          };
+
+          // Kiểm tra kết nối proxy nếu profile có sử dụng proxy
+          if (!launchOptions.skip_proxy_check && profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
+            const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+            if (!proxyCheck.live) {
+              return sendJson(500, {
+                success: false,
+                message: `Proxy ${profile.proxy} không kết nối được (No connection). Đã hủy mở trình duyệt ẩn danh!`,
+                sender: 'SV Browser v5.0.8-stable'
+              });
+            }
+            if (proxyCheck.ip) profile.ip = proxyCheck.ip;
+            if (proxyCheck.country) profile.proxyCountry = proxyCheck.country;
+            profile.status = 'Live';
+            if (!profile.isEphemeral && this.profileStore.getProfile(profile.id)) {
+              this.profileStore.updateProfile(profile.id, {
+                ip: profile.ip,
+                proxyCountry: profile.proxyCountry,
+                status: 'Live'
+              });
+            }
+          }
+
+          const result = await this.browserLauncher.launchProfile(profile, null, launchOptions);
+          if (result && result.success) {
+            const port = result.remote_debugging_port || result.port || result.debugPort;
+            return sendJson(200, {
+              success: true,
+              data: {
+                profile_id: result.profile_id || profile.id,
+                driver_path: result.driver_path || (this.browserLauncher && this.browserLauncher.getChromedriverPath ? this.browserLauncher.getChromedriverPath() : path.join(__dirname, 'chromedriver.exe')),
+                remote_debugging_port: port,
+                remote_debugging_address: result.remote_debugging_address || `127.0.0.1:${port}`,
+                websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
+                browser_location: result.browser_location || result.exePath || '',
+                is_incognito: true,
+                ip: profile.ip || '',
+                country: profile.proxyCountry || '',
+                addition_info: result.addition_info || {
+                  process_id: result.pid,
+                  profile_name: profile.name || '',
+                  is_incognito: true,
+                  ip: profile.ip || '',
+                  country: profile.proxyCountry || '',
+                  window_handle: null,
+                  exec_time: 0
+                }
+              },
+              message: 'OK',
+              sender: 'SV Browser v5.0.8-stable'
+            });
+          } else {
+            return sendJson(500, {
+              success: false,
+              message: result ? result.message : 'Không thể mở trình duyệt ẩn danh',
               sender: 'SV Browser v5.0.8-stable'
             });
           }
@@ -306,7 +425,7 @@ class GpmApiServer {
         // 5. CHI TIẾT 1 PROFILE (GET ONE PROFILE)
         // Chuẩn GPMLogin: GET /api/v1/profiles/{id}
         const getOneMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-]+)$/i);
-        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete'].includes(getOneMatch[1])) {
+        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito'].includes(getOneMatch[1].toLowerCase())) {
           const profileId = getOneMatch[1];
           const p = this.profileStore.getProfile(profileId);
           if (!p) {

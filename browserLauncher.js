@@ -1,5 +1,6 @@
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const EventEmitter = require('events');
 const ProxyChecker = require('./proxyChecker');
@@ -288,10 +289,28 @@ class BrowserLauncher extends EventEmitter {
       if (this.profileStore) {
         profile = this.profileStore.getProfile(profileOrId);
       }
+      if (!profile && (profileOrId.startsWith('incognito') || (options && (options.incognito || options.is_incognito)))) {
+        profile = {
+          id: profileOrId,
+          name: (options && options.name) || `Incognito ${profileOrId.slice(-6)}`,
+          isEphemeral: true,
+          incognito: true,
+          browserType: (options && (options.browserType || options.browser_type)) || 'chrome',
+          version: (options && (options.version || options.browser_version)) || '',
+          proxy: (options && (options.proxy || options.raw_proxy)) || 'No Proxy',
+          proxyType: (options && (options.proxyType || options.proxy_type)) || 'http',
+          startUrl: (options && (options.startUrl || options.start_url || options.url)) || ''
+        };
+      }
     }
     if (!profile) {
       return { success: false, message: 'Profile không tồn tại' };
     }
+
+    const isIncognito = !!(
+      (options && (options.incognito || options.is_incognito || options.isIncognito)) ||
+      (profile && (profile.incognito || profile.is_incognito || profile.isIncognito))
+    );
 
     // Kiểm tra bản quyền trước khi mở profile
     if (this.licenseManager) {
@@ -312,6 +331,7 @@ class BrowserLauncher extends EventEmitter {
         message: 'Profile đã đang chạy',
         pid: cur.pid,
         profile_id: profileId,
+        is_incognito: cur.isIncognito || false,
         remote_debugging_port: cur.debugPort,
         remote_debugging_address: `127.0.0.1:${cur.debugPort}`,
         websocket_debugging_url: cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
@@ -320,6 +340,7 @@ class BrowserLauncher extends EventEmitter {
         addition_info: {
           process_id: cur.pid,
           profile_name: profile.name || '',
+          is_incognito: cur.isIncognito || false,
           window_handle: null,
           exec_time: Date.now() - (cur.startTime || Date.now())
         },
@@ -341,7 +362,9 @@ class BrowserLauncher extends EventEmitter {
 
     // Thư mục dữ liệu profile lưu tại Local Storage (Hỗ trợ cả UUID folder và profile_id)
     let profileDir = profile.profilePath || profile.storage_path;
-    if (!profileDir) {
+    if (profile.isEphemeral) {
+      profileDir = path.join(os.tmpdir(), 'sv_browser_temp_' + profileId);
+    } else if (!profileDir) {
       const candidateUuidDir = path.join(this.baseDataDir, profileId);
       const candidateLegacyDir = path.join(this.baseDataDir, `profile_${profileId}`);
       if (fs.existsSync(candidateUuidDir)) {
@@ -373,12 +396,15 @@ class BrowserLauncher extends EventEmitter {
       prefObj.profile = prefObj.profile || {};
       prefObj.profile.name = svProfileName;
       prefObj.profile.using_default_name = false;
+      if (isIncognito) {
+        prefObj.profile.is_incognito = true;
+      }
       fs.writeFileSync(prefFile, JSON.stringify(prefObj, null, 2), 'utf8');
     } catch (e) {}
 
     // Port remote debugging: lấy customPort nếu có, ngược lại lấy nextDebugPort
-    const customPort = (options && (options.customPort || options.port))
-      || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port))
+    const customPort = (options && (options.customPort || options.port || options.remote_debugging_port))
+      || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port || profileIndex.remote_debugging_port))
       || (profile && (profile.remote_debugging_port || profile.port || profile.debugPort))
       || null;
     const debugPort = customPort ? parseInt(customPort, 10) : this.nextDebugPort++;
@@ -389,6 +415,9 @@ class BrowserLauncher extends EventEmitter {
         '-profile', profileDir,
         '-no-remote'
       ];
+      if (isIncognito) {
+        args.push('-private');
+      }
       if (profile.startUrl) args.push(profile.startUrl);
     } else {
       // Các flags chuẩn 100% trích xuất từ GPMLogin Global theo đúng mẫu Command Line
@@ -419,6 +448,10 @@ class BrowserLauncher extends EventEmitter {
         `--remote-debugging-port=${debugPort}`,
         '--remote-allow-origins=*'
       ];
+
+      if (isIncognito) {
+        args.push('--incognito');
+      }
 
       // Danh sách Extensions nạp vào trình duyệt
       const allExts = [];
@@ -516,6 +549,7 @@ class BrowserLauncher extends EventEmitter {
                 manifest_version: 3,
                 name: "SV Proxy Auth",
                 version: "1.0.0",
+                incognito: "spanning",
                 permissions: [
                   "webRequest",
                   "webRequestAuthProvider"
@@ -687,6 +721,9 @@ try {
         process: child,
         pid: child.pid,
         profileId,
+        profileDir,
+        isEphemeral: !!profile.isEphemeral,
+        isIncognito: !!isIncognito,
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         browserType: type,
@@ -703,12 +740,18 @@ try {
 
       child.on('exit', () => {
         this.runningProfiles.delete(profileId);
+        if (profile.isEphemeral && profileDir && fs.existsSync(profileDir)) {
+          try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) {}
+        }
         this.emit('profile-closed', { profileId });
       });
 
       child.on('error', (err) => {
         console.error(`Lỗi chạy profile ${profileId}:`, err);
         this.runningProfiles.delete(profileId);
+        if (profile.isEphemeral && profileDir && fs.existsSync(profileDir)) {
+          try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) {}
+        }
         this.emit('profile-closed', { profileId, error: err.message });
       });
 
@@ -717,6 +760,7 @@ try {
         success: true,
         pid: child.pid,
         profile_id: profileId,
+        is_incognito: isIncognito,
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         remote_debugging_port: debugPort,
@@ -727,6 +771,7 @@ try {
         addition_info: {
           process_id: child.pid,
           profile_name: profile.name || '',
+          is_incognito: isIncognito,
           window_handle: null,
           exec_time: execTime
         },
@@ -754,6 +799,10 @@ try {
       }
     } catch (e) {
       console.warn('Lỗi kill pid:', e.message);
+    }
+
+    if (running.isEphemeral && running.profileDir && fs.existsSync(running.profileDir)) {
+      try { fs.rmSync(running.profileDir, { recursive: true, force: true }); } catch (e) {}
     }
 
     this.runningProfiles.delete(profileId);
