@@ -17,6 +17,9 @@ export class ProfilesViewComponent {
     };
     this.licenseStatus = null;
     this.currentHwid = '';
+    const savedPerPage = parseInt(localStorage.getItem('profiles_per_page'), 10);
+    this.perPage = (!isNaN(savedPerPage) && savedPerPage > 0) ? savedPerPage : 50;
+    this.currentPage = 1;
   }
 
   render() {
@@ -225,16 +228,21 @@ export class ProfilesViewComponent {
       <!-- Pagination Footer -->
       <div class="pagination-footer">
         <div class="page-controls">
-          <button class="page-btn" id="btn-prev-page">&lt;</button>
-          <span>1 / 1</span>
-          <button class="page-btn" id="btn-next-page">&gt;</button>
+          <button class="page-btn" id="btn-prev-page" title="Trang trước">&lt;</button>
+          <span id="page-display">1 / 1</span>
+          <button class="page-btn" id="btn-next-page" title="Trang sau">&gt;</button>
         </div>
-        <div>
+        <div style="display: flex; align-items: center; gap: 8px;">
           <span>Số bản ghi mỗi trang: </span>
-          <select class="select-input" style="height: 28px; padding: 0 5px;" id="per-page-select">
+          <input type="number" id="per-page-input" class="form-control" min="1" max="10000" value="${this.perPage}" style="width: 58px; height: 28px; padding: 0 6px; text-align: center; font-size: 13px; font-weight: 600; border: 1px solid var(--border-color); border-radius: 4px; display: inline-block;" title="Nhập số bản ghi tùy ý">
+          <select class="select-input" style="height: 28px; padding: 0 5px;" id="per-page-select" title="Chọn số bản ghi mỗi trang">
+            <option value="10">10</option>
             <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100" selected>100</option>
+            <option value="50" ${this.perPage === 50 ? 'selected' : ''}>50</option>
+            <option value="100" ${this.perPage === 100 ? 'selected' : ''}>100</option>
+            <option value="200" ${this.perPage === 200 ? 'selected' : ''}>200</option>
+            <option value="500" ${this.perPage === 500 ? 'selected' : ''}>500</option>
+            <option value="custom" ${![10, 20, 50, 100, 200, 500].includes(this.perPage) ? 'selected' : ''}>Tùy chọn...</option>
           </select>
         </div>
         <div>
@@ -641,29 +649,91 @@ export class ProfilesViewComponent {
     // Search & Filter
     this.container.querySelector('#input-search')?.addEventListener('input', (e) => {
       this.filter.search = e.target.value;
+      this.currentPage = 1;
       this.renderTableRows();
     });
 
     this.container.querySelector('#filter-group')?.addEventListener('change', (e) => {
       this.filter.group = e.target.value;
+      this.currentPage = 1;
       this.renderTableRows();
     });
 
     this.container.querySelector('#filter-sort')?.addEventListener('change', (e) => {
       this.filter.sort = e.target.value;
+      this.currentPage = 1;
       this.renderTableRows();
     });
 
-    // Check All
+    // Check All (chọn tất cả profile trên trang hiện tại)
     this.container.querySelector('#check-select-all')?.addEventListener('change', (e) => {
-      const list = (this.filteredProfiles && this.filteredProfiles.length > 0) ? this.filteredProfiles : this.profiles;
+      const startIndex = (this.currentPage - 1) * this.perPage;
+      const pageProfiles = (this.filteredProfiles && this.filteredProfiles.length > 0) 
+        ? this.filteredProfiles.slice(startIndex, startIndex + this.perPage) 
+        : [];
       if (e.target.checked) {
-        list.forEach(p => this.selectedIds.add(p.id));
+        pageProfiles.forEach(p => this.selectedIds.add(p.id));
       } else {
-        this.selectedIds.clear();
+        pageProfiles.forEach(p => this.selectedIds.delete(p.id));
       }
       this.updateBulkBar();
       this.renderTableRows();
+    });
+
+    // Pagination Controls
+    const prevBtn = this.container.querySelector('#btn-prev-page');
+    const nextBtn = this.container.querySelector('#btn-next-page');
+    const perPageSelect = this.container.querySelector('#per-page-select');
+    const perPageInput = this.container.querySelector('#per-page-input');
+
+    prevBtn?.addEventListener('click', () => {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+        this.renderTableRows();
+      }
+    });
+
+    nextBtn?.addEventListener('click', () => {
+      const totalPages = Math.max(1, Math.ceil((this.filteredProfiles?.length || 0) / this.perPage));
+      if (this.currentPage < totalPages) {
+        this.currentPage++;
+        this.renderTableRows();
+      }
+    });
+
+    const updatePerPage = (val) => {
+      const num = parseInt(val, 10);
+      if (!isNaN(num) && num > 0) {
+        this.perPage = num;
+        localStorage.setItem('profiles_per_page', String(num));
+        if (perPageInput) perPageInput.value = num;
+        if (perPageSelect) {
+          const matchOpt = Array.from(perPageSelect.options).some(o => o.value === String(num));
+          perPageSelect.value = matchOpt ? String(num) : 'custom';
+        }
+        this.currentPage = 1;
+        this.renderTableRows();
+      }
+    };
+
+    perPageSelect?.addEventListener('change', (e) => {
+      if (e.target.value === 'custom') {
+        perPageInput?.focus();
+        perPageInput?.select();
+      } else {
+        updatePerPage(e.target.value);
+      }
+    });
+
+    perPageInput?.addEventListener('change', (e) => {
+      updatePerPage(e.target.value);
+    });
+
+    perPageInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        updatePerPage(e.target.value);
+      }
     });
 
     // Deselect all
@@ -2192,8 +2262,44 @@ export class ProfilesViewComponent {
 
     this.filteredProfiles = filtered;
 
+    const totalCount = filtered.length;
     const totalEl = this.container.querySelector('#total-count-display');
-    if (totalEl) totalEl.innerText = filtered.length;
+    if (totalEl) totalEl.innerText = totalCount;
+
+    const totalPages = Math.max(1, Math.ceil(totalCount / this.perPage));
+    if (this.currentPage > totalPages) this.currentPage = totalPages;
+    if (this.currentPage < 1) this.currentPage = 1;
+
+    // Cập nhật điều khiển phân trang
+    const pageDisplay = this.container.querySelector('#page-display');
+    if (pageDisplay) pageDisplay.innerText = `${this.currentPage} / ${totalPages}`;
+
+    const prevBtn = this.container.querySelector('#btn-prev-page');
+    if (prevBtn) {
+      const isFirst = this.currentPage <= 1;
+      prevBtn.disabled = isFirst;
+      prevBtn.style.opacity = isFirst ? '0.4' : '1';
+      prevBtn.style.cursor = isFirst ? 'not-allowed' : 'pointer';
+    }
+
+    const nextBtn = this.container.querySelector('#btn-next-page');
+    if (nextBtn) {
+      const isLast = this.currentPage >= totalPages;
+      nextBtn.disabled = isLast;
+      nextBtn.style.opacity = isLast ? '0.4' : '1';
+      nextBtn.style.cursor = isLast ? 'not-allowed' : 'pointer';
+    }
+
+    const perPageInput = this.container.querySelector('#per-page-input');
+    if (perPageInput && parseInt(perPageInput.value, 10) !== this.perPage) {
+      perPageInput.value = this.perPage;
+    }
+
+    const perPageSelect = this.container.querySelector('#per-page-select');
+    if (perPageSelect) {
+      const matchOpt = Array.from(perPageSelect.options).some(o => o.value === String(this.perPage));
+      perPageSelect.value = matchOpt ? String(this.perPage) : 'custom';
+    }
 
     // Dọn dẹp selectedIds: loại bỏ các ID không còn tồn tại trong danh sách profiles
     const existingIds = new Set(this.profiles.map(p => p.id));
@@ -2247,7 +2353,11 @@ export class ProfilesViewComponent {
       return;
     }
 
-    filtered.forEach((p, rowIndex) => {
+    const startIndex = (this.currentPage - 1) * this.perPage;
+    const pageProfiles = filtered.slice(startIndex, startIndex + this.perPage);
+
+    pageProfiles.forEach((p, indexOnPage) => {
+      const rowIndex = startIndex + indexOnPage;
       const isRunning = p.status === 'running';
       const isChecked = this.selectedIds.has(p.id);
 
@@ -2333,7 +2443,9 @@ export class ProfilesViewComponent {
         deselectBtn.style.cursor = 'pointer';
       }
       if (checkAll && this.filteredProfiles && this.filteredProfiles.length > 0) {
-        checkAll.checked = this.filteredProfiles.every(p => this.selectedIds.has(p.id));
+        const startIndex = (this.currentPage - 1) * this.perPage;
+        const pageProfiles = this.filteredProfiles.slice(startIndex, startIndex + this.perPage);
+        checkAll.checked = pageProfiles.length > 0 && pageProfiles.every(p => this.selectedIds.has(p.id));
       }
     } else {
       bar.classList.remove('active');

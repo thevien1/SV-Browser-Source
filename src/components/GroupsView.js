@@ -91,7 +91,7 @@ export class GroupsViewComponent {
     tbody?.addEventListener('click', async (e) => {
       const editBtn = e.target.closest('.btn-edit-group');
       const deleteBtn = e.target.closest('.btn-delete-group');
-      const shareBtn = e.target.closest('.btn-share-group');
+      const copyBtn = e.target.closest('.btn-copy-group, .btn-share-group');
 
       if (editBtn) {
         const id = editBtn.getAttribute('data-id');
@@ -102,8 +102,8 @@ export class GroupsViewComponent {
         const id = deleteBtn.getAttribute('data-id');
         const name = deleteBtn.getAttribute('data-name');
         await this.handleDeleteGroup(id, name);
-      } else if (shareBtn) {
-        const name = shareBtn.getAttribute('data-name');
+      } else if (copyBtn) {
+        const name = copyBtn.getAttribute('data-name');
         navigator.clipboard.writeText(name);
         alert(`Đã sao chép tên nhóm: ${name}`);
       }
@@ -224,8 +224,9 @@ export class GroupsViewComponent {
             <div style="display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end;">
               <!-- Sửa nhóm -->
               <button class="btn-group-action btn-edit-group" data-id="${id}" data-name="${name}" data-order="${order}" title="Chỉnh sửa nhóm">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
                 </svg>
               </button>
 
@@ -237,14 +238,11 @@ export class GroupsViewComponent {
                 </svg>
               </button>
 
-              <!-- Share nhóm -->
-              <button class="btn-group-action btn-share-group" data-name="${name}" title="Sao chép tên nhóm">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="18" cy="5" r="3"></circle>
-                  <circle cx="6" cy="12" r="3"></circle>
-                  <circle cx="18" cy="19" r="3"></circle>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              <!-- Sao chép tên nhóm -->
+              <button class="btn-group-action btn-copy-group btn-share-group" data-name="${name}" title="Sao chép tên nhóm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                 </svg>
               </button>
             </div>
