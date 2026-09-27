@@ -76,7 +76,8 @@ export class ProfilesViewComponent {
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="input-search" placeholder="Tìm kiếm...">
+            <input type="text" id="input-search" placeholder="Tìm kiếm profile, proxy, note..." value="${this.escape(this.filter.search || '')}" autocomplete="off" spellcheck="false">
+            <button type="button" id="btn-clear-search" title="Xóa tìm kiếm" style="display: ${this.filter.search ? 'inline-flex' : 'none'}; position: absolute; right: 8px; background: none; border: none; font-size: 13px; color: var(--text-muted); cursor: pointer; padding: 2px; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;">✕</button>
           </div>
 
           <select class="select-input" id="filter-group">
@@ -651,8 +652,35 @@ export class ProfilesViewComponent {
     });
 
     // Search & Filter
-    this.container.querySelector('#input-search')?.addEventListener('input', (e) => {
+    const inputSearch = this.container.querySelector('#input-search');
+    const btnClearSearch = this.container.querySelector('#btn-clear-search');
+
+    inputSearch?.addEventListener('input', (e) => {
       this.filter.search = e.target.value;
+      if (btnClearSearch) {
+        btnClearSearch.style.display = e.target.value ? 'inline-flex' : 'none';
+      }
+      this.currentPage = 1;
+      this.renderTableRows();
+    });
+
+    inputSearch?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        inputSearch.value = '';
+        this.filter.search = '';
+        if (btnClearSearch) btnClearSearch.style.display = 'none';
+        this.currentPage = 1;
+        this.renderTableRows();
+      }
+    });
+
+    btnClearSearch?.addEventListener('click', () => {
+      if (inputSearch) {
+        inputSearch.value = '';
+        inputSearch.focus();
+      }
+      this.filter.search = '';
+      if (btnClearSearch) btnClearSearch.style.display = 'none';
       this.currentPage = 1;
       this.renderTableRows();
     });
@@ -2318,13 +2346,31 @@ export class ProfilesViewComponent {
 
     // Filter
     let filtered = this.profiles.filter(p => {
-      if (this.filter.search) {
-        const q = this.filter.search.toLowerCase();
-        const matchName = p.name.toLowerCase().includes(q);
-        const matchProxy = p.proxy.toLowerCase().includes(q);
-        const matchTag = p.tags && p.tags.toLowerCase().includes(q);
-        const matchNote = (p.notes || p.note || '').toLowerCase().includes(q);
-        if (!matchName && !matchProxy && !matchTag && !matchNote) return false;
+      if (this.filter.search && this.filter.search.trim()) {
+        const q = this.filter.search.trim().toLowerCase();
+        const nameStr = (p.name || '').toString().toLowerCase();
+        const proxyStr = (p.proxy || '').toString().toLowerCase();
+        const rawProxyStr = (p.raw_proxy || '').toString().toLowerCase();
+        let tagStr = '';
+        if (Array.isArray(p.tags)) {
+          tagStr = p.tags.join(' ').toLowerCase();
+        } else if (p.tags) {
+          tagStr = p.tags.toString().toLowerCase();
+        }
+        const noteStr = (p.notes || p.note || '').toString().toLowerCase();
+        const groupStr = (p.group || '').toString().toLowerCase();
+        const idStr = (p.id || '').toString().toLowerCase();
+        const indexStr = (p.order || p.index || p.stt || '').toString();
+
+        const matchName = nameStr.includes(q);
+        const matchProxy = proxyStr.includes(q) || rawProxyStr.includes(q);
+        const matchTag = tagStr.includes(q);
+        const matchNote = noteStr.includes(q);
+        const matchGroup = groupStr.includes(q);
+        const matchId = idStr.includes(q);
+        const matchIndex = indexStr.includes(q);
+
+        if (!matchName && !matchProxy && !matchTag && !matchNote && !matchGroup && !matchId && !matchIndex) return false;
       }
       if (this.filter.group && p.group !== this.filter.group) {
         return false;
@@ -2434,7 +2480,11 @@ export class ProfilesViewComponent {
         return;
       }
 
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Không tìm thấy profile nào</td></tr>`;
+      if (this.filter.search && this.filter.search.trim()) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted); font-size: 13.5px;">🔍 Không tìm thấy profile nào phù hợp với từ khóa "<strong>${this.escape(this.filter.search.trim())}</strong>"</td></tr>`;
+      } else {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Không tìm thấy profile nào</td></tr>`;
+      }
       return;
     }
 
