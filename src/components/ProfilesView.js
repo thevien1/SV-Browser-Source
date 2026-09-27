@@ -2626,7 +2626,6 @@ export class ProfilesViewComponent {
       });
     });
   }
-  }
 
   updateBulkBar() {
     const bar = this.container.querySelector('#bulk-bar');
