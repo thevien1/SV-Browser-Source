@@ -510,6 +510,33 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     return this.profiles;
   }
 
+  reorderProfiles(orderedIds) {
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) return false;
+    const idMap = new Map();
+    this.profiles.forEach(p => idMap.set(p.id, p));
+
+    const reordered = [];
+    orderedIds.forEach((id, idx) => {
+      const p = idMap.get(id);
+      if (p) {
+        p.order = idx + 1;
+        p.customOrder = idx + 1;
+        reordered.push(p);
+        idMap.delete(id);
+      }
+    });
+
+    for (const [, p] of idMap) {
+      p.order = reordered.length + 1;
+      p.customOrder = reordered.length + 1;
+      reordered.push(p);
+    }
+
+    this.profiles = reordered;
+    this.saveProfiles();
+    return true;
+  }
+
   getProfile(id) {
     return this.profiles.find(p => p.id === id);
   }

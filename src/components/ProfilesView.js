@@ -10,16 +10,15 @@ export class ProfilesViewComponent {
     this.profiles = [];
     this.groups = ['Default group'];
     this.selectedIds = new Set();
-    this.filter = {
-      search: '',
-      group: '',
-      sort: 'newest'
-    };
-    this.licenseStatus = null;
-    this.currentHwid = '';
     const savedPerPage = parseInt(localStorage.getItem('profiles_per_page'), 10);
     this.perPage = (!isNaN(savedPerPage) && savedPerPage > 0) ? savedPerPage : 50;
     this.currentPage = 1;
+    const savedSort = localStorage.getItem('profiles_sort_pref');
+    this.filter = {
+      search: '',
+      group: '',
+      sort: savedSort || 'name_asc'
+    };
   }
 
   render() {
@@ -86,9 +85,11 @@ export class ProfilesViewComponent {
           </select>
 
           <select class="select-input" id="filter-sort">
-            <option value="newest">Ngày tạo [Mới -> Cũ]</option>
-            <option value="oldest">Ngày tạo [Cũ -> Mới]</option>
-            <option value="name">Tên [A -> Z]</option>
+            <option value="name_asc" ${this.filter.sort === 'name_asc' ? 'selected' : ''}>Tên / STT [001 -> 050 (A -> Z)]</option>
+            <option value="name_desc" ${this.filter.sort === 'name_desc' ? 'selected' : ''}>Tên / STT [050 -> 001 (Z -> A)]</option>
+            <option value="newest" ${this.filter.sort === 'newest' ? 'selected' : ''}>Ngày tạo [Mới -> Cũ]</option>
+            <option value="oldest" ${this.filter.sort === 'oldest' ? 'selected' : ''}>Ngày tạo [Cũ -> Mới]</option>
+            <option value="custom" ${this.filter.sort === 'custom' ? 'selected' : ''}>Tùy chỉnh (Thứ tự kéo thả)</option>
           </select>
 
           <span style="font-size: 13px; color: var(--text-muted); margin-left: 5px;">Chế độ chọn: Truyền thống</span>
@@ -190,10 +191,13 @@ export class ProfilesViewComponent {
         <table class="profile-table">
           <thead>
             <tr>
-              <th style="width: 35px;"><input type="checkbox" id="check-select-all"></th>
-              <th style="min-width: 280px;">
+              <th style="width: 48px; text-align: center;"><input type="checkbox" id="check-select-all"></th>
+              <th style="min-width: 280px; user-select: none;">
                 <div style="display: inline-flex; align-items: center; gap: 8px;">
-                  <span>Tên profile</span>
+                  <span id="btn-sort-name" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Bấm để đảo chiều sắp xếp theo Tên / STT (001 -> 050 hoặc 050 -> 001)">
+                    <span>Tên profile</span>
+                    <span id="sort-name-indicator" style="font-size: 11px; color: #0284c7; font-weight: bold;">▲</span>
+                  </span>
                   <button type="button" id="btn-active-profiles-actions" class="btn-live-actions" title="Thao tác với profile đang mở">Thao tác với profile đang mở</button>
                 </div>
               </th>
@@ -659,8 +663,25 @@ export class ProfilesViewComponent {
       this.renderTableRows();
     });
 
+    this.container.querySelector('#btn-sort-name')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.filter.sort === 'name_asc') {
+        this.filter.sort = 'name_desc';
+      } else {
+        this.filter.sort = 'name_asc';
+      }
+      localStorage.setItem('profiles_sort_pref', this.filter.sort);
+      const sortSelect = this.container.querySelector('#filter-sort');
+      if (sortSelect) sortSelect.value = this.filter.sort;
+      this.updateSortIndicator();
+      this.currentPage = 1;
+      this.renderTableRows();
+    });
+
     this.container.querySelector('#filter-sort')?.addEventListener('change', (e) => {
       this.filter.sort = e.target.value;
+      localStorage.setItem('profiles_sort_pref', this.filter.sort);
+      this.updateSortIndicator();
       this.currentPage = 1;
       this.renderTableRows();
     });
@@ -1911,6 +1932,13 @@ export class ProfilesViewComponent {
         <span class="menu-icon">📋</span> Copy ID
       </button>
       <div class="context-menu-divider"></div>
+      <button class="context-menu-item" data-action="move-to-top">
+        <span class="menu-icon">⬆️</span> Chuyển lên đầu danh sách
+      </button>
+      <button class="context-menu-item" data-action="move-to-bottom">
+        <span class="menu-icon">⬇️</span> Chuyển xuống cuối danh sách
+      </button>
+      <div class="context-menu-divider"></div>
       <button class="context-menu-item text-red" data-action="delete">
         <span class="menu-icon">🗑️</span> Xóa profile
       </button>
@@ -1966,6 +1994,40 @@ export class ProfilesViewComponent {
             alert((res && res.message) || 'Không thể mở profile ở chế độ ẩn danh!');
             await this.loadProfiles();
           }
+        }
+      } else if (action === 'move-to-top') {
+        const fromIdx = this.profiles.findIndex(p => p.id === profileId);
+        if (fromIdx > 0) {
+          const [moved] = this.profiles.splice(fromIdx, 1);
+          this.profiles.unshift(moved);
+          this.profiles.forEach((p, idx) => { p.order = idx + 1; p.customOrder = idx + 1; });
+          this.filter.sort = 'custom';
+          localStorage.setItem('profiles_sort_pref', 'custom');
+          const sortSelect = this.container.querySelector('#filter-sort');
+          if (sortSelect) sortSelect.value = 'custom';
+          this.updateSortIndicator();
+          if (window.api && window.api.reorderProfiles) {
+            await window.api.reorderProfiles(this.profiles.map(p => p.id));
+          }
+          this.renderTableRows();
+          if (window.showGlobalToast) window.showGlobalToast(`Đã chuyển profile ${moved.name} lên đầu!`);
+        }
+      } else if (action === 'move-to-bottom') {
+        const fromIdx = this.profiles.findIndex(p => p.id === profileId);
+        if (fromIdx !== -1 && fromIdx < this.profiles.length - 1) {
+          const [moved] = this.profiles.splice(fromIdx, 1);
+          this.profiles.push(moved);
+          this.profiles.forEach((p, idx) => { p.order = idx + 1; p.customOrder = idx + 1; });
+          this.filter.sort = 'custom';
+          localStorage.setItem('profiles_sort_pref', 'custom');
+          const sortSelect = this.container.querySelector('#filter-sort');
+          if (sortSelect) sortSelect.value = 'custom';
+          this.updateSortIndicator();
+          if (window.api && window.api.reorderProfiles) {
+            await window.api.reorderProfiles(this.profiles.map(p => p.id));
+          }
+          this.renderTableRows();
+          if (window.showGlobalToast) window.showGlobalToast(`Đã chuyển profile ${moved.name} xuống cuối!`);
         }
       } else if (action === 'remote-port') {
         const p = this.profiles.find(x => x.id === profileId);
@@ -2134,6 +2196,11 @@ export class ProfilesViewComponent {
     if (!window.api || !window.api.getProfiles) return;
     try {
       this.profiles = await window.api.getProfiles();
+      const sortSelect = this.container.querySelector('#filter-sort');
+      if (sortSelect && sortSelect.value !== this.filter.sort) {
+        sortSelect.value = this.filter.sort;
+      }
+      this.updateSortIndicator();
       this.renderTableRows();
     } catch (err) {
       console.error('Lỗi tải profiles:', err);
@@ -2270,8 +2337,12 @@ export class ProfilesViewComponent {
       filtered.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } else if (this.filter.sort === 'oldest') {
       filtered.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    } else if (this.filter.sort === 'name') {
-      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (this.filter.sort === 'name' || this.filter.sort === 'name_asc') {
+      filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+    } else if (this.filter.sort === 'name_desc') {
+      filtered.sort((a, b) => (b.name || '').localeCompare(a.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+    } else if (this.filter.sort === 'custom') {
+      filtered.sort((a, b) => (a.order || a.customOrder || 0) - (b.order || b.customOrder || 0));
     }
 
     this.filteredProfiles = filtered;
@@ -2383,8 +2454,11 @@ export class ProfilesViewComponent {
       }
       const tr = document.createElement('tr');
       tr.setAttribute('data-id', p.id);
+      tr.setAttribute('draggable', 'true');
+      tr.classList.add('profile-row-draggable');
       tr.innerHTML = `
-        <td>
+        <td style="width: 48px; white-space: nowrap; text-align: center;">
+          <span class="drag-handle-cell" title="Kéo thả chuột để đổi vị trí profile">⠿</span>
           <input type="checkbox" class="profile-checkbox" data-id="${p.id}" ${isChecked ? 'checked' : ''}>
         </td>
         <td>
@@ -2435,8 +2509,123 @@ export class ProfilesViewComponent {
       tbody.appendChild(tr);
     });
 
-
+    this.setupTableDragAndDrop();
+    this.updateSortIndicator();
     this.updateBulkBar();
+  }
+
+  updateSortIndicator() {
+    const indicator = this.container.querySelector('#sort-name-indicator');
+    if (!indicator) return;
+    if (this.filter.sort === 'name_asc') {
+      indicator.innerText = '▲';
+      indicator.style.color = '#0284c7';
+      indicator.title = 'Đang sắp xếp: 001 -> 050 (A -> Z)';
+    } else if (this.filter.sort === 'name_desc') {
+      indicator.innerText = '▼';
+      indicator.style.color = '#0284c7';
+      indicator.title = 'Đang sắp xếp: 050 -> 001 (Z -> A)';
+    } else {
+      indicator.innerText = '⇅';
+      indicator.style.color = '#94a3b8';
+      indicator.title = 'Bấm để sắp xếp theo Tên / STT';
+    }
+  }
+
+  setupTableDragAndDrop() {
+    const tbody = this.container.querySelector('#profiles-tbody');
+    if (!tbody) return;
+
+    let draggedRow = null;
+    let draggedId = null;
+
+    tbody.querySelectorAll('tr.profile-row-draggable').forEach(row => {
+      row.addEventListener('dragstart', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('.profile-checkbox')) {
+          e.preventDefault();
+          return;
+        }
+        draggedRow = row;
+        draggedId = row.getAttribute('data-id');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedId);
+        setTimeout(() => {
+          row.classList.add('is-dragging');
+        }, 0);
+      });
+
+      row.addEventListener('dragend', () => {
+        draggedRow = null;
+        draggedId = null;
+        tbody.querySelectorAll('tr').forEach(r => {
+          r.classList.remove('is-dragging', 'drag-over-top', 'drag-over-bottom');
+        });
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!draggedRow || row === draggedRow) return;
+
+        const rect = row.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        if (e.clientY < midY) {
+          row.classList.add('drag-over-top');
+          row.classList.remove('drag-over-bottom');
+        } else {
+          row.classList.add('drag-over-bottom');
+          row.classList.remove('drag-over-top');
+        }
+      });
+
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+
+      row.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+        if (!draggedId) return;
+        const targetId = row.getAttribute('data-id');
+        if (draggedId === targetId) return;
+
+        const rect = row.getBoundingClientRect();
+        const dropBefore = e.clientY < (rect.top + rect.height / 2);
+
+        const fromIdx = this.profiles.findIndex(p => p.id === draggedId);
+        if (fromIdx === -1) return;
+        const [movedItem] = this.profiles.splice(fromIdx, 1);
+
+        let toIdx = this.profiles.findIndex(p => p.id === targetId);
+        if (toIdx === -1) {
+          this.profiles.push(movedItem);
+        } else {
+          if (!dropBefore) toIdx += 1;
+          this.profiles.splice(toIdx, 0, movedItem);
+        }
+
+        this.profiles.forEach((p, idx) => {
+          p.order = idx + 1;
+          p.customOrder = idx + 1;
+        });
+
+        this.filter.sort = 'custom';
+        localStorage.setItem('profiles_sort_pref', 'custom');
+        const sortSelect = this.container.querySelector('#filter-sort');
+        if (sortSelect) sortSelect.value = 'custom';
+        this.updateSortIndicator();
+
+        if (window.api && window.api.reorderProfiles) {
+          await window.api.reorderProfiles(this.profiles.map(p => p.id));
+        }
+
+        this.renderTableRows();
+        if (window.showGlobalToast) {
+          window.showGlobalToast(`Đã di chuyển profile "${movedItem.name}" đến vị trí mới!`);
+        }
+      });
+    });
+  }
   }
 
   updateBulkBar() {

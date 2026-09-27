@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   createProfile: (data) => ipcRenderer.invoke('profiles:create', data),
   batchCreateProfiles: (options) => ipcRenderer.invoke('profiles:batch-create', options),
   updateProfile: (id, data) => ipcRenderer.invoke('profiles:update', id, data),
+  reorderProfiles: (orderedIds) => ipcRenderer.invoke('profiles:reorder', orderedIds),
   deleteProfile: (id, options) => ipcRenderer.invoke('profiles:delete', id, options),
   deleteMultipleProfiles: (ids, options) => ipcRenderer.invoke('profiles:delete-multiple', ids, options),
   cloneProfile: (id, options) => ipcRenderer.invoke('profiles:clone', id, options),

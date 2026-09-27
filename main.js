@@ -256,6 +256,11 @@ ipcMain.handle('profiles:update', async (event, id, data) => {
   return profileStore.updateProfile(id, data);
 });
 
+ipcMain.handle('profiles:reorder', async (event, orderedIds) => {
+  const ok = profileStore.reorderProfiles(orderedIds);
+  return { success: ok };
+});
+
 ipcMain.handle('profiles:delete', async (event, id, options = {}) => {
   browserLauncher.closeProfile(id);
   return profileStore.deleteProfile(id, options);

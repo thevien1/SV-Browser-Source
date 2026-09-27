@@ -653,6 +653,49 @@ table.profile-table tr:hover td {
   background-color: var(--table-row-hover);
 }
 
+/* Drag and Drop row styles */
+table.profile-table tr.profile-row-draggable {
+  transition: background-color 0.15s, opacity 0.15s;
+}
+table.profile-table tr.is-dragging {
+  opacity: 0.35;
+  background-color: rgba(2, 132, 199, 0.12) !important;
+}
+table.profile-table tr.drag-over-top td {
+  border-top: 2.5px solid #0284c7 !important;
+}
+table.profile-table tr.drag-over-bottom td {
+  border-bottom: 2.5px solid #0284c7 !important;
+}
+.drag-handle-cell {
+  width: 14px;
+  cursor: grab;
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.35;
+  transition: opacity 0.15s, color 0.15s;
+  user-select: none;
+  font-size: 13px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+table.profile-table tr:hover .drag-handle-cell {
+  opacity: 0.9;
+  color: #475569;
+}
+.drag-handle-cell:hover {
+  opacity: 1 !important;
+  color: #0284c7 !important;
+}
+.drag-handle-cell:active {
+  cursor: grabbing;
+}
+#btn-sort-name:hover {
+  color: #0284c7;
+}
+
 /* Profile Cell */
 .profile-cell {
   display: flex;
