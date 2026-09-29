@@ -9,6 +9,7 @@ export class ProfilesViewComponent {
     this.onBatchProfile = options.onBatchProfile || (() => {});
     this.profiles = [];
     this.groups = ['Default group'];
+    this.tags = [];
     this.selectedIds = new Set();
     const savedPerPage = parseInt(localStorage.getItem('profiles_per_page'), 10);
     this.perPage = (!isNaN(savedPerPage) && savedPerPage > 0) ? savedPerPage : 50;
@@ -17,6 +18,7 @@ export class ProfilesViewComponent {
     this.filter = {
       search: '',
       group: '',
+      tag: '',
       sort: savedSort || 'name_asc'
     };
   }
@@ -85,6 +87,10 @@ export class ProfilesViewComponent {
             <option value="Default group">Default group</option>
           </select>
 
+          <select class="select-input" id="filter-tag" style="min-width: 140px;">
+            <option value="">--- Chọn tag ---</option>
+          </select>
+
           <select class="select-input" id="filter-sort">
             <option value="name_asc" ${this.filter.sort === 'name_asc' ? 'selected' : ''}>Tên / STT [001 -> 050 (A -> Z)]</option>
             <option value="name_desc" ${this.filter.sort === 'name_desc' ? 'selected' : ''}>Tên / STT [050 -> 001 (Z -> A)]</option>
@@ -128,6 +134,9 @@ export class ProfilesViewComponent {
             <div class="tools-dropdown-menu" id="edit-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 4px); left: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); z-index: 1000; min-width: 210px; padding: 4px 0;">
               <button type="button" class="tools-menu-item" id="btn-bulk-change-group">
                 Thay đổi nhóm
+              </button>
+              <button type="button" class="tools-menu-item" id="btn-bulk-change-tags">
+                Gán / Sửa tags
               </button>
               <button type="button" class="tools-menu-item" id="btn-bulk-rename">
                 Đổi tên
@@ -334,6 +343,52 @@ export class ProfilesViewComponent {
               Hủy
             </button>
             <button id="btn-save-edit-note" class="btn btn-primary" style="height: 36px; padding: 0 20px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">
+              Lưu thay đổi
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: Sửa Tags Profile -->
+      <div class="modal-overlay" id="modal-edit-tags">
+        <div class="modal-dialog" style="width: 480px; max-width: 92%;">
+          <div class="modal-header">
+            <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 18px;">🏷️</span>
+              <span>Gán & Sửa Tags Profile</span>
+            </div>
+            <button class="window-btn close" id="btn-close-edit-tags" style="font-size: 16px;">✕</button>
+          </div>
+
+          <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Profile: <strong id="edit-tags-profile-name" style="color: #0284c7;">Profile Name</strong>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">
+                Danh sách Tags (phân cách bằng dấu phẩy):
+              </label>
+              <input type="text" id="edit-tags-input-value" class="form-control" placeholder="Ví dụ: Ads, Facebook, NuoiNick..." style="width: 100%; height: 38px; font-size: 13px; padding: 8px 12px; box-sizing: border-box;">
+
+              <div id="edit-tags-suggestions" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                <!-- Gợi ý các tag có sẵn -->
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                <span style="font-size: 12px; color: var(--text-muted);">Nhấn Enter hoặc bấm Lưu để hoàn tất</span>
+                <button type="button" id="btn-clear-tags" style="background: none; border: none; color: #ef4444; font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: underline;">
+                  Xóa hết tag
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button id="btn-cancel-edit-tags" class="btn btn-outline" style="height: 36px; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer;">
+              Hủy
+            </button>
+            <button id="btn-save-edit-tags" class="btn btn-primary" style="height: 36px; padding: 0 20px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;">
               Lưu thay đổi
             </button>
           </div>
@@ -569,6 +624,40 @@ export class ProfilesViewComponent {
         </div>
       </div>
 
+      <!-- MODAL: Thay đổi tags hàng loạt -->
+      <div class="modal-overlay" id="modal-bulk-change-tags-dialog">
+        <div class="modal-dialog" style="width: 480px; max-width: 95%;">
+          <div class="modal-header" style="padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color);">
+            <div class="modal-title" style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 16px; font-weight: 700; color: var(--text-main);">Thay đổi Tags hàng loạt</span>
+            </div>
+            <button class="window-btn close" id="btn-close-bulk-change-tags" style="font-size: 16px;">✕</button>
+          </div>
+
+          <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-main);">Nhập tags (cách nhau bởi dấu phẩy):</label>
+            <input type="text" id="bulk-change-tags-input" class="form-control" placeholder="Ví dụ: Ads, Facebook, 2026..." style="width: 100%; height: 38px; padding: 0 12px; font-size: 13px; box-sizing: border-box;">
+
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="bulk_tag_mode" value="replace" checked> Thay thế toàn bộ tags cũ bằng tags mới
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="bulk_tag_mode" value="append"> Thêm vào tags hiện có (giữ nguyên tag cũ)
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="radio" name="bulk_tag_mode" value="remove"> Xóa các tags này khỏi profiles đã chọn
+              </label>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="padding: 14px 20px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color);">
+            <button type="button" id="btn-cancel-bulk-tags" style="background: none; border: none; color: #0284c7; font-size: 13.5px; font-weight: 600; cursor: pointer; padding: 6px 12px;">Cancel</button>
+            <button type="button" id="btn-submit-bulk-tags" class="btn btn-primary" style="height: 36px; padding: 0 24px; background: #0284c7; border: none; border-radius: 4px; color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer;">OK</button>
+          </div>
+        </div>
+      </div>
+
       <!-- MODAL: Cập nhật phiên bản trình duyệt hàng loạt -->
       <div class="modal-overlay" id="modal-bulk-update-version-dialog">
         <div class="modal-dialog" style="width: 440px; max-width: 95%;">
@@ -689,6 +778,23 @@ export class ProfilesViewComponent {
       this.filter.group = e.target.value;
       this.currentPage = 1;
       this.renderTableRows();
+    });
+
+    this.container.querySelector('#filter-tag')?.addEventListener('change', (e) => {
+      this.filter.tag = e.target.value;
+      this.currentPage = 1;
+      this.renderTableRows();
+    });
+
+    this.container.querySelector('.btn-header-filter')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const selectTag = this.container.querySelector('#filter-tag');
+      if (selectTag) {
+        selectTag.focus();
+        if (typeof selectTag.showPicker === 'function') {
+          try { selectTag.showPicker(); } catch (_) {}
+        }
+      }
     });
 
     this.container.querySelector('#btn-sort-name')?.addEventListener('click', (e) => {
@@ -1409,6 +1515,84 @@ export class ProfilesViewComponent {
       }
     });
 
+    // 3b. Thay đổi tags hàng loạt
+    const modalBulkTags = this.container.querySelector('#modal-bulk-change-tags-dialog');
+    const inputBulkTags = this.container.querySelector('#bulk-change-tags-input');
+    const btnCloseBulkTags = this.container.querySelector('#btn-close-bulk-change-tags');
+    const btnCancelBulkTags = this.container.querySelector('#btn-cancel-bulk-tags');
+    const btnSubmitBulkTags = this.container.querySelector('#btn-submit-bulk-tags');
+
+    const closeBulkTagsModal = () => {
+      if (modalBulkTags) modalBulkTags.classList.remove('active');
+    };
+
+    modalBulkTags?.addEventListener('click', (e) => {
+      if (e.target === modalBulkTags) closeBulkTagsModal();
+    });
+    btnCloseBulkTags?.addEventListener('click', closeBulkTagsModal);
+    btnCancelBulkTags?.addEventListener('click', closeBulkTagsModal);
+
+    this.container.querySelector('#btn-bulk-change-tags')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.closeAllBulkDropdowns();
+      if (this.selectedIds.size === 0) {
+        alert('Vui lòng chọn profile cần thay đổi tags.');
+        return;
+      }
+      if (inputBulkTags) inputBulkTags.value = '';
+      if (modalBulkTags) modalBulkTags.classList.add('active');
+    });
+
+    btnSubmitBulkTags?.addEventListener('click', async () => {
+      const mode = modalBulkTags?.querySelector('input[name="bulk_tag_mode"]:checked')?.value || 'replace';
+      const inputVal = inputBulkTags ? inputBulkTags.value.trim() : '';
+      const inputTags = inputVal ? inputVal.split(/[,;]+/).map(t => t.trim()).filter(Boolean) : [];
+      const targetIds = Array.from(this.selectedIds);
+
+      try {
+        btnSubmitBulkTags.disabled = true;
+        btnSubmitBulkTags.innerText = 'Đang lưu...';
+
+        await Promise.all(targetIds.map(async (id) => {
+          if (!window.api?.updateProfile) return;
+          const p = this.profiles.find(x => x.id === id);
+          let currentTags = [];
+          if (p) {
+            if (Array.isArray(p.tags)) {
+              currentTags = p.tags.map(t => String(t).trim()).filter(Boolean);
+            } else if (typeof p.tags === 'string' && p.tags.trim()) {
+              currentTags = p.tags.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+            }
+          }
+
+          let newTagsList = [];
+          if (mode === 'replace') {
+            newTagsList = inputTags;
+          } else if (mode === 'append') {
+            newTagsList = Array.from(new Set([...currentTags, ...inputTags]));
+          } else if (mode === 'remove') {
+            const removeSet = new Set(inputTags.map(t => t.toLowerCase()));
+            newTagsList = currentTags.filter(t => !removeSet.has(t.toLowerCase()));
+          }
+
+          return window.api.updateProfile(id, { tags: newTagsList.join(', ') });
+        }));
+
+        closeBulkTagsModal();
+        await this.loadProfiles();
+        if (window.api?.getTags) {
+          const allTags = await window.api.getTags();
+          this.setTags(allTags);
+        }
+        alert(`Đã cập nhật tags cho ${targetIds.length} profile.`);
+      } catch (err) {
+        alert('Lỗi thay đổi tags: ' + err.message);
+      } finally {
+        btnSubmitBulkTags.disabled = false;
+        btnSubmitBulkTags.innerText = 'OK';
+      }
+    });
+
     // 4. Cập nhật phiên bản trình duyệt hàng loạt (Hình 4)
     const modalBulkVersion = this.container.querySelector('#modal-bulk-update-version-dialog');
     const selectBulkVersion = this.container.querySelector('#bulk-update-version-select');
@@ -1795,6 +1979,57 @@ export class ProfilesViewComponent {
       }
     });
 
+    // Modal Edit Tags Events
+    const btnCloseTags = this.container.querySelector('#btn-close-edit-tags');
+    const btnCancelTags = this.container.querySelector('#btn-cancel-edit-tags');
+    const btnSaveTags = this.container.querySelector('#btn-save-edit-tags');
+    const btnClearTags = this.container.querySelector('#btn-clear-tags');
+    const inputTagsVal = this.container.querySelector('#edit-tags-input-value');
+
+    const closeTagsModal = () => this.closeEditTagsModal();
+    const modalTags = this.container.querySelector('#modal-edit-tags');
+    modalTags?.addEventListener('click', (e) => {
+      if (e.target === modalTags) closeTagsModal();
+    });
+    btnCloseTags?.addEventListener('click', closeTagsModal);
+    btnCancelTags?.addEventListener('click', closeTagsModal);
+    btnClearTags?.addEventListener('click', () => {
+      if (inputTagsVal) inputTagsVal.value = '';
+    });
+
+    btnSaveTags?.addEventListener('click', async () => {
+      if (!this.currentEditingTagsProfileId) return;
+      const newTags = inputTagsVal ? inputTagsVal.value.trim() : '';
+
+      try {
+        btnSaveTags.disabled = true;
+        btnSaveTags.innerText = 'Đang lưu...';
+        if (window.api && window.api.updateProfile) {
+          await window.api.updateProfile(this.currentEditingTagsProfileId, {
+            tags: newTags
+          });
+          closeTagsModal();
+          await this.loadProfiles();
+          if (window.api.getTags) {
+            const allTags = await window.api.getTags();
+            this.setTags(allTags);
+          }
+        }
+      } catch (err) {
+        alert('Lỗi lưu tags: ' + err.message);
+      } finally {
+        btnSaveTags.disabled = false;
+        btnSaveTags.innerText = 'Lưu thay đổi';
+      }
+    });
+
+    inputTagsVal?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        btnSaveTags?.click();
+      }
+    });
+
     // Table row event delegation
     this.container.querySelector('#profiles-tbody')?.addEventListener('click', async (e) => {
       // Copy Proxy
@@ -1842,6 +2077,30 @@ export class ProfilesViewComponent {
           const p = this.profiles.find(item => item.id === id);
           if (p) {
             this.openEditNoteModal(p.id, p.name, p.notes || p.note || '');
+            return;
+          }
+        }
+      }
+
+      // Sửa Tag
+      const btnEditTag = e.target.closest('.btn-edit-tag');
+      if (btnEditTag) {
+        e.stopPropagation();
+        const id = btnEditTag.getAttribute('data-id');
+        const name = btnEditTag.getAttribute('data-name');
+        const tagsVal = btnEditTag.getAttribute('data-tags') || '';
+        this.openEditTagsModal(id, name, tagsVal);
+        return;
+      }
+
+      const colTags = e.target.closest('td.col-tags');
+      if (colTags && !e.target.closest('input, a')) {
+        const row = colTags.closest('tr');
+        const id = row?.getAttribute('data-id');
+        if (id) {
+          const p = this.profiles.find(item => item.id === id);
+          if (p) {
+            this.openEditTagsModal(p.id, p.name, p.tags || '');
             return;
           }
         }
@@ -1946,6 +2205,9 @@ export class ProfilesViewComponent {
       </button>
       <button class="context-menu-item" data-action="note">
         <span class="menu-icon">📝</span> Ghi chú
+      </button>
+      <button class="context-menu-item" data-action="tags">
+        <span class="menu-icon">🏷️</span> Gán / Sửa Tags
       </button>
       <button class="context-menu-item" data-action="edit">
         <span class="menu-icon">✏️</span> Sửa
@@ -2109,6 +2371,11 @@ export class ProfilesViewComponent {
         if (p) {
           this.openEditNoteModal(p.id, p.name, p.notes || p.note || '');
         }
+      } else if (action === 'tags') {
+        const p = this.profiles.find(x => x.id === profileId);
+        if (p) {
+          this.openEditTagsModal(p.id, p.name, p.tags || '');
+        }
       } else if (action === 'edit') {
         const p = this.profiles.find(x => x.id === profileId);
         if (p) {
@@ -2233,6 +2500,60 @@ export class ProfilesViewComponent {
     this.currentEditingNoteProfileId = null;
   }
 
+  openEditTagsModal(profileId, profileName, currentTags) {
+    const modal = this.container.querySelector('#modal-edit-tags');
+    const nameEl = this.container.querySelector('#edit-tags-profile-name');
+    const inputEl = this.container.querySelector('#edit-tags-input-value');
+    const suggEl = this.container.querySelector('#edit-tags-suggestions');
+    if (!modal) return;
+
+    this.currentEditingTagsProfileId = profileId;
+    if (nameEl) nameEl.innerText = profileName || `Profile ${profileId}`;
+    if (inputEl) {
+      inputEl.value = currentTags || '';
+    }
+
+    if (suggEl) {
+      suggEl.innerHTML = '';
+      if (this.tags && this.tags.length > 0) {
+        const titleSpan = document.createElement('span');
+        titleSpan.style.cssText = 'font-size: 12px; color: var(--text-muted); margin-right: 4px;';
+        titleSpan.textContent = 'Gợi ý:';
+        suggEl.appendChild(titleSpan);
+
+        this.tags.forEach(t => {
+          const tagName = typeof t === 'object' ? t.name : t;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn-quick-tag';
+          btn.style.cssText = 'font-size: 11.5px; padding: 2px 8px; border-radius: 12px; border: 1px dashed var(--border-color); background: var(--bg-hover); color: var(--text-main); cursor: pointer; transition: all 0.15s;';
+          btn.textContent = '+ ' + tagName;
+          btn.onclick = () => {
+            if (!inputEl) return;
+            const cur = inputEl.value.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+            if (!cur.includes(tagName)) {
+              cur.push(tagName);
+              inputEl.value = cur.join(', ');
+            }
+          };
+          suggEl.appendChild(btn);
+        });
+      }
+    }
+
+    modal.classList.add('active');
+    setTimeout(() => {
+      inputEl?.focus();
+      inputEl?.setSelectionRange(inputEl.value.length, inputEl.value.length);
+    }, 50);
+  }
+
+  closeEditTagsModal() {
+    const modal = this.container.querySelector('#modal-edit-tags');
+    if (modal) modal.classList.remove('active');
+    this.currentEditingTagsProfileId = null;
+  }
+
   async loadProfiles() {
     if (!window.api || !window.api.getProfiles) return;
     try {
@@ -2243,22 +2564,15 @@ export class ProfilesViewComponent {
       }
       this.updateSortIndicator();
       this.renderTableRows();
+
+      if (window.api && window.api.getTags) {
+        window.api.getTags().then(tags => {
+          this.setTags(tags);
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Lỗi tải profiles:', err);
     }
-  }
-
-  setGroups(groups) {
-    this.groups = groups || ['Default group'];
-    const select = this.container.querySelector('#filter-group');
-    if (!select) return;
-    select.innerHTML = '<option value="">--- Chọn nhóm ---</option>';
-    this.groups.forEach(g => {
-      const opt = document.createElement('option');
-      opt.value = g;
-      opt.textContent = g;
-      select.appendChild(opt);
-    });
   }
 
   setLicenseStatus(status) {
@@ -2387,6 +2701,17 @@ export class ProfilesViewComponent {
       }
       if (this.filter.group && p.group !== this.filter.group) {
         return false;
+      }
+      if (this.filter.tag) {
+        let pTags = [];
+        if (Array.isArray(p.tags)) {
+          pTags = p.tags.map(t => (typeof t === 'string' ? t : t?.name || '').trim().toLowerCase());
+        } else if (typeof p.tags === 'string' && p.tags.trim()) {
+          pTags = p.tags.split(/[,;]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+        }
+        if (!pTags.includes(this.filter.tag.trim().toLowerCase())) {
+          return false;
+        }
       }
       return true;
     });
@@ -2547,8 +2872,8 @@ export class ProfilesViewComponent {
         <td style="color: var(--text-muted); font-size: 12.5px;">
           <span title="Lần chạy gần nhất">⏱ ${this.escape(p.lastRun || 'Chưa chạy')}</span>
         </td>
-        <td>
-          <span style="font-size: 12px; color: #0284c7; font-weight: 500;">${this.escape(p.tags || '')}</span>
+        <td class="col-tags">
+          ${this.getTagDisplay(p.tags, p.id, p.name)}
         </td>
         <td class="col-notes">
           ${this.getNoteDisplay(p.notes || p.note || '', p.id, p.name)}
@@ -2951,6 +3276,69 @@ export class ProfilesViewComponent {
   }
 
 
+
+  getTagDisplay(tags, profileId, profileName) {
+    let tagList = [];
+    if (Array.isArray(tags)) {
+      tagList = tags.map(t => (typeof t === 'string' ? t : t?.name || '').trim()).filter(Boolean);
+    } else if (typeof tags === 'string' && tags.trim()) {
+      tagList = tags.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+    }
+    const tagsRaw = tagList.join(', ');
+
+    if (tagList.length === 0) {
+      return `
+        <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="" title="Click để gán tag" style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text-muted); opacity: 0.65; transition: opacity 0.15s;">
+          <span style="font-size: 11px;">🏷️</span>
+          <span style="font-size: 11.5px; font-style: italic;">+ Thêm tag</span>
+        </div>
+      `;
+    }
+
+    const badgeColors = [
+      { bg: 'rgba(2, 132, 199, 0.12)', text: '#0284c7', border: 'rgba(2, 132, 199, 0.25)' },
+      { bg: 'rgba(16, 185, 129, 0.12)', text: '#10b981', border: 'rgba(16, 185, 129, 0.25)' },
+      { bg: 'rgba(139, 92, 246, 0.12)', text: '#8b5cf6', border: 'rgba(139, 92, 246, 0.25)' },
+      { bg: 'rgba(245, 158, 11, 0.12)', text: '#d97706', border: 'rgba(245, 158, 11, 0.25)' },
+    ];
+
+    const badges = tagList.slice(0, 3).map((t, idx) => {
+      const col = badgeColors[idx % badgeColors.length];
+      return `<span class="tag-pill" style="display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 12px; background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border}; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis;">${this.escape(t)}</span>`;
+    }).join(' ');
+
+    const extra = tagList.length > 3 ? `<span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">+${tagList.length - 3}</span>` : '';
+
+    return `
+      <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="${this.escape(tagsRaw)}" title="${this.escape(tagsRaw)} (Click để sửa)" style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; flex-wrap: wrap;">
+        ${badges}
+        ${extra}
+        <button class="proxy-action-btn" type="button" style="pointer-events: none; padding: 2px;" data-tooltip="Sửa tag">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+  }
+
+  setTags(tags) {
+    this.tags = tags || [];
+    const select = this.container?.querySelector('#filter-tag');
+    if (select) {
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">--- Chọn tag ---</option>';
+      this.tags.forEach(t => {
+        const name = typeof t === 'object' ? t.name : t;
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === currentVal) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+  }
 
   setGroups(groups) {
     this.groups = groups || [];

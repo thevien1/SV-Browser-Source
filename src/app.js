@@ -66,7 +66,8 @@ class App {
     });
 
     this.groupsView = new GroupsViewComponent({
-      onGroupsChanged: () => this.loadGroups()
+      onGroupsChanged: () => this.loadGroups(),
+      onTagsChanged: () => this.loadTags()
     });
 
     this.extensionsView = new ExtensionsViewComponent();
@@ -147,6 +148,7 @@ class App {
     // 2. Tải dữ liệu ban đầu
     await this.checkAndDisplayLicense();
     await this.loadGroups();
+    await this.loadTags();
     await this.profilesView.loadProfiles();
     await this.settingsView.loadData(this.licenseStatus);
 
@@ -290,7 +292,15 @@ class App {
     if (!window.api || !window.api.getTags) return;
     try {
       const tags = await window.api.getTags();
-      this.modals.setTags(tags);
+      if (this.profilesView && this.profilesView.setTags) {
+        this.profilesView.setTags(tags);
+      }
+      if (this.modals && this.modals.setTags) {
+        this.modals.setTags(tags);
+      }
+      if (this.groupsView && this.groupsView.loadTags) {
+        this.groupsView.loadTags();
+      }
     } catch (e) {
       console.error(e);
     }
@@ -345,8 +355,9 @@ class App {
       this.trashView.loadTrash();
     } else if (tab === 'groups') {
       if (viewGroups) viewGroups.style.display = 'flex';
-      if (titleEl) titleEl.innerText = 'Quản lý nhóm';
+      if (titleEl) titleEl.innerText = 'Quản lý Nhóm & Tags';
       this.groupsView.loadGroups();
+      this.groupsView.loadTags();
     } else if (tab === 'extensions') {
       if (viewExtensions) viewExtensions.style.display = 'flex';
       if (titleEl) titleEl.innerText = 'Quản lý Extensions';

@@ -1945,6 +1945,32 @@ td.col-notes:hover .proxy-action-btn {
   color: #38bdf8;
 }
 
+td.col-tags {
+  cursor: pointer;
+}
+
+td.col-tags:hover .tag-row-wrapper {
+  opacity: 1 !important;
+}
+
+td.col-tags:hover .proxy-action-btn {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.dark td.col-tags:hover .proxy-action-btn {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.tag-pill {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.tag-pill:hover {
+  transform: translateY(-1px);
+}
+
 /* ==========================================================================
    EDIT PROFILE MODAL, CLONE MODAL, AND COLOR PICKER
    ========================================================================== */
