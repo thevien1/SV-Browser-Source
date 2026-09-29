@@ -286,9 +286,20 @@ class App {
     }
   }
 
+  async loadTags() {
+    if (!window.api || !window.api.getTags) return;
+    try {
+      const tags = await window.api.getTags();
+      this.modals.setTags(tags);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async refreshData() {
     await this.profilesView.loadProfiles();
     await this.loadGroups();
+    await this.loadTags();
     await this.checkAndDisplayLicense();
   }
 

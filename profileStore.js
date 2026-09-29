@@ -18,6 +18,7 @@ class ProfileStore {
     this.profilesFilePath = path.join(this.dataDir, 'profiles.json');
     this.trashFilePath = path.join(this.dataDir, 'trash.json');
     this.groupsFilePath = path.join(this.dataDir, 'groups.json');
+    this.tagsFilePath = path.join(this.dataDir, 'tags.json');
     this.settingsFilePath = path.join(this.dataDir, 'settings.json');
 
     // Mặc định lưu profiles_data tại thư mục có thể ghi (UserData hoặc cạnh app nếu dev)
@@ -34,6 +35,7 @@ class ProfileStore {
     this.profiles = [];
     this.trash = [];
     this.groups = ['Default group'];
+    this.tags = [];
     const appInstallDir = isAsar ? path.dirname(process.execPath) : path.resolve(__dirname);
 
     this.settings = {
@@ -164,6 +166,31 @@ class ProfileStore {
       this.groups = [
         { id: 'default', name: 'Default group', order: 0, creator: this.getDefaultCreator(), createdAt: Date.now() }
       ];
+    }
+
+    try {
+      if (fs.existsSync(this.tagsFilePath)) {
+        const rawTags = JSON.parse(fs.readFileSync(this.tagsFilePath, 'utf8'));
+        this.tags = Array.isArray(rawTags) ? rawTags : [];
+      } else {
+        const tagSet = new Set(['US', 'Facebook', 'VIP', 'TikTok', 'Google', 'Zalo']);
+        for (const p of this.profiles) {
+          if (Array.isArray(p.tags)) {
+            p.tags.forEach(t => { if (typeof t === 'string' && t.trim()) tagSet.add(t.trim()); });
+          } else if (typeof p.tags === 'string' && p.tags.trim()) {
+            p.tags.split(/[,;\s]+/).forEach(t => { if (t.trim()) tagSet.add(t.trim()); });
+          }
+        }
+        this.tags = Array.from(tagSet).map(name => ({
+          id: this.generateUuid(),
+          name,
+          color: '#0284c7',
+          createdAt: Date.now()
+        }));
+        this.saveTags();
+      }
+    } catch (e) {
+      this.tags = [];
     }
   }
 
@@ -632,7 +659,11 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     const newProfile = {
       id,
       name: data.name || `Profile ${id.substring(0, 5)}`,
-      group: data.group || 'Default group',
+      group: (() => {
+        const gName = (data.group && typeof data.group === 'string' && data.group.trim()) ? data.group.trim() : (data.group_name || 'Default group');
+        if (gName && gName.toLowerCase() !== 'default group') this.addGroup(gName);
+        return gName;
+      })(),
       group_id: data.group_id || 'all',
       browserType: data.browserType || 'chrome',
       browser: {
@@ -650,7 +681,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       proxyCountry: proxyCountry.toLowerCase(),
       status: 'ready',
       lastRun: 'Chưa chạy',
-      tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [data.tags] : []),
+      tags: this.ensureTags(data.tags || data.tag || []),
       note: data.note || data.notes || '',
       notes: data.note || data.notes || '',
       userAgent: data.userAgent && data.userAgent.trim() ? data.userAgent.trim() : defaultUa,
@@ -681,6 +712,13 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       proxyList = []
     } = options;
 
+    const groupName = (group && typeof group === 'string' && group.trim()) ? group.trim() : 'Default group';
+    if (groupName && groupName.toLowerCase() !== 'default group') {
+      this.addGroup(groupName);
+    }
+
+    const cleanTags = this.ensureTags(options.tags || options.tag || []);
+
     const majorVer = version.split('.')[0] || '151';
     let defaultUa = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${majorVer}.0.0.0 Safari/537.36 Edg/${majorVer}.0.0.0`;
     if (os.includes('Mac')) {
@@ -705,7 +743,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       const p = {
         id,
         name: `${namePrefix} ${numStr}`,
-        group,
+        group: groupName,
         group_id: 'all',
         browserType,
         browser: {
@@ -719,9 +757,9 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         proxyCountry: proxyCountry.toLowerCase(),
         status: 'ready',
         lastRun: 'Chưa chạy',
-        tags: proxy !== 'No Proxy' ? ['US'] : [],
-        note: '',
-        notes: '',
+        tags: cleanTags.length > 0 ? [...cleanTags] : (proxy !== 'No Proxy' ? ['US'] : []),
+        note: options.note || options.notes || '',
+        notes: options.note || options.notes || '',
         userAgent: defaultUa,
         startUrl: options.startUrl || '',
         storage_path: profileDir,
@@ -807,6 +845,17 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         updateData.notes = updateData.note;
       } else if (updateData.notes !== undefined && updateData.note === undefined) {
         updateData.note = updateData.notes;
+      }
+      if (updateData.tags !== undefined) {
+        updateData.tags = this.ensureTags(updateData.tags);
+      } else if (updateData.tag !== undefined) {
+        updateData.tags = this.ensureTags(updateData.tag);
+      }
+      if (updateData.group && typeof updateData.group === 'string' && updateData.group.trim()) {
+        updateData.group = updateData.group.trim();
+        if (updateData.group.toLowerCase() !== 'default group') {
+          this.addGroup(updateData.group);
+        }
       }
       this.profiles[index] = { ...this.profiles[index], ...updateData, updatedAt: Date.now() };
       const storagePath = this.settings.localStoragePath || this.localStorageDefault;
@@ -1080,6 +1129,77 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     });
     if (updatedProfiles) this.saveProfiles();
     return { success: true };
+  }
+
+  // =========================================================================
+  // TAGS MANAGEMENT
+  // =========================================================================
+  saveTags() {
+    try {
+      fs.writeFileSync(this.tagsFilePath, JSON.stringify(this.tags, null, 2), 'utf8');
+    } catch (e) {
+      console.error('Lỗi lưu tags.json:', e);
+    }
+  }
+
+  getTags() {
+    return this.tags || [];
+  }
+
+  addTag(data) {
+    const name = typeof data === 'string' ? data.trim() : (data?.name || '').trim();
+    if (!name) return null;
+    const existing = this.tags.find(t => (t.name || '').toLowerCase() === name.toLowerCase());
+    if (existing) return existing;
+
+    const newTag = {
+      id: (typeof data === 'object' && data?.id) ? data.id : this.generateUuid(),
+      name,
+      color: (typeof data === 'object' && data?.color) ? data.color : '#0284c7',
+      createdAt: Date.now()
+    };
+    this.tags.push(newTag);
+    this.saveTags();
+    return newTag;
+  }
+
+  deleteTag(idOrName) {
+    const idx = this.tags.findIndex(t => t.id === idOrName || (t.name && t.name.toLowerCase() === idOrName.toLowerCase()));
+    if (idx !== -1) {
+      const removed = this.tags.splice(idx, 1)[0];
+      this.saveTags();
+      return removed;
+    }
+    return null;
+  }
+
+  ensureTags(tagInput) {
+    if (!tagInput) return [];
+    let list = [];
+    if (Array.isArray(tagInput)) {
+      list = tagInput;
+    } else if (typeof tagInput === 'string') {
+      list = tagInput.split(/[,;\n\r]+/);
+    } else if (typeof tagInput === 'object' && tagInput.name) {
+      list = [tagInput.name];
+    }
+
+    const cleanNames = [];
+    for (const item of list) {
+      const rawName = typeof item === 'string' ? item : (item?.name || '');
+      const tagName = rawName.trim();
+      if (!tagName) continue;
+
+      let existing = this.tags.find(t => (t.name || '').toLowerCase() === tagName.toLowerCase());
+      if (!existing) {
+        existing = this.addTag(tagName);
+      }
+      const finalName = existing?.name || tagName;
+      if (!cleanNames.includes(finalName)) {
+        cleanNames.push(finalName);
+      }
+    }
+    return cleanNames;
   }
 
   /**

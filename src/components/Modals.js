@@ -26,7 +26,7 @@ export class ModalsComponent {
 
   setGroups(groups) {
     this.groups = groups || [];
-    ['#add-profile-group', '#edit-profile-group'].forEach(selector => {
+    ['#add-profile-group', '#edit-profile-group', '#batch-create-group'].forEach(selector => {
       const select = this.container?.querySelector(selector);
       if (select) {
         const currentVal = select.value;
@@ -36,11 +36,30 @@ export class ModalsComponent {
           const opt = document.createElement('option');
           opt.value = name;
           opt.textContent = name;
-          if (name === currentVal || name === 'Default group') opt.selected = true;
+          if (name === currentVal || (!currentVal && name === 'Default group')) opt.selected = true;
           select.appendChild(opt);
         });
+        if (!select.value && select.options.length > 0) {
+          select.selectedIndex = 0;
+        }
       }
     });
+  }
+
+  setTags(tags) {
+    this.tags = tags || [];
+    const datalist = this.container?.querySelector('#list-existing-tags');
+    if (datalist) {
+      datalist.innerHTML = '';
+      this.tags.forEach(t => {
+        const name = typeof t === 'string' ? t : t.name;
+        if (name) {
+          const opt = document.createElement('option');
+          opt.value = name;
+          datalist.appendChild(opt);
+        }
+      });
+    }
   }
 
   render() {
@@ -462,6 +481,30 @@ export class ModalsComponent {
             </div>
             <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.4;">
               Các profile sẽ được tạo theo tiền tố kèm theo số thứ tự phía sau. Ví dụ: tên tố là "Hello", các profile sẽ được tạo: Hello 001, Hello 002...
+            </div>
+
+            <!-- Row 1b: Nhóm & Tags -->
+            <div style="margin-bottom: 18px;">
+              <div style="display: flex; gap: 14px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="font-size: 13px; font-weight: 600; margin: 0; display: block;">Nhóm</label>
+                    <button type="button" id="btn-quick-new-group" style="background: none; border: none; color: #0284c7; font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 0;">+ Nhóm mới</button>
+                  </div>
+                  <select class="form-control" id="batch-create-group" style="height: 38px; cursor: pointer;">
+                    <option value="Default group" selected>Default group</option>
+                  </select>
+                  <input type="text" class="form-control" id="batch-create-new-group-input" placeholder="Nhập tên nhóm mới..." style="display: none; height: 38px; margin-top: 6px;">
+                </div>
+                <div style="flex: 1.3;">
+                  <label style="font-size: 13px; font-weight: 600; margin-bottom: 6px; display: block;">Tags (Thẻ)</label>
+                  <input type="text" class="form-control" id="batch-create-tags" placeholder="Nhập tags cách nhau dấu phẩy (vd: VIP, US)..." list="list-existing-tags" style="height: 38px;">
+                  <datalist id="list-existing-tags"></datalist>
+                </div>
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 5px;">
+                Tag mới nhập sẽ tự động được thêm vào hệ thống để phục vụ bộ lọc sau này.
+              </div>
             </div>
 
             <!-- Row 2: Trình duyệt & Version -->
@@ -1394,6 +1437,23 @@ export class ModalsComponent {
       });
     });
 
+    // Toggle nhập nhóm mới trong modal batch create
+    const btnQuickNewGroup = this.container.querySelector('#btn-quick-new-group');
+    const newGroupInput = this.container.querySelector('#batch-create-new-group-input');
+    btnQuickNewGroup?.addEventListener('click', () => {
+      if (newGroupInput) {
+        const isHidden = newGroupInput.style.display === 'none';
+        newGroupInput.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+          newGroupInput.focus();
+          btnQuickNewGroup.innerText = '✕ Hủy';
+        } else {
+          newGroupInput.value = '';
+          btnQuickNewGroup.innerText = '+ Nhóm mới';
+        }
+      }
+    });
+
     // Submit "+ Tạo profile" (Hàng loạt - Ảnh 3)
     this.container.querySelector('#btn-submit-batch-create')?.addEventListener('click', async () => {
       await this.handleBatchCreateProfile();
@@ -1884,6 +1944,19 @@ export class ModalsComponent {
   async handleBatchCreateProfile() {
     const count = parseInt(this.container.querySelector('#batch-create-count')?.value) || 1;
     const prefix = this.container.querySelector('#batch-create-prefix')?.value.trim() || 'New profile';
+
+    // Group
+    const newGroupInput = this.container.querySelector('#batch-create-new-group-input');
+    let group = '';
+    if (newGroupInput && newGroupInput.style.display !== 'none' && newGroupInput.value.trim()) {
+      group = newGroupInput.value.trim();
+    } else {
+      group = this.container.querySelector('#batch-create-group')?.value?.trim() || 'Default group';
+    }
+
+    // Tags
+    const tagsInput = this.container.querySelector('#batch-create-tags')?.value?.trim() || '';
+
     const browserType = this.container.querySelector('#batch-browser-type')?.value || 'chrome';
     const version = this.container.querySelector('#batch-browser-version')?.value || '151.0.7922.76';
     const os = this.batchSelectedOs || 'Windows';
@@ -1895,6 +1968,8 @@ export class ModalsComponent {
         await window.api.batchCreateProfiles({
           count,
           namePrefix: prefix,
+          group,
+          tags: tagsInput,
           browserType,
           version,
           os,
@@ -1904,6 +1979,14 @@ export class ModalsComponent {
         this.closeModal('modal-batch-create');
         const proxyTextarea = this.container.querySelector('#batch-create-proxy');
         if (proxyTextarea) proxyTextarea.value = '';
+        if (newGroupInput) {
+          newGroupInput.value = '';
+          newGroupInput.style.display = 'none';
+        }
+        const btnNewGroup = this.container.querySelector('#btn-quick-new-group');
+        if (btnNewGroup) btnNewGroup.innerText = '+ Nhóm mới';
+        const tagsEl = this.container.querySelector('#batch-create-tags');
+        if (tagsEl) tagsEl.value = '';
         this.onProfileCreated();
       } catch (err) {
         alert('Lỗi tạo hàng loạt profile: ' + err.message);
@@ -1998,6 +2081,19 @@ export class ModalsComponent {
       } else if (id === 'modal-batch-create') {
         const countInput = this.container.querySelector('#batch-create-count');
         if (countInput) countInput.value = defaultCount || 1;
+        if (window.api && window.api.getGroups) {
+          window.api.getGroups().then(groups => this.setGroups(groups)).catch(() => {});
+        }
+        if (window.api && window.api.getTags) {
+          window.api.getTags().then(tags => this.setTags(tags)).catch(() => {});
+        }
+        const newGroupInput = this.container.querySelector('#batch-create-new-group-input');
+        if (newGroupInput) {
+          newGroupInput.value = '';
+          newGroupInput.style.display = 'none';
+        }
+        const btnNewGroup = this.container.querySelector('#btn-quick-new-group');
+        if (btnNewGroup) btnNewGroup.innerText = '+ Nhóm mới';
       } else if (id === 'modal-license') {
         const keyInput = this.container.querySelector('#input-license-key');
         if (keyInput) {

@@ -71,6 +71,11 @@ contextBridge.exposeInMainWorld('api', {
   updateGroup: (id, data) => ipcRenderer.invoke('groups:update', id, data),
   deleteGroup: (id) => ipcRenderer.invoke('groups:delete', id),
 
+  // Tags
+  getTags: () => ipcRenderer.invoke('tags:get-all'),
+  addTag: (data) => ipcRenderer.invoke('tags:add', data),
+  deleteTag: (id) => ipcRenderer.invoke('tags:delete', id),
+
   // Extensions
   getExtensions: () => ipcRenderer.invoke('extensions:get-all'),
   addExtensionDialog: () => ipcRenderer.invoke('extensions:add-dialog'),

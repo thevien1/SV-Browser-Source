@@ -425,7 +425,7 @@ class GpmApiServer {
         // 5. CHI TIẾT 1 PROFILE (GET ONE PROFILE)
         // Chuẩn GPMLogin: GET /api/v1/profiles/{id}
         const getOneMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-]+)$/i);
-        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note'].includes(getOneMatch[1].toLowerCase())) {
+        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note', 'update-tags', 'tags', 'tag'].includes(getOneMatch[1].toLowerCase())) {
           const profileId = getOneMatch[1];
           const p = this.profileStore.getProfile(profileId);
           if (!p) {
@@ -483,7 +483,7 @@ class GpmApiServer {
             os: os,
             proxy: proxy,
             note: body.note || body.notes || '',
-            tags: body.tags || [],
+            tags: body.tags || body.tag || [],
             fingerprint: body.fingerprint
           });
 
@@ -535,6 +535,37 @@ class GpmApiServer {
             success: true,
             data: updated,
             message: 'Update note successfully',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
+        // 7b. CẬP NHẬT TAGS RIÊNG (UPDATE TAGS)
+        // Chuẩn GPMLogin: POST hoặc GET /api/v1/profiles/update-tags hoặc /api/v3/profiles/update-tags
+        const updateTagsMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/(?:update-tags|tags?)(?:\/([^\/]+))?$/i);
+        if (updateTagsMatch && (req.method === 'POST' || req.method === 'GET' || req.method === 'PUT')) {
+          let body = query;
+          if (req.method === 'POST' || req.method === 'PUT') {
+            const rawBody = await this.readBody(req);
+            try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+          const profileId = extractId(updateTagsMatch) || body.id || body.profile_id;
+          if (!profileId) {
+            return sendJson(400, { success: false, data: null, message: 'Thiếu ID của profile cần cập nhật tags', sender: 'SV Browser v5.0.8-stable' });
+          }
+
+          const rawTags = body.tags !== undefined ? body.tags : (body.tag !== undefined ? body.tag : []);
+          const cleanTags = this.profileStore.ensureTags(rawTags);
+          const updated = this.profileStore.updateProfile(profileId, {
+            tags: cleanTags
+          });
+          if (!updated) {
+            return sendJson(404, { success: false, data: null, message: 'Profile không tồn tại', sender: 'SV Browser v5.0.8-stable' });
+          }
+
+          return sendJson(200, {
+            success: true,
+            data: updated,
+            message: 'Update tags successfully',
             sender: 'SV Browser v5.0.8-stable'
           });
         }
@@ -733,6 +764,41 @@ class GpmApiServer {
           return sendJson(200, {
             success: true,
             data: null,
+            message: 'OK',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
+        // =========================================================================
+        // B2. TAGS ENDPOINTS
+        // =========================================================================
+
+        // DANH SÁCH TAGS: GET /api/v1/tags hoặc GET /api/v3/tags
+        const tagsListMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?tags?$/i);
+        if (tagsListMatch && req.method === 'GET') {
+          const tags = this.profileStore.getTags();
+          return sendJson(200, {
+            success: true,
+            data: tags,
+            message: 'OK',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
+        // TẠO TAG: POST /api/v1/tags/create hoặc POST /api/v1/tags
+        const createTagMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?tags?(?:\/create)?$/i) && req.method === 'POST';
+        if (createTagMatch) {
+          let body = query;
+          const rawBody = await this.readBody(req);
+          try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          const name = (body.name || body.tag || '').toString().trim();
+          if (!name) {
+            return sendJson(400, { success: false, data: null, message: 'Tên tag không được để trống', sender: 'SV Browser v5.0.8-stable' });
+          }
+          const tag = this.profileStore.addTag({ name, color: body.color });
+          return sendJson(200, {
+            success: true,
+            data: tag,
             message: 'OK',
             sender: 'SV Browser v5.0.8-stable'
           });

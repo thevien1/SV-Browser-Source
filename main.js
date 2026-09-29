@@ -355,6 +355,19 @@ ipcMain.handle('groups:delete', async (event, id) => {
   return profileStore.deleteGroup(id);
 });
 
+// Tags IPC
+ipcMain.handle('tags:get-all', async () => {
+  return profileStore.getTags();
+});
+
+ipcMain.handle('tags:add', async (event, data) => {
+  return profileStore.addTag(data);
+});
+
+ipcMain.handle('tags:delete', async (event, id) => {
+  return profileStore.deleteTag(id);
+});
+
 // Extensions IPC
 ipcMain.handle('extensions:get-all', async () => {
   return extensionStore.getAll();
