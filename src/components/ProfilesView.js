@@ -201,8 +201,8 @@ export class ProfilesViewComponent {
         <table class="profile-table">
           <thead>
             <tr>
-              <th style="width: 48px; text-align: center;"><input type="checkbox" id="check-select-all"></th>
-              <th style="min-width: 280px; user-select: none;">
+              <th style="width: 44px; text-align: center;"><input type="checkbox" id="check-select-all"></th>
+              <th style="min-width: 210px; width: 22%; user-select: none;">
                 <div style="display: inline-flex; align-items: center; gap: 8px;">
                   <span id="btn-sort-name" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Bấm để đảo chiều sắp xếp theo Tên / STT (001 -> 050 hoặc 050 -> 001)">
                     <span>Tên profile</span>
@@ -211,10 +211,10 @@ export class ProfilesViewComponent {
                   <button type="button" id="btn-active-profiles-actions" class="btn-live-actions" title="Thao tác với profile đang mở">Thao tác với profile đang mở</button>
                 </div>
               </th>
-              <th style="min-width: 170px;">Proxy</th>
-              <th style="width: 120px;">Trạng thái</th>
-              <th style="width: 120px;">Lần chạy cuối</th>
-              <th style="width: 130px;">
+              <th style="min-width: 170px; width: 18%;">Proxy</th>
+              <th style="width: 95px; white-space: nowrap;">Trạng thái</th>
+              <th style="width: 105px; white-space: nowrap;">Lần chạy cuối</th>
+              <th style="min-width: 190px; width: 22%;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <span>Tags</span>
                   <button type="button" class="btn-header-filter" title="Lọc Tags" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 0 4px; display: flex; align-items: center;">
@@ -222,8 +222,8 @@ export class ProfilesViewComponent {
                   </button>
                 </div>
               </th>
-              <th>Ghi chú</th>
-              <th style="width: 130px; text-align: right;">
+              <th style="min-width: 130px; width: 14%;">Ghi chú</th>
+              <th style="width: 115px; text-align: right;">
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
                   <span>Thao tác</span>
                   <button type="button" id="btn-table-settings" title="Cài đặt cột" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 0; display: flex; align-items: center;">
@@ -3288,9 +3288,9 @@ export class ProfilesViewComponent {
 
     if (tagList.length === 0) {
       return `
-        <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="" title="Click để gán tag" style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text-muted); opacity: 0.65; transition: opacity 0.15s;">
-          <span style="font-size: 11px;">🏷️</span>
-          <span style="font-size: 11.5px; font-style: italic;">+ Thêm tag</span>
+        <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="" title="Click để gán tag" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted); opacity: 0.7; transition: opacity 0.15s;">
+          <span style="font-size: 12px;">🏷️</span>
+          <span style="font-size: 12px; font-style: italic;">+ Thêm tag</span>
         </div>
       `;
     }
@@ -3304,17 +3304,17 @@ export class ProfilesViewComponent {
 
     const badges = tagList.slice(0, 3).map((t, idx) => {
       const col = badgeColors[idx % badgeColors.length];
-      return `<span class="tag-pill" style="display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 12px; background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border}; white-space: nowrap; max-width: 90px; overflow: hidden; text-overflow: ellipsis;">${this.escape(t)}</span>`;
+      return `<span class="tag-pill" style="display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 12px; background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border}; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; line-height: 1.3;">${this.escape(t)}</span>`;
     }).join(' ');
 
-    const extra = tagList.length > 3 ? `<span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">+${tagList.length - 3}</span>` : '';
+    const extra = tagList.length > 3 ? `<span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">+${tagList.length - 3}</span>` : '';
 
     return `
-      <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="${this.escape(tagsRaw)}" title="${this.escape(tagsRaw)} (Click để sửa)" style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; flex-wrap: wrap;">
+      <div class="tag-row-wrapper btn-edit-tag" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-tags="${this.escape(tagsRaw)}" title="${this.escape(tagsRaw)} (Click để sửa)" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; flex-wrap: wrap;">
         ${badges}
         ${extra}
         <button class="proxy-action-btn" type="button" style="pointer-events: none; padding: 2px;" data-tooltip="Sửa tag">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9"></path>
             <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
           </svg>
