@@ -425,7 +425,7 @@ class GpmApiServer {
         // 5. CHI TIẾT 1 PROFILE (GET ONE PROFILE)
         // Chuẩn GPMLogin: GET /api/v1/profiles/{id}
         const getOneMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-]+)$/i);
-        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito'].includes(getOneMatch[1].toLowerCase())) {
+        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note'].includes(getOneMatch[1].toLowerCase())) {
           const profileId = getOneMatch[1];
           const p = this.profileStore.getProfile(profileId);
           if (!p) {
@@ -508,19 +508,55 @@ class GpmApiServer {
           });
         }
 
-        // 7. CẬP NHẬT PROFILE (UPDATE PROFILE)
+        // 7. CẬP NHẬT GHI CHÚ RIÊNG (UPDATE NOTE)
+        // Chuẩn GPMLogin: POST hoặc GET /api/v1/profiles/update-note hoặc /api/v3/profiles/update-note
+        const updateNoteMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/(?:update-note|note)(?:\/([^\/]+))?$/i);
+        if (updateNoteMatch && (req.method === 'POST' || req.method === 'GET' || req.method === 'PUT')) {
+          let body = query;
+          if (req.method === 'POST' || req.method === 'PUT') {
+            const rawBody = await this.readBody(req);
+            try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+          const profileId = extractId(updateNoteMatch) || body.id || body.profile_id;
+          if (!profileId) {
+            return sendJson(400, { success: false, data: null, message: 'Thiếu ID của profile cần cập nhật ghi chú', sender: 'SV Browser v5.0.8-stable' });
+          }
+
+          const noteVal = body.note !== undefined ? body.note : (body.notes !== undefined ? body.notes : '');
+          const updated = this.profileStore.updateProfile(profileId, {
+            note: noteVal,
+            notes: noteVal
+          });
+          if (!updated) {
+            return sendJson(404, { success: false, data: null, message: 'Profile không tồn tại', sender: 'SV Browser v5.0.8-stable' });
+          }
+
+          return sendJson(200, {
+            success: true,
+            data: updated,
+            message: 'Update note successfully',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
+        // 7b. CẬP NHẬT PROFILE (UPDATE PROFILE)
         // Chuẩn GPMLogin: POST /api/v1/profiles/update/{id} hoặc PUT /api/v1/profiles/{id}
         const updateMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/update(?:\/([^\/]+))?$/i) ||
                             (pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-_]+)$/i) && (req.method === 'PUT' || req.method === 'POST'));
         if (updateMatch && (req.method === 'POST' || req.method === 'PUT')) {
-          const profileId = extractId(updateMatch);
           let body = query;
           const rawBody = await this.readBody(req);
           try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          const profileId = extractId(updateMatch) || body.id || body.profile_id;
+          if (!profileId) {
+            return sendJson(400, { success: false, data: null, message: 'Thiếu ID của profile cần cập nhật', sender: 'SV Browser v5.0.8-stable' });
+          }
 
           if (body.browser_type) body.browserType = this.normalizeBrowserType(body.browser_type);
           if (body.os_type) body.os = this.normalizeOsType(body.os_type);
           if (body.raw_proxy !== undefined) body.proxy = body.raw_proxy;
+          if (body.note !== undefined && body.notes === undefined) body.notes = body.note;
+          if (body.notes !== undefined && body.note === undefined) body.note = body.notes;
 
           const updated = this.profileStore.updateProfile(profileId, body);
           if (!updated) {

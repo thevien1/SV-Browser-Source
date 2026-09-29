@@ -802,7 +802,13 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
   updateProfile(id, data) {
     const index = this.profiles.findIndex(p => p.id === id);
     if (index !== -1) {
-      this.profiles[index] = { ...this.profiles[index], ...data, updatedAt: Date.now() };
+      const updateData = { ...data };
+      if (updateData.note !== undefined && updateData.notes === undefined) {
+        updateData.notes = updateData.note;
+      } else if (updateData.notes !== undefined && updateData.note === undefined) {
+        updateData.note = updateData.notes;
+      }
+      this.profiles[index] = { ...this.profiles[index], ...updateData, updatedAt: Date.now() };
       const storagePath = this.settings.localStoragePath || this.localStorageDefault;
       const profileDir = this.profiles[index].profilePath || path.join(storagePath, id);
       this.writeProfileInfoTxt(this.profiles[index], profileDir);

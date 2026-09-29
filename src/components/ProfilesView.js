@@ -1834,6 +1834,19 @@ export class ProfilesViewComponent {
         return;
       }
 
+      const colNote = e.target.closest('td.col-notes');
+      if (colNote && !e.target.closest('input, a')) {
+        const row = colNote.closest('tr');
+        const id = row?.getAttribute('data-id');
+        if (id) {
+          const p = this.profiles.find(item => item.id === id);
+          if (p) {
+            this.openEditNoteModal(p.id, p.name, p.notes || p.note || '');
+            return;
+          }
+        }
+      }
+
       // Row checkbox
       if (e.target.classList.contains('profile-checkbox')) {
         const id = e.target.getAttribute('data-id');
@@ -2912,13 +2925,14 @@ export class ProfilesViewComponent {
 
     if (!hasNote) {
       return `
-        <div class="note-row-wrapper" style="display: inline-flex; align-items: center; gap: 8px;">
-          <button class="proxy-action-btn btn-edit-note" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-note="" data-tooltip="Thêm ghi chú">
+        <div class="note-row-wrapper btn-edit-note" data-id="${profileId}" data-name="${this.escape(profileName || '')}" data-note="" title="Click để thêm ghi chú" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-muted);">
+          <button class="proxy-action-btn" type="button" style="pointer-events: none;" data-tooltip="Thêm ghi chú">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 20h9"></path>
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
             </svg>
           </button>
+          <span style="font-size: 11.5px; opacity: 0.6; font-style: italic;">Thêm ghi chú</span>
         </div>
       `;
     }

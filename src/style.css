@@ -1922,6 +1922,29 @@ textarea.form-control {
   color: #38bdf8 !important;
 }
 
+td.col-notes {
+  cursor: pointer;
+}
+
+td.col-notes:hover .note-row-wrapper span {
+  opacity: 1 !important;
+  color: #0284c7 !important;
+}
+
+td.col-notes:hover .proxy-action-btn {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.dark td.col-notes:hover .note-row-wrapper span {
+  color: #38bdf8 !important;
+}
+
+.dark td.col-notes:hover .proxy-action-btn {
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
 /* ==========================================================================
    EDIT PROFILE MODAL, CLONE MODAL, AND COLOR PICKER
    ========================================================================== */
