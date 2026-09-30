@@ -192,14 +192,10 @@ class App {
         } else if (status.isActivated && !status.isExpired) {
           // Được kích hoạt hoặc gia hạn thành công từ server
           this.checkBrowserCoresSetup();
+          this.modals.closeModal('modal-license');
           if (!wasValid) {
-            this.modals.closeModal('modal-license');
             if (window.showGlobalToast) {
-              window.showGlobalToast(`🎉 Bản quyền đã được cập nhật từ máy chủ! Hạn dùng: ${status.daysLeft || status.expiresAtFormatted}`);
-            }
-          } else {
-            if (window.showGlobalToast) {
-              window.showGlobalToast(`Đã đồng bộ bản quyền: ${status.daysLeft || status.expiresAtFormatted}`);
+              window.showGlobalToast(`🎉 Bản quyền đã được cập nhật! Hạn dùng: ${status.daysLeft || status.expiresAtFormatted}`);
             }
           }
         }
@@ -270,6 +266,8 @@ class App {
             window.showGlobalToast(msg, true);
           }
         }, 300);
+      } else {
+        this.modals.closeModal('modal-license');
       }
     } catch (err) {
       console.error('Lỗi check license:', err);

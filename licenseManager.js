@@ -54,7 +54,7 @@ class LicenseManager {
     return this.cachedHwid;
   }
 
-  requestServer(endpoint, method = 'GET', data = null) {
+  requestServer(endpoint, method = 'GET', data = null, timeoutMs = 2000) {
     return new Promise(resolve => {
       try {
         const fullUrl = new URL(endpoint, this.serverUrl);
@@ -70,7 +70,7 @@ class LicenseManager {
             'Content-Type': 'application/json',
             ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
           },
-          timeout: 4000
+          timeout: timeoutMs
         };
 
         const req = client.request(options, res => {
@@ -131,14 +131,64 @@ class LicenseManager {
   }
 
   getStoredLicense() {
-    try {
-      if (!fs.existsSync(this.licenseFilePath)) return null;
-      const encrypted = fs.readFileSync(this.licenseFilePath, 'utf8');
-      const decrypted = this.decryptData(encrypted);
-      return JSON.parse(decrypted);
-    } catch (e) {
-      return null;
+    const candidatePaths = [
+      this.licenseFilePath,
+      path.join(this.dataDir, 'license.dat'),
+      path.join(__dirname, 'app_data', 'license.dat'),
+      path.join(process.cwd(), 'app_data', 'license.dat'),
+      path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'license.dat'),
+      path.join(process.env.APPDATA || '', 'sv-browser', 'license.dat'),
+      path.join(process.env.APPDATA || '', 'GPMLoginGlobal', 'license.dat'),
+      path.join(process.env.APPDATA || '', 'GPMLoginGlobal', 'GPMData', 'license.dat')
+    ];
+
+    if (process.execPath) {
+      candidatePaths.push(path.join(path.dirname(process.execPath), 'app_data', 'license.dat'));
+      candidatePaths.push(path.join(path.dirname(process.execPath), 'license.dat'));
     }
+
+    const checked = new Set();
+    for (const p of candidatePaths) {
+      if (!p || checked.has(p)) continue;
+      checked.add(p);
+      try {
+        if (!fs.existsSync(p)) continue;
+        const encrypted = fs.readFileSync(p, 'utf8');
+        if (!encrypted || !encrypted.trim()) continue;
+        const decrypted = this.decryptData(encrypted.trim());
+        const data = JSON.parse(decrypted);
+        if (data && data.key) {
+          // Tự động chữa lành nếu key hợp lệ nhưng từng bị bug ghi expiresAt = 1
+          const v = this.verifyKey(data.key);
+          if (v.valid && v.payload) {
+            const isLifetime = (v.payload.type === 'lifetime' || v.payload.days === 0);
+            if (isLifetime && data.expiresAt === 1) {
+              data.expiresAt = 0;
+              data.isBlocked = false;
+              delete data.blockReason;
+            } else if (!isLifetime && data.expiresAt === 1 && v.payload.days) {
+              const expectedExpires = (data.activatedAt || v.payload.created || Date.now()) + (Number(v.payload.days) * 24 * 3600 * 1000);
+              if (Date.now() < expectedExpires) {
+                data.expiresAt = expectedExpires;
+                data.isBlocked = false;
+                delete data.blockReason;
+              }
+            }
+          }
+
+          // Đồng bộ sang file chính nếu khác đường dẫn
+          if (p !== this.licenseFilePath) {
+            try {
+              const dir = path.dirname(this.licenseFilePath);
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+              fs.writeFileSync(this.licenseFilePath, encrypted, 'utf8');
+            } catch (e) {}
+          }
+          return data;
+        }
+      } catch (e) {}
+    }
+    return null;
   }
 
   generateKey(options = {}) {
@@ -223,77 +273,164 @@ class LicenseManager {
   }
 
   getLicenseStatus(stored) {
+    if (!stored) {
+      return {
+        isActivated: false,
+        isExpired: false,
+        isBlocked: false,
+        key: '',
+        customerName: 'Chưa có',
+        type: 'Chưa kích hoạt',
+        maxMachines: 0,
+        activeMachinesCount: 0,
+        daysLeft: '0 ngày',
+        activatedAt: 'Chưa kích hoạt',
+        expiresAtFormatted: 'Chưa kích hoạt'
+      };
+    }
+
     const now = Date.now();
     let daysLeftStr = 'Vô hạn (Vĩnh viễn)';
     let isExpired = false;
 
-    if (stored.expiresAt && stored.expiresAt > 0) {
-      const diffMs = stored.expiresAt - now;
-      if (diffMs <= 0) {
+    // Kiểm tra xem có phải bản quyền Vĩnh viễn (Lifetime) không
+    const isLifetime = (
+      stored.payload?.type === 'lifetime' ||
+      stored.payload?.days === 0 ||
+      stored.expiresAt === 0 ||
+      stored.expiresAt === null ||
+      stored.expiresAt === undefined
+    );
+
+    if (isLifetime) {
+      // Vĩnh viễn thì không cần trừ, vô hạn thời gian
+      daysLeftStr = 'Vô hạn (Vĩnh viễn)';
+      isExpired = false;
+    } else {
+      // Có thời hạn: Lấy theo đã lưu mà trừ ra (expiresAt - now)
+      let expiresAt = stored.expiresAt;
+      if ((!expiresAt || expiresAt <= 1) && stored.payload?.days) {
+        expiresAt = (stored.activatedAt || stored.payload.created || now) + (Number(stored.payload.days) * 24 * 3600 * 1000);
+      }
+
+      if (expiresAt && expiresAt > 0) {
+        const diffMs = expiresAt - now;
+        if (diffMs <= 0) {
+          daysLeftStr = 'Đã hết hạn';
+          isExpired = true;
+        } else {
+          const d = Math.floor(diffMs / (24 * 3600 * 1000));
+          const h = Math.floor((diffMs % (24 * 3600 * 1000)) / (3600 * 1000));
+          const m = Math.floor((diffMs % (3600 * 1000)) / (60 * 1000));
+          if (d > 0) {
+            daysLeftStr = `${d} ngày ${h} giờ`;
+          } else if (h > 0) {
+            daysLeftStr = `${h} giờ ${m} phút`;
+          } else {
+            daysLeftStr = `${Math.max(1, m)} phút`;
+          }
+          isExpired = false;
+        }
+      } else {
         daysLeftStr = 'Đã hết hạn';
         isExpired = true;
-      } else {
-        const d = Math.floor(diffMs / (24 * 3600 * 1000));
-        const h = Math.floor((diffMs % (24 * 3600 * 1000)) / (3600 * 1000));
-        daysLeftStr = `${d} ngày ${h} giờ`;
       }
     }
 
+    const isActivated = !isExpired && !stored.isBlocked;
+
     return {
-      isActivated: !isExpired,
+      isActivated,
       isExpired,
-      key: stored.key,
+      isBlocked: !!stored.isBlocked,
+      key: stored.key || '',
       customerName: stored.payload?.name || 'Khách hàng',
-      type: stored.payload?.type === 'lifetime' ? 'Vĩnh viễn' : (stored.payload?.days ? `${stored.payload.days} Ngày` : '30 Ngày'),
+      type: isLifetime ? 'Vĩnh viễn' : (stored.payload?.days ? `${stored.payload.days} Ngày` : (stored.payload?.type || 'Có thời hạn')),
       maxMachines: stored.payload?.max || 1,
-      activeMachinesCount: stored.activatedHwids ? stored.activatedHwids.length : 1,
+      activeMachinesCount: (stored.activatedHwids && stored.activatedHwids.length) ? stored.activatedHwids.length : 1,
       daysLeft: daysLeftStr,
-      activatedAt: new Date(stored.activatedAt || now).toLocaleString('vi-VN'),
-      expiresAtFormatted: stored.expiresAt === 0 ? 'Vô hạn' : new Date(stored.expiresAt).toLocaleString('vi-VN')
+      activatedAt: stored.activatedAt ? new Date(stored.activatedAt).toLocaleString('vi-VN') : new Date(now).toLocaleString('vi-VN'),
+      expiresAtFormatted: isLifetime ? 'Vô hạn (Vĩnh viễn)' : (stored.expiresAt ? new Date(stored.expiresAt).toLocaleString('vi-VN') : 'Không xác định')
     };
   }
 
   async checkStatus() {
     const stored = this.getStoredLicense();
     const currentHwid = this.getHWID();
-    if (!stored) {
+    if (!stored || !stored.key) {
       return {
         isActivated: false,
+        isExpired: false,
         hwid: currentHwid,
         serverUrl: this.serverUrl,
         message: 'Chưa kích hoạt bản quyền'
       };
     }
 
-    // 1. Thử đồng bộ với server nếu có serverUrl (Ưu tiên GET query parameters, fallback sang POST)
-    // Server là nguồn sự thật tối thượng: Nếu server mở khóa hoặc gia hạn, tự động cập nhật
+    // Tính toán trạng thái bản quyền cục bộ trước (Local-First)
+    let localStatus = this.getLicenseStatus(stored);
+
+    // Kiểm tra ràng buộc HWID nếu có danh sách hwids kích hoạt
+    if (stored.activatedHwids && Array.isArray(stored.activatedHwids) && stored.activatedHwids.length > 0) {
+      if (!stored.activatedHwids.includes(currentHwid)) {
+        const max = Number(stored.payload?.max) || 1;
+        if (stored.activatedHwids.length < max) {
+          // Tự động ghi nhận máy này vào danh sách kích hoạt
+          stored.activatedHwids.push(currentHwid);
+          try {
+            fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
+          } catch (e) {}
+          localStatus = this.getLicenseStatus(stored);
+        } else {
+          return {
+            isActivated: false,
+            isExpired: false,
+            hwid: currentHwid,
+            serverOnline: false,
+            serverUrl: this.serverUrl,
+            ...localStatus,
+            message: `Key này đã dùng đủ số máy (${stored.activatedHwids.length}/${max} máy). HWID máy bạn: ${currentHwid}`
+          };
+        }
+      }
+    } else {
+      // Chưa có HWID trong danh sách, lưu HWID máy hiện tại
+      stored.activatedHwids = [currentHwid];
+      try {
+        fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
+      } catch (e) {}
+      localStatus = this.getLicenseStatus(stored);
+    }
+
+    // Nếu key đã bị đánh dấu admin thu hồi (isBlocked) và có blockReason
+    if (stored.isBlocked && (stored.blockReason?.includes('thu hồi') || stored.blockReason?.includes('bị khóa'))) {
+      return {
+        isActivated: false,
+        isExpired: true,
+        isBlocked: true,
+        hwid: currentHwid,
+        key: stored.key,
+        serverOnline: false,
+        serverUrl: this.serverUrl,
+        ...localStatus,
+        message: stored.blockReason
+      };
+    }
+
+    // Thử đồng bộ với server (nếu có serverUrl) - với timeout ngắn (1800ms)
+    // Server có thể cập nhật gia hạn hoặc thu hồi key
     if (this.serverUrl) {
       try {
         const query = `?key=${encodeURIComponent(stored.key)}&hwid=${encodeURIComponent(currentHwid)}`;
-        // Thử GET /api/v1/license/check trước, nếu 404 thì thử /api/v1/license/verify
-        let serverRes = await this.requestServer(`/api/v1/license/check${query}`, 'GET');
+        let serverRes = await this.requestServer(`/api/v1/license/check${query}`, 'GET', null, 1800);
         if (!serverRes.ok && serverRes.status === 404) {
-          serverRes = await this.requestServer(`/api/v1/license/verify${query}`, 'GET');
-        }
-
-        // Nếu phương thức GET bị 405 hoặc 404, fallback sang POST
-        if (!serverRes.ok && (serverRes.status === 404 || serverRes.status === 405)) {
-          serverRes = await this.requestServer('/api/v1/license/verify', 'POST', {
-            key: stored.key,
-            hwid: currentHwid
-          });
-          if (!serverRes.ok && serverRes.status === 404) {
-            serverRes = await this.requestServer('/api/v1/license/check', 'POST', {
-              key: stored.key,
-              hwid: currentHwid
-            });
-          }
+          serverRes = await this.requestServer(`/api/v1/license/verify${query}`, 'GET', null, 1800);
         }
 
         if (serverRes.ok && serverRes.data) {
           const sData = serverRes.data;
-          if (sData.valid) {
-            // Admin cập nhật / gia hạn key hoặc MỞ KHÓA: Cập nhật thời hạn mới và gỡ chặn
+          if (sData.valid === true) {
+            // Server xác nhận hợp lệ: Cập nhật hạn mới hoặc mở khóa
             if (sData.expiresAt !== undefined) {
               stored.expiresAt = sData.expiresAt ? new Date(sData.expiresAt).getTime() : 0;
             }
@@ -309,29 +446,23 @@ class LicenseManager {
               fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
             } catch (e) {}
 
-            const licStatus = this.getLicenseStatus(stored);
+            const updatedStatus = this.getLicenseStatus(stored);
             return {
-              isActivated: true,
+              isActivated: updatedStatus.isActivated,
+              isExpired: updatedStatus.isExpired,
               hwid: currentHwid,
               serverOnline: true,
               serverUrl: this.serverUrl,
-              ...licStatus,
-              daysLeft: sData.daysLeft || licStatus.daysLeft,
-              maxMachines: sData.maxMachines || licStatus.maxMachines,
-              activeMachinesCount: sData.activeMachinesCount || licStatus.activeMachinesCount
+              ...updatedStatus,
+              daysLeft: sData.daysLeft || updatedStatus.daysLeft,
+              maxMachines: sData.maxMachines || updatedStatus.maxMachines,
+              activeMachinesCount: sData.activeMachinesCount || updatedStatus.activeMachinesCount,
+              message: sData.message || 'Bản quyền hợp lệ'
             };
-          } else if (
-            sData.valid === false ||
-            sData.status === 'REVOKED' ||
-            sData.status === 'EXPIRED' ||
-            sData.status === 'BANNED' ||
-            sData.status === 'BLOCKED' ||
-            sData.status === 'DISABLED'
-          ) {
-            // Admin chặn key hoặc key hết hạn trên máy chủ: Ghi đè vào file local để vô hiệu hóa
+          } else if (sData.status === 'REVOKED' || sData.status === 'BANNED' || sData.status === 'BLOCKED') {
+            // Chỉ khi admin server trực tiếp CHẶN / THU HỒI key mới khóa
             stored.isBlocked = true;
-            stored.blockReason = sData.message || 'Bản quyền đã bị khóa hoặc hết hạn trên máy chủ';
-            stored.expiresAt = 1; // Đánh dấu hết hạn ngay lập tức
+            stored.blockReason = sData.message || 'Bản quyền đã bị khóa hoặc thu hồi trên máy chủ';
             stored.lastCheck = Date.now();
             try {
               fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(stored)), 'utf8');
@@ -345,63 +476,28 @@ class LicenseManager {
               key: stored.key,
               serverOnline: true,
               serverUrl: this.serverUrl,
-              message: sData.message || 'Bản quyền đã bị khóa hoặc hết hạn trên máy chủ'
+              message: sData.message || 'Bản quyền đã bị khóa hoặc thu hồi trên máy chủ'
             };
           }
         }
-      } catch (e) {}
-    }
-
-    // 2. Chế độ OFFLINE (hoặc khi Server không phản hồi / 404 / mất mạng):
-    // Nếu trước đó đã bị server khóa (isBlocked = true), chặn ngay cả khi offline
-    if (stored.isBlocked) {
-      return {
-        isActivated: false,
-        isExpired: true,
-        isBlocked: true,
-        hwid: currentHwid,
-        key: stored.key,
-        serverOnline: false,
-        serverUrl: this.serverUrl,
-        message: stored.blockReason || 'Bản quyền đã bị khóa hoặc thu hồi trên máy chủ'
-      };
-    }
-
-    // 2. Chế độ OFFLINE (hoặc khi Server không phản hồi / 404 / mất mạng):
-    // Bản quyền đã lưu trong file license.dat (đã mã hóa AES-256 nội bộ)
-    // Kiểm tra tính ràng buộc phần cứng HWID
-    if (stored.activatedHwids && Array.isArray(stored.activatedHwids) && stored.activatedHwids.length > 0) {
-      if (!stored.activatedHwids.includes(currentHwid)) {
-        return {
-          isActivated: false,
-          hwid: currentHwid,
-          serverOnline: false,
-          serverUrl: this.serverUrl,
-          message: 'Mã bản quyền này không khớp với phần cứng máy tính hiện tại'
-        };
+      } catch (e) {
+        // Mạng lỗi hoặc server gặp sự cố: hoàn toàn bỏ qua, tiếp tục dùng trạng thái local đã tính
       }
     }
 
-    // Kiểm tra thời hạn
-    const now = Date.now();
-    if (stored.expiresAt && stored.expiresAt > 0 && now > stored.expiresAt) {
-      return {
-        isActivated: false,
-        isExpired: true,
-        hwid: currentHwid,
-        serverOnline: false,
-        serverUrl: this.serverUrl,
-        message: 'Bản quyền phần mềm đã hết hạn sử dụng'
-      };
-    }
-
-    // Bản quyền hợp lệ và còn hạn
+    // Khi Server lỗi mạng / timeout / không kết nối được hoặc trả về lỗi GET:
+    // GIỮ NGUYÊN BẢN QUYỀN ĐÃ LƯU:
+    // - Nếu là vĩnh viễn: không hết hạn
+    // - Nếu có thời hạn: tính theo thời gian còn lại (stored.expiresAt - now)
+    const isLifetimeKey = (stored.payload?.type === 'lifetime' || stored.payload?.days === 0 || stored.expiresAt === 0);
     return {
-      isActivated: true,
+      ...localStatus,
       hwid: currentHwid,
       serverOnline: false,
       serverUrl: this.serverUrl,
-      ...this.getLicenseStatus(stored)
+      message: localStatus.isActivated
+        ? (isLifetimeKey ? 'Bản quyền Vĩnh viễn (Hoạt động ngoại tuyến)' : `Bản quyền hợp lệ (Ngoại tuyến - Còn ${localStatus.daysLeft})`)
+        : 'Bản quyền phần mềm đã hết hạn sử dụng'
     };
   }
 
@@ -483,7 +579,7 @@ class LicenseManager {
         key: cleanKey,
         hwid: currentHwid,
         machineName
-      });
+      }, 2500);
 
       if (serverRes.ok && serverRes.data && serverRes.data.valid) {
         const sData = serverRes.data.license || {};
@@ -512,7 +608,8 @@ class LicenseManager {
           expiresAt,
           lastCheck: now,
           serverSynced: true,
-          serverUrl: this.serverUrl
+          serverUrl: this.serverUrl,
+          isBlocked: false
         };
 
         fs.writeFileSync(this.licenseFilePath, this.encryptData(JSON.stringify(storedData)), 'utf8');
@@ -525,11 +622,13 @@ class LicenseManager {
       }
 
       if (serverRes.status && serverRes.data && serverRes.data.valid === false) {
-        return {
-          valid: false,
-          serverConnected: true,
-          message: serverRes.data.message || 'Server từ chối kích hoạt key này'
-        };
+        if (serverRes.data.status === 'REVOKED' || serverRes.data.status === 'EXPIRED' || serverRes.data.status === 'BANNED') {
+          return {
+            valid: false,
+            serverConnected: true,
+            message: serverRes.data.message || 'Server từ chối kích hoạt key này'
+          };
+        }
       }
     } catch (e) {}
 
