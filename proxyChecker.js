@@ -346,9 +346,35 @@ class ProxyChecker {
     });
   }
 
-  static testHttpsTunnel(host, port, user, pass, timeoutMs = 4000) {
+  static testHttpsTunnel(host, port, user, pass, timeoutMs = 3500) {
     const tls = require('tls');
     return new Promise((resolve) => {
+      let finished = false;
+      let req = null;
+      let tlsSocket = null;
+      let rawSocket = null;
+
+      const finish = (res) => {
+        if (!finished) {
+          finished = true;
+          if (overallTimer) clearTimeout(overallTimer);
+          if (tlsSocket) try { tlsSocket.destroy(); } catch (e) {}
+          if (rawSocket) try { rawSocket.destroy(); } catch (e) {}
+          if (req) try { req.destroy(); } catch (e) {}
+          resolve(res);
+        }
+      };
+
+      const overallTimer = setTimeout(() => {
+        finish({
+          live: false,
+          status: 'No connection',
+          ip: host,
+          country: 'vn',
+          error: 'Proxy HTTPS Tunnel timeout'
+        });
+      }, timeoutMs);
+
       const headers = {
         'Host': 'api.ipify.org:443',
         'Proxy-Connection': 'keep-alive',
@@ -358,7 +384,7 @@ class ProxyChecker {
         headers['Proxy-Authorization'] = 'Basic ' + Buffer.from(user + ':' + pass).toString('base64');
       }
 
-      const req = http.request({
+      req = http.request({
         host,
         port,
         method: 'CONNECT',
@@ -367,18 +393,8 @@ class ProxyChecker {
         timeout: timeoutMs
       });
 
-      let finished = false;
-      const finish = (res) => {
-        if (!finished) {
-          finished = true;
-          try { req.destroy(); } catch (e) {}
-          resolve(res);
-        }
-      };
-
       req.on('connect', (res, socket) => {
         if (res.statusCode === 407) {
-          try { socket.destroy(); } catch (e) {}
           return finish({
             live: false,
             status: 'No connection',
@@ -388,7 +404,6 @@ class ProxyChecker {
           });
         }
         if (res.statusCode !== 200) {
-          try { socket.destroy(); } catch (e) {}
           return finish({
             live: false,
             status: 'No connection',
@@ -398,13 +413,16 @@ class ProxyChecker {
           });
         }
 
-        const tlsSocket = tls.connect({
+        rawSocket = socket;
+        rawSocket.setTimeout(timeoutMs);
+
+        tlsSocket = tls.connect({
           socket,
-          servername: 'api.ipify.org',
-          timeout: timeoutMs
+          servername: 'api.ipify.org'
         }, () => {
           tlsSocket.write('GET /?format=json HTTP/1.1\r\nHost: api.ipify.org\r\nConnection: close\r\n\r\n');
         });
+        tlsSocket.setTimeout(timeoutMs);
 
         let body = '';
         tlsSocket.on('data', (d) => body += d.toString());
@@ -439,16 +457,13 @@ class ProxyChecker {
           country: 'vn',
           error: `TLS Error: ${err.message}`
         }));
-        tlsSocket.on('timeout', () => {
-          try { tlsSocket.destroy(); } catch (e) {}
-          finish({
-            live: false,
-            status: 'No connection',
-            ip: host,
-            country: 'vn',
-            error: 'TLS Timeout'
-          });
-        });
+        tlsSocket.on('timeout', () => finish({
+          live: false,
+          status: 'No connection',
+          ip: host,
+          country: 'vn',
+          error: 'TLS Timeout'
+        }));
       });
 
       req.on('error', (err) => finish({
@@ -484,21 +499,34 @@ class ProxyChecker {
       return this.testSocks5Proxy(host, port, user, pass, 3500);
     }
 
-    // HTTP / HTTPS
-    // 1. Thử qua HTTP GET trước
-    const res = await this.testHttpProxy(host, port, user, pass, 3500);
-    if (res.live) {
-      return res;
-    }
-
-    // 2. Nếu HTTP GET thất bại (nhiều proxy chỉ cho phép HTTPS CONNECT), thử qua HTTPS Tunnel thật
-    const tunnelRes = await this.testHttpsTunnel(host, port, user, pass, 4000);
+    // HTTP / HTTPS:
+    // Trình duyệt Chrome lướt web bắt buộc phải dùng được HTTPS Tunnel (cổng 443).
+    // Do đó ưu tiên kiểm tra HTTPS Tunnel thực tế trước!
+    const tunnelRes = await this.testHttpsTunnel(host, port, user, pass, 3500);
     if (tunnelRes.live) {
       return tunnelRes;
     }
 
-    // Trả về lỗi chi tiết, tuyệt đối không fallback TCP ảo gây hiểu lầm Live
-    return (res.error && res.error.includes('407')) ? res : tunnelRes;
+    // Nếu proxy yêu cầu đăng nhập mật khẩu (407)
+    if (tunnelRes.error && tunnelRes.error.includes('407')) {
+      return tunnelRes;
+    }
+
+    // Nếu HTTPS Tunnel không thông, thử kiểm tra HTTP GET để phân biệt lỗi:
+    // Proxy chết hẳn hay Proxy bị chặn HTTPS
+    const httpRes = await this.testHttpProxy(host, port, user, pass, 2500);
+    if (httpRes.live) {
+      return {
+        live: false,
+        status: 'No connection',
+        ip: host,
+        country: httpRes.country || 'us',
+        error: 'Proxy chỉ hỗ trợ HTTP thường, chặn HTTPS (Lỗi ERR_TIMED_OUT khi mở Chrome)'
+      };
+    }
+
+    // Trả về lỗi chi tiết từ tunnelRes
+    return tunnelRes;
   }
 
   static getLangFromCountry(countryCode) {
