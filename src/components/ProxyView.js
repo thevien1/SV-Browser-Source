@@ -14,6 +14,7 @@ export class ProxyViewComponent {
     this.proxies = [];
     this.selectedIds = new Set();
     this.searchQuery = '';
+    this.proxyStatusFilter = '';
     this.currentPage = 1;
     this.perPage = 30;
   }
@@ -46,6 +47,12 @@ export class ProxyViewComponent {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="position: absolute; left: 10px; top: 9px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
               <input type="text" id="input-search-proxy" class="form-control" placeholder="Tìm kiếm..." style="height: 32px; width: 220px; padding-left: 32px; font-size: 13px; border-radius: 4px; border: 1px solid #cbd5e1;">
             </div>
+            <select class="select-input" id="filter-proxy-status-pv" style="height: 32px; font-size: 13px; border-radius: 4px; border: 1px solid #cbd5e1; min-width: 150px;" title="Lọc theo trạng thái Proxy">
+              <option value="">--- Trạng thái ---</option>
+              <option value="live" ${this.proxyStatusFilter === 'live' ? 'selected' : ''}>🟢 Live</option>
+              <option value="dead" ${this.proxyStatusFilter === 'dead' ? 'selected' : ''}>🔴 False / Die</option>
+              <option value="unknown" ${this.proxyStatusFilter === 'unknown' ? 'selected' : ''}>⚪ Chưa kiểm tra</option>
+            </select>
             <button type="button" class="btn btn-outline" id="btn-refresh-proxy-list" style="height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: 4px; color: #475569; display: inline-flex; align-items: center; gap: 5px;">
               <span>🔄</span> Làm mới
             </button>
@@ -135,6 +142,13 @@ export class ProxyViewComponent {
     // Tìm kiếm
     this.container.querySelector('#input-search-proxy')?.addEventListener('input', (e) => {
       this.searchQuery = (e.target.value || '').trim();
+      this.currentPage = 1;
+      this.renderTable();
+    });
+
+    // Lọc theo trạng thái Proxy
+    this.container.querySelector('#filter-proxy-status-pv')?.addEventListener('change', (e) => {
+      this.proxyStatusFilter = e.target.value;
       this.currentPage = 1;
       this.renderTable();
     });
@@ -276,16 +290,39 @@ export class ProxyViewComponent {
   }
 
   getFilteredProxies() {
-    if (!this.searchQuery) return this.proxies;
+    let list = this.proxies || [];
+
+    // Lọc theo trạng thái Proxy (Live, Dead / False, Unknown)
+    if (this.proxyStatusFilter) {
+      list = list.filter(p => {
+        const s = (p.status || '').toLowerCase();
+        if (this.proxyStatusFilter === 'live') {
+          return s === 'live';
+        } else if (this.proxyStatusFilter === 'dead' || this.proxyStatusFilter === 'false') {
+          return s === 'no connection' || s === 'error' || s === 'dead' || s === 'false' || s === 'die';
+        } else if (this.proxyStatusFilter === 'unknown') {
+          return s !== 'live' && s !== 'no connection' && s !== 'error' && s !== 'dead' && s !== 'false' && s !== 'die';
+        }
+        return true;
+      });
+    }
+
+    if (!this.searchQuery) return list;
     const q = this.searchQuery.toLowerCase();
-    return this.proxies.filter(p => {
+    return list.filter(p => {
       const matchHost = (p.host || '').toLowerCase().includes(q);
       const matchPort = (p.port + '').includes(q);
       const matchType = (p.type || '').toLowerCase().includes(q);
       const matchRaw = (p.raw || '').toLowerCase().includes(q);
       const matchTags = Array.isArray(p.tags) ? p.tags.some(t => t.toLowerCase().includes(q)) : (p.tags || '').toLowerCase().includes(q);
       const matchNote = (p.note || '').toLowerCase().includes(q);
-      return matchHost || matchPort || matchType || matchRaw || matchTags || matchNote;
+      const statusStr = (p.status || '').toLowerCase();
+      let matchStatus = statusStr.includes(q);
+      if (q === 'live' || q === 'line') matchStatus = matchStatus || statusStr === 'live';
+      if (q === 'false' || q === 'die' || q === 'dead' || q === 'error' || q === 'no connection') {
+        matchStatus = matchStatus || statusStr === 'no connection' || statusStr === 'dead' || statusStr === 'error' || statusStr === 'false';
+      }
+      return matchHost || matchPort || matchType || matchRaw || matchTags || matchNote || matchStatus;
     });
   }
 

@@ -19,6 +19,7 @@ export class ProfilesViewComponent {
       search: '',
       group: '',
       tag: '',
+      proxyStatus: '',
       sort: savedSort || 'name_asc'
     };
   }
@@ -89,6 +90,16 @@ export class ProfilesViewComponent {
 
           <select class="select-input" id="filter-tag" style="min-width: 140px;">
             <option value="">--- Chọn tag ---</option>
+          </select>
+
+          <select class="select-input" id="filter-proxy-status" style="min-width: 165px;" title="Lọc theo trạng thái Proxy (Live / False)">
+            <option value="">--- Trạng thái Proxy ---</option>
+            <option value="live" ${this.filter.proxyStatus === 'live' ? 'selected' : ''}>🟢 Proxy Live</option>
+            <option value="false" ${this.filter.proxyStatus === 'false' ? 'selected' : ''}>🔴 Proxy False (Die / Lỗi)</option>
+            <option value="ready" ${this.filter.proxyStatus === 'ready' ? 'selected' : ''}>⚪ Chưa kiểm tra (Sẵn sàng)</option>
+            <option value="has_proxy" ${this.filter.proxyStatus === 'has_proxy' ? 'selected' : ''}>🌐 Có Proxy</option>
+            <option value="no_proxy" ${this.filter.proxyStatus === 'no_proxy' ? 'selected' : ''}>🚫 Không Proxy (No Proxy)</option>
+            <option value="running" ${this.filter.proxyStatus === 'running' ? 'selected' : ''}>🔵 Đang mở</option>
           </select>
 
           <select class="select-input" id="filter-sort">
@@ -212,12 +223,19 @@ export class ProfilesViewComponent {
                 </div>
               </th>
               <th style="min-width: 170px; width: 18%;">Proxy</th>
-              <th style="width: 95px; white-space: nowrap;">Trạng thái</th>
+              <th style="min-width: 115px; width: 11%; white-space: nowrap;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                  <span>Trạng thái</span>
+                  <button type="button" id="btn-header-filter-status" class="btn-header-filter" title="Lọc trạng thái Proxy (Live / False)" style="background: none; border: none; cursor: pointer; color: ${this.filter.proxyStatus ? '#0284c7' : '#64748b'}; padding: 0 4px; display: flex; align-items: center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                  </button>
+                </div>
+              </th>
               <th style="width: 105px; white-space: nowrap;">Lần chạy cuối</th>
               <th style="min-width: 190px; width: 22%;">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <span>Tags</span>
-                  <button type="button" class="btn-header-filter" title="Lọc Tags" style="background: none; border: none; cursor: pointer; color: #64748b; padding: 0 4px; display: flex; align-items: center;">
+                  <button type="button" id="btn-header-filter-tag" class="btn-header-filter" title="Lọc Tags" style="background: none; border: none; cursor: pointer; color: ${this.filter.tag ? '#0284c7' : '#64748b'}; padding: 0 4px; display: flex; align-items: center;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                   </button>
                 </div>
@@ -783,10 +801,29 @@ export class ProfilesViewComponent {
     this.container.querySelector('#filter-tag')?.addEventListener('change', (e) => {
       this.filter.tag = e.target.value;
       this.currentPage = 1;
+      this.updateFilterTagIcon();
       this.renderTableRows();
     });
 
-    this.container.querySelector('.btn-header-filter')?.addEventListener('click', (e) => {
+    this.container.querySelector('#filter-proxy-status')?.addEventListener('change', (e) => {
+      this.filter.proxyStatus = e.target.value;
+      this.currentPage = 1;
+      this.updateFilterStatusIcon();
+      this.renderTableRows();
+    });
+
+    this.container.querySelector('#btn-header-filter-status')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const selectStatus = this.container.querySelector('#filter-proxy-status');
+      if (selectStatus) {
+        selectStatus.focus();
+        if (typeof selectStatus.showPicker === 'function') {
+          try { selectStatus.showPicker(); } catch (_) {}
+        }
+      }
+    });
+
+    this.container.querySelector('#btn-header-filter-tag')?.addEventListener('click', (e) => {
       e.stopPropagation();
       const selectTag = this.container.querySelector('#filter-tag');
       if (selectTag) {
@@ -2689,6 +2726,8 @@ export class ProfilesViewComponent {
         const idStr = (p.id || '').toString().toLowerCase();
         const indexStr = (p.order || p.index || p.stt || '').toString();
 
+        const statusStr = (p.status || '').toString().toLowerCase();
+
         const matchName = nameStr.includes(q);
         const matchProxy = proxyStr.includes(q) || rawProxyStr.includes(q);
         const matchTag = tagStr.includes(q);
@@ -2697,7 +2736,19 @@ export class ProfilesViewComponent {
         const matchId = idStr.includes(q);
         const matchIndex = indexStr.includes(q);
 
-        if (!matchName && !matchProxy && !matchTag && !matchNote && !matchGroup && !matchId && !matchIndex) return false;
+        // Hỗ trợ gõ trực tiếp "live", "line", "false", "die", "dead", "no connection", "ready", "running" vào ô tìm kiếm
+        let matchStatus = statusStr.includes(q);
+        if (q === 'live' || q === 'line') {
+          matchStatus = matchStatus || statusStr === 'live';
+        } else if (q === 'false' || q === 'die' || q === 'dead' || q === 'error' || q === 'no connection' || q === 'lỗi') {
+          matchStatus = matchStatus || statusStr === 'no connection' || statusStr === 'dead' || statusStr === 'error' || statusStr === 'false' || statusStr === 'die';
+        } else if (q === 'ready' || q === 'sẵn sàng') {
+          matchStatus = matchStatus || statusStr === 'ready' || statusStr === '';
+        } else if (q === 'running' || q === 'đang mở' || q === 'đang chạy') {
+          matchStatus = matchStatus || statusStr === 'running';
+        }
+
+        if (!matchName && !matchProxy && !matchTag && !matchNote && !matchGroup && !matchId && !matchIndex && !matchStatus) return false;
       }
       if (this.filter.group && p.group !== this.filter.group) {
         return false;
@@ -2711,6 +2762,26 @@ export class ProfilesViewComponent {
         }
         if (!pTags.includes(this.filter.tag.trim().toLowerCase())) {
           return false;
+        }
+      }
+      // Lọc theo trạng thái Proxy (Live, False / Die / No connection, Sẵn sàng, Có Proxy, Không Proxy, Đang mở)
+      if (this.filter.proxyStatus) {
+        const s = (p.status || '').toString().toLowerCase();
+        const proxyVal = (p.proxy || '').trim();
+        const hasProxy = proxyVal && proxyVal.toLowerCase() !== 'no proxy';
+
+        if (this.filter.proxyStatus === 'live') {
+          if (s !== 'live') return false;
+        } else if (this.filter.proxyStatus === 'false' || this.filter.proxyStatus === 'dead' || this.filter.proxyStatus === 'die') {
+          if (s !== 'no connection' && s !== 'error' && s !== 'dead' && s !== 'die' && s !== 'false') return false;
+        } else if (this.filter.proxyStatus === 'ready') {
+          if (s !== 'ready' && s !== '') return false;
+        } else if (this.filter.proxyStatus === 'running') {
+          if (s !== 'running') return false;
+        } else if (this.filter.proxyStatus === 'has_proxy') {
+          if (!hasProxy) return false;
+        } else if (this.filter.proxyStatus === 'no_proxy') {
+          if (hasProxy) return false;
         }
       }
       return true;
@@ -2899,6 +2970,8 @@ export class ProfilesViewComponent {
 
     this.setupTableDragAndDrop();
     this.updateSortIndicator();
+    this.updateFilterStatusIcon();
+    this.updateFilterTagIcon();
     this.updateBulkBar();
   }
 
@@ -2917,6 +2990,30 @@ export class ProfilesViewComponent {
       indicator.innerText = '⇅';
       indicator.style.color = '#94a3b8';
       indicator.title = 'Bấm để sắp xếp theo Tên / STT';
+    }
+  }
+
+  updateFilterStatusIcon() {
+    const btn = this.container?.querySelector('#btn-header-filter-status');
+    if (!btn) return;
+    if (this.filter.proxyStatus) {
+      btn.style.color = '#0284c7';
+      btn.title = `Đang lọc: ${this.filter.proxyStatus} (Bấm để đổi)`;
+    } else {
+      btn.style.color = '#64748b';
+      btn.title = 'Lọc trạng thái Proxy (Live / False)';
+    }
+  }
+
+  updateFilterTagIcon() {
+    const btn = this.container?.querySelector('#btn-header-filter-tag');
+    if (!btn) return;
+    if (this.filter.tag) {
+      btn.style.color = '#0284c7';
+      btn.title = `Đang lọc tag: ${this.filter.tag} (Bấm để đổi)`;
+    } else {
+      btn.style.color = '#64748b';
+      btn.title = 'Lọc Tags';
     }
   }
 
