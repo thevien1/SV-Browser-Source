@@ -380,6 +380,14 @@ class BrowserLauncher extends EventEmitter {
       fs.mkdirSync(profileDir, { recursive: true });
     }
 
+    // Dọn dẹp file LOCK cũ nếu phiên làm việc trước bị tắt đột ngột hoặc treo
+    try {
+      const lock1 = path.join(profileDir, 'LOCK');
+      const lock2 = path.join(profileDir, 'Default', 'LOCK');
+      if (fs.existsSync(lock1)) fs.unlinkSync(lock1);
+      if (fs.existsSync(lock2)) fs.unlinkSync(lock2);
+    } catch (_) {}
+
     // Thiết lập tên Profile trong cửa sổ Chromium (Chuẩn SV Browser: "SV | [Tên profile]")
     const rawProfileName = profile.name || `Profile ${profileId.substring(0, 5)}`;
     const svProfileName = rawProfileName.startsWith('SV | ')
@@ -429,6 +437,8 @@ class BrowserLauncher extends EventEmitter {
         '--no-first-run',
         '--no-crashpad',
         '--disable-crashpad',
+        '--disable-breakpad',
+        '--no-crash-upload',
         '--metrics-recording-only',
         '--disable-crash-reporter',
         '--disable-background-timer-throttling',
@@ -713,6 +723,15 @@ try {
       try {
         wsUrl = await this.getWebSocketDebuggerUrl(debugPort);
       } catch (e) {}
+
+      // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi
+      if (child.exitCode !== null) {
+        this.runningProfiles.delete(profileId);
+        return {
+          success: false,
+          message: `Trình duyệt tự thoát ngay sau khi mở (Exit code: ${child.exitCode}). Vui lòng kiểm tra dung lượng ổ đĩa, RAM hoặc tiện ích mở rộng.`
+        };
+      }
 
       const driverPath = this.getChromedriverPath();
       const execTime = Date.now() - startTime;

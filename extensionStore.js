@@ -156,6 +156,23 @@ class ExtensionStore {
   }
 
   /**
+   * Tự động dọn dẹp các file nén thừa (.zip, .crx) bên trong thư mục extension nếu có
+   */
+  cleanupOrphanArchives(extDirPath) {
+    try {
+      if (!fs.existsSync(extDirPath)) return;
+      const files = fs.readdirSync(extDirPath);
+      for (const f of files) {
+        if (f.toLowerCase().endsWith('.zip') || f.toLowerCase().endsWith('.crx')) {
+          try {
+            fs.unlinkSync(path.join(extDirPath, f));
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  /**
    * Lấy danh sách tất cả extension trong thư mục Extensions
    */
   getAll() {
@@ -169,6 +186,7 @@ class ExtensionStore {
       const fullPath = path.join(this.extensionsDir, item);
       try {
         if (fs.statSync(fullPath).isDirectory()) {
+          this.cleanupOrphanArchives(fullPath);
           const extInfo = this.parseExtensionManifest(fullPath, item);
           if (extInfo) {
             list.push(extInfo);
@@ -302,6 +320,17 @@ class ExtensionStore {
         } catch (tarErr) {
           execSync(`powershell -NoProfile -Command "Expand-Archive -LiteralPath '${zipToExtract}' -DestinationPath '${tempDir}' -Force"`, { stdio: 'pipe' });
         }
+
+        // Xóa ngay file nén zip / crx tạm trước khi copy vào thư mục Extensions
+        try {
+          if (fs.existsSync(zipToExtract)) fs.unlinkSync(zipToExtract);
+          const leftovers = fs.readdirSync(tempDir);
+          for (const lf of leftovers) {
+            if (lf.toLowerCase().endsWith('.zip') || lf.toLowerCase().endsWith('.crx')) {
+              try { fs.unlinkSync(path.join(tempDir, lf)); } catch (_) {}
+            }
+          }
+        } catch (_) {}
 
         const manifestDir = this.findManifestDir(tempDir);
         if (!manifestDir) {
