@@ -1455,30 +1455,25 @@ export class ProfilesViewComponent {
           const lineVal = (lines[i] !== undefined) ? lines[i].trim() : '';
           let newProxy = lineVal;
           let proxyCountry = 'us';
-          let status = 'ready';
-          let ip = '';
+          let proxyType = 'http';
+          const status = 'ready';
 
           if (!lineVal || lineVal.toLowerCase() === 'null' || lineVal.toLowerCase() === 'no proxy') {
             newProxy = 'No Proxy';
             proxyCountry = 'vn';
-            status = 'ready';
-          } else if (window.api && window.api.testProxyString) {
-            try {
-              const testRes = await window.api.testProxyString(newProxy);
-              if (testRes) {
-                status = testRes.status || 'ready';
-                proxyCountry = testRes.country || 'us';
-                ip = testRes.ip || '';
-              }
-            } catch (e) {}
+            proxyType = 'None';
+          } else {
+            proxyType = lineVal.toLowerCase().startsWith('socks') ? 'socks5' : 'http';
+            proxyCountry = (targets[i].proxyCountry && targets[i].proxyCountry !== 'vn') ? targets[i].proxyCountry : 'us';
           }
 
           if (window.api && window.api.updateProfile) {
             await window.api.updateProfile(targets[i].id, {
               proxy: newProxy,
+              proxyType,
               proxyCountry,
               status,
-              ...(ip ? { ip } : {})
+              ip: ''
             });
           }
         }
@@ -1931,31 +1926,21 @@ export class ProfilesViewComponent {
     btnSaveProxy?.addEventListener('click', async () => {
       if (!this.currentEditingProfileId) return;
       const val = inputProxyVal ? inputProxyVal.value.trim() : '';
-      const newProxy = val || 'No Proxy';
+      const isNoProxy = !val || val.toLowerCase() === 'null' || val.toLowerCase() === 'no proxy';
+      const newProxy = isNoProxy ? 'No Proxy' : val;
 
       try {
         btnSaveProxy.disabled = true;
         btnSaveProxy.innerText = 'Đang lưu...';
         if (window.api && window.api.updateProfile) {
-          let country = 'us';
-          let status = 'ready';
-          let ip = '';
-          if (newProxy === 'No Proxy') {
-            country = 'vn';
-            status = 'ready';
-          } else if (window.api.testProxyString) {
-            const check = await window.api.testProxyString(newProxy);
-            if (check) {
-              status = check.status;
-              country = check.country || 'us';
-              ip = check.ip || '';
-            }
-          }
+          const country = isNoProxy ? 'vn' : 'us';
+          const proxyType = isNoProxy ? 'None' : (val.toLowerCase().startsWith('socks') ? 'socks5' : 'http');
           await window.api.updateProfile(this.currentEditingProfileId, {
             proxy: newProxy,
+            proxyType,
             proxyCountry: country,
-            status,
-            ...(ip ? { ip } : {})
+            status: 'ready',
+            ip: ''
           });
           closeModal();
           await this.loadProfiles();
