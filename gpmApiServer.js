@@ -392,7 +392,7 @@ class GpmApiServer {
               group_id: p.group_id || p.group || 'all',
               group_name: p.group || p.group_name || p.group_id || 'Default group',
               storage_path: p.storage_path || p.profilePath || `${storagePath}\\${p.id}`,
-              raw_proxy: p.raw_proxy !== undefined ? p.raw_proxy : (p.proxy && p.proxy !== 'No Proxy' ? p.proxy : ''),
+              raw_proxy: (p.proxy && p.proxy !== 'No Proxy') ? p.proxy : (p.raw_proxy || ''),
               browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
               os: p.os || 'windows',
               note: p.note || p.notes || '',
@@ -439,7 +439,7 @@ class GpmApiServer {
               name: p.name,
               group_id: p.group_id || p.group || 'all',
               storage_path: p.storage_path || p.profilePath || `${storagePath}\\${p.id}`,
-              raw_proxy: p.raw_proxy !== undefined ? p.raw_proxy : (p.proxy && p.proxy !== 'No Proxy' ? p.proxy : ''),
+              raw_proxy: (p.proxy && p.proxy !== 'No Proxy') ? p.proxy : (p.raw_proxy || ''),
               browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
               os: p.os || 'windows',
               note: p.note || p.notes || '',
@@ -585,7 +585,11 @@ class GpmApiServer {
 
           if (body.browser_type) body.browserType = this.normalizeBrowserType(body.browser_type);
           if (body.os_type) body.os = this.normalizeOsType(body.os_type);
-          if (body.raw_proxy !== undefined) body.proxy = body.raw_proxy;
+          if (body.raw_proxy !== undefined && body.proxy === undefined) {
+            body.proxy = body.raw_proxy;
+          } else if (body.proxy !== undefined && body.raw_proxy === undefined) {
+            body.raw_proxy = body.proxy;
+          }
           if (body.note !== undefined && body.notes === undefined) body.notes = body.note;
           if (body.notes !== undefined && body.note === undefined) body.note = body.notes;
 

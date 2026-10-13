@@ -1470,6 +1470,7 @@ export class ProfilesViewComponent {
           if (window.api && window.api.updateProfile) {
             await window.api.updateProfile(targets[i].id, {
               proxy: newProxy,
+              raw_proxy: newProxy === 'No Proxy' ? '' : newProxy,
               proxyType,
               proxyCountry,
               status,
@@ -1937,6 +1938,7 @@ export class ProfilesViewComponent {
           const proxyType = isNoProxy ? 'None' : (val.toLowerCase().startsWith('socks') ? 'socks5' : 'http');
           await window.api.updateProfile(this.currentEditingProfileId, {
             proxy: newProxy,
+            raw_proxy: newProxy === 'No Proxy' ? '' : newProxy,
             proxyType,
             proxyCountry: country,
             status: 'ready',

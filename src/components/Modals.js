@@ -2461,6 +2461,7 @@ export class ModalsComponent {
           startUrl,
           bypassStaticFiles,
           proxy,
+          raw_proxy: proxy === 'No Proxy' ? '' : proxy,
           proxyType,
           os: this.editSelectedOs || 'Windows',
           notes,

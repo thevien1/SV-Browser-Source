@@ -128,6 +128,21 @@ class ProfileStore {
     try {
       if (fs.existsSync(this.profilesFilePath)) {
         this.profiles = JSON.parse(fs.readFileSync(this.profilesFilePath, 'utf8'));
+        // Đảm bảo raw_proxy luôn đồng bộ chính xác với proxy hiện tại
+        let hasFix = false;
+        for (const p of this.profiles) {
+          const currentProxy = (p.proxy && p.proxy !== 'No Proxy') ? p.proxy.trim() : '';
+          if (currentProxy && p.raw_proxy !== currentProxy) {
+            p.raw_proxy = currentProxy;
+            hasFix = true;
+          } else if (!currentProxy && p.raw_proxy) {
+            p.raw_proxy = '';
+            hasFix = true;
+          }
+        }
+        if (hasFix) {
+          this.saveProfiles();
+        }
       } else {
         this.profiles = [];
         this.saveProfiles();
@@ -856,6 +871,20 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         if (updateData.group.toLowerCase() !== 'default group') {
           this.addGroup(updateData.group);
         }
+      }
+      // Đồng bộ hai chiều giữa proxy và raw_proxy để API luôn trả về proxy mới nhất
+      if (updateData.proxy !== undefined && updateData.raw_proxy === undefined) {
+        const pStr = (updateData.proxy || '').trim();
+        updateData.proxy = (!pStr || pStr.toLowerCase() === 'no proxy') ? 'No Proxy' : pStr;
+        updateData.raw_proxy = (!pStr || pStr.toLowerCase() === 'no proxy') ? '' : pStr;
+      } else if (updateData.raw_proxy !== undefined && updateData.proxy === undefined) {
+        const rpStr = (updateData.raw_proxy || '').trim();
+        updateData.raw_proxy = (!rpStr || rpStr.toLowerCase() === 'no proxy') ? '' : rpStr;
+        updateData.proxy = (!rpStr || rpStr.toLowerCase() === 'no proxy') ? 'No Proxy' : rpStr;
+      } else if (updateData.proxy !== undefined && updateData.raw_proxy !== undefined) {
+        const pStr = (updateData.proxy || '').trim();
+        updateData.proxy = (!pStr || pStr.toLowerCase() === 'no proxy') ? 'No Proxy' : pStr;
+        updateData.raw_proxy = (!pStr || pStr.toLowerCase() === 'no proxy') ? '' : pStr;
       }
       this.profiles[index] = { ...this.profiles[index], ...updateData, updatedAt: Date.now() };
       const storagePath = this.settings.localStoragePath || this.localStorageDefault;
