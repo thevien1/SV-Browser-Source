@@ -131,27 +131,44 @@ class GpmApiServer {
         // Chuẩn GPMLogin: GET /api/v1/profiles/start/{id}
         // Tham số query: remote_debugging_port, window_scale, window_pos, window_size, skip_proxy_check, addition_args
         const startMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/start(?:\/([^\/]+))?$/i);
-        if (startMatch && req.method === 'GET') {
+        if (startMatch && (req.method === 'GET' || req.method === 'POST')) {
           const profileId = extractId(startMatch);
           if (!profileId) {
             return sendJson(400, { success: false, message: 'Thiếu ID của profile cần mở', sender: 'SV Browser v5.0.8-stable' });
           }
 
-          const profile = this.profileStore.getProfile(profileId);
-          if (!profile) {
+          let body = query;
+          if (req.method === 'POST') {
+            const rawBody = await this.readBody(req);
+            try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+
+          const originalProfile = this.profileStore.getProfile(profileId);
+          if (!originalProfile) {
             return sendJson(404, { success: false, message: 'Profile không tồn tại', sender: 'SV Browser v5.0.8-stable' });
+          }
+          const profile = { ...originalProfile };
+
+          // Cho phép truyền proxy động lúc start (không làm đổi vĩnh viễn cấu hình nếu không muốn)
+          if (body.raw_proxy !== undefined || body.proxy !== undefined) {
+            const dynProxy = (body.raw_proxy !== undefined ? body.raw_proxy : body.proxy).trim();
+            profile.proxy = (!dynProxy || dynProxy.toLowerCase() === 'no proxy') ? 'No Proxy' : dynProxy;
+            profile.raw_proxy = (!dynProxy || dynProxy.toLowerCase() === 'no proxy') ? '' : dynProxy;
+            if (body.proxy_type || body.proxyType) {
+              profile.proxyType = body.proxy_type || body.proxyType;
+            }
           }
 
           // Xử lý các query params theo chuẩn GPMLogin API
-          const isIncognito = query.incognito === 'true' || query.incognito === '1' ||
-                              query.is_incognito === 'true' || query.is_incognito === '1';
+          const isIncognito = body.incognito === 'true' || body.incognito === '1' ||
+                              body.is_incognito === 'true' || body.is_incognito === '1';
           const launchOptions = {
-            remote_debugging_port: query.remote_debugging_port ? parseInt(query.remote_debugging_port, 10) : undefined,
-            window_scale: query.window_scale ? parseFloat(query.window_scale) : undefined,
-            window_pos: query.window_pos || undefined,
-            window_size: query.window_size || undefined,
-            skip_proxy_check: query.skip_proxy_check === 'true' || query.skip_proxy_check === true || query.skip_proxy_check === '1',
-            addition_args: query.addition_args || undefined,
+            remote_debugging_port: (body.remote_debugging_port || query.remote_debugging_port) ? parseInt(body.remote_debugging_port || query.remote_debugging_port, 10) : undefined,
+            window_scale: (body.window_scale || query.window_scale) ? parseFloat(body.window_scale || query.window_scale) : undefined,
+            window_pos: body.window_pos || query.window_pos || undefined,
+            window_size: body.window_size || query.window_size || undefined,
+            skip_proxy_check: body.skip_proxy_check === 'true' || body.skip_proxy_check === true || body.skip_proxy_check === '1',
+            addition_args: body.addition_args || query.addition_args || undefined,
             incognito: isIncognito
           };
 
