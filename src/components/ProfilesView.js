@@ -189,9 +189,12 @@ export class ProfilesViewComponent {
           <!-- Dropdown Công cụ -->
           <div class="bulk-dropdown-wrapper" style="position: relative; display: inline-block;">
             <button class="btn-bulk btn-bulk-normal" id="btn-bulk-tools">Công cụ ⌵</button>
-            <div class="tools-dropdown-menu" id="tools-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); z-index: 1000; min-width: 190px; padding: 4px 0;">
+            <div class="tools-dropdown-menu" id="tools-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 4px); right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.12); z-index: 1000; min-width: 200px; padding: 4px 0;">
               <button type="button" class="tools-menu-item" id="btn-tool-check-proxy">
                 <span class="tools-item-icon">🔗</span> Kiểm tra proxy
+              </button>
+              <button type="button" class="tools-menu-item" id="btn-tool-free-disk">
+                <span class="tools-item-icon">🧹</span> Giải phóng dung lượng
               </button>
               <button type="button" class="tools-menu-item" id="btn-tool-clear-cache">
                 <span class="tools-item-icon">🗑</span> Xóa cache
@@ -1837,19 +1840,78 @@ export class ProfilesViewComponent {
       }
     });
 
-    // Tool: Xóa cache
+    // Tool: Giải phóng dung lượng (Bảo toàn Cookie & Đăng nhập)
+    this.container.querySelector('#btn-tool-free-disk')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      this.closeAllBulkDropdowns();
+      const targetIds = Array.from(this.selectedIds);
+      if (targetIds.length === 0) {
+        alert('Vui lòng chọn ít nhất một profile để giải phóng dung lượng.');
+        return;
+      }
+
+      const confirmMsg = `Bạn có chắc chắn muốn giải phóng dung lượng cho ${targetIds.length} profile đã chọn?\n\n` +
+        `• Tự động dọn dẹp các tệp đệm, tệp rác (Cache, Code Cache, GPU/Shader Cache, Crashpad dumps, Logs...)\n` +
+        `• ✅ BẢO TOÀN TUYỆT ĐỐI Cookie, Mật khẩu, Tài khoản đã đăng nhập và Tiện ích mở rộng!`;
+      if (!confirm(confirmMsg)) return;
+
+      const btn = e.currentTarget;
+      const originalHtml = btn.innerHTML;
+      btn.innerHTML = `<span class="tools-item-icon">⏳</span> Đang dọn dẹp...`;
+      btn.disabled = true;
+
+      try {
+        if (window.showGlobalToast) {
+          window.showGlobalToast(`🧹 Đang giải phóng dung lượng cho ${targetIds.length} profile...`);
+        }
+        if (window.api && window.api.freeBulkDiskSpace) {
+          const res = await window.api.freeBulkDiskSpace(targetIds);
+          if (res && res.success) {
+            const freedMsg = `🎉 Đã giải phóng thành công ${res.totalFreedMB} MB trên ${res.count} profile!\n\n✅ Toàn bộ Cookie & Phiên đăng nhập đã được bảo toàn nguyên vẹn.`;
+            if (window.showGlobalToast) {
+              window.showGlobalToast(`🎉 Đã giải phóng thành công ${res.totalFreedMB} MB (Bảo toàn Cookie & Đăng nhập)`);
+            }
+            alert(freedMsg);
+          } else {
+            alert('Không thể giải phóng dung lượng: ' + ((res && res.message) || 'Lỗi không xác định'));
+          }
+        }
+      } catch (err) {
+        alert('Lỗi giải phóng dung lượng: ' + err.message);
+      } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+      }
+    });
+
+    // Tool: Xóa cache (Bảo toàn Cookie & Đăng nhập)
     this.container.querySelector('#btn-tool-clear-cache')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       this.closeAllBulkDropdowns();
       const targetIds = Array.from(this.selectedIds);
-      if (targetIds.length === 0) return;
+      if (targetIds.length === 0) {
+        alert('Vui lòng chọn ít nhất một profile để xóa cache.');
+        return;
+      }
 
+      if (window.showGlobalToast) {
+        window.showGlobalToast(`🧹 Đang xóa cache cho ${targetIds.length} profile...`);
+      }
+
+      let totalFreed = 0;
       for (const id of targetIds) {
-        if (window.api && window.api.clearCache) {
-          await window.api.clearCache(id);
+        if (window.api && (window.api.freeDiskSpace || window.api.clearCache)) {
+          const fn = window.api.freeDiskSpace || window.api.clearCache;
+          const res = await fn(id);
+          if (res && res.freedBytes) totalFreed += res.freedBytes;
         }
       }
-      alert(`Đã xóa cache thành công cho ${targetIds.length} profile!`);
+      const freedMB = (totalFreed / (1024 * 1024)).toFixed(2);
+      const msg = totalFreed > 0
+        ? `Đã xóa cache thành công cho ${targetIds.length} profile! (Đã giải phóng ${freedMB} MB, bảo toàn Cookie & Đăng nhập)`
+        : `Đã xóa cache thành công cho ${targetIds.length} profile! (Bảo toàn Cookie & Đăng nhập)`;
+      if (window.showGlobalToast) window.showGlobalToast(msg);
+      alert(msg);
     });
 
     // Bulk actions
@@ -2248,6 +2310,9 @@ export class ProfilesViewComponent {
       <button class="context-menu-item" data-action="open-folder">
         <span class="menu-icon">📁</span> Mở thư mục profile
       </button>
+      <button class="context-menu-item" data-action="free-disk-space">
+        <span class="menu-icon">🧹</span> Giải phóng dung lượng
+      </button>
       <div class="context-menu-divider"></div>
       <button class="context-menu-item" data-action="open-incognito">
         <span class="menu-icon">🕶️</span> Mở ẩn danh (Incognito)
@@ -2298,6 +2363,29 @@ export class ProfilesViewComponent {
       } else if (action === 'open-folder') {
         if (window.api && window.api.openProfileFolder) {
           await window.api.openProfileFolder(profileId);
+        }
+      } else if (action === 'free-disk-space') {
+        const p = this.profiles.find(x => x.id === profileId);
+        const name = p ? p.name : profileId;
+        try {
+          if (window.showGlobalToast) {
+            window.showGlobalToast(`🧹 Đang giải phóng dung lượng cho profile "${name}"...`);
+          }
+          if (window.api && (window.api.freeDiskSpace || window.api.clearCache)) {
+            const fn = window.api.freeDiskSpace || window.api.clearCache;
+            const res = await fn(profileId);
+            if (res && res.success) {
+              const msg = `🎉 Profile "${name}": Đã giải phóng thành công ${res.freedMB || '0.00'} MB!\n\n✅ Toàn bộ Cookie & Phiên đăng nhập được bảo toàn nguyên vẹn.`;
+              if (window.showGlobalToast) {
+                window.showGlobalToast(`🎉 Đã giải phóng ${res.freedMB || '0.00'} MB cho "${name}" (Bảo toàn đăng nhập)`);
+              }
+              alert(msg);
+            } else {
+              alert('Lỗi giải phóng dung lượng: ' + ((res && res.message) || 'Lỗi không xác định'));
+            }
+          }
+        } catch (err) {
+          alert('Lỗi khi giải phóng dung lượng: ' + err.message);
         }
       } else if (action === 'clone') {
         const p = this.profiles.find(x => x.id === profileId);

@@ -541,9 +541,21 @@ ipcMain.handle('proxy:test-string', async (event, proxyStr, proxyType) => {
   return ProxyChecker.testProxy(proxyStr, proxyType);
 });
 
-// Clear Cache IPC
+// Clear Cache & Free Disk Space IPC (Bảo toàn Cookie & Đăng nhập)
 ipcMain.handle('profiles:clear-cache', async (event, profileId) => {
-  return profileStore.clearCache(profileId);
+  const isRunning = (typeof browserLauncher.isProfileRunning === 'function') ? browserLauncher.isProfileRunning(profileId) : false;
+  return profileStore.freeProfileDiskSpace(profileId, isRunning);
+});
+
+ipcMain.handle('profiles:free-disk-space', async (event, profileId) => {
+  const isRunning = (typeof browserLauncher.isProfileRunning === 'function') ? browserLauncher.isProfileRunning(profileId) : false;
+  return profileStore.freeProfileDiskSpace(profileId, isRunning);
+});
+
+ipcMain.handle('profiles:free-bulk-disk-space', async (event, profileIds) => {
+  return profileStore.freeBulkDiskSpace(profileIds, (id) => {
+    return (typeof browserLauncher.isProfileRunning === 'function') ? browserLauncher.isProfileRunning(id) : false;
+  });
 });
 
 // Cookie Dialog & Import IPC (Chuẩn Ảnh 1)

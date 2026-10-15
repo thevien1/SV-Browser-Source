@@ -920,31 +920,185 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     return { success: true, message: 'Đã import cookie thành công' };
   }
 
-  clearCache(id) {
+  safeRemove(targetPath) {
+    if (!targetPath || !fs.existsSync(targetPath)) return;
+    try {
+      const stat = fs.lstatSync(targetPath);
+      if (stat.isDirectory()) {
+        const entries = fs.readdirSync(targetPath);
+        for (const entry of entries) {
+          this.safeRemove(path.join(targetPath, entry));
+        }
+        try { fs.rmdirSync(targetPath); } catch (e) {}
+      } else {
+        try { fs.unlinkSync(targetPath); } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
+  getDirectorySize(dirPath) {
+    let total = 0;
+    if (!dirPath || !fs.existsSync(dirPath)) return 0;
+    try {
+      const stat = fs.lstatSync(dirPath);
+      if (!stat.isDirectory()) return stat.size;
+      const entries = fs.readdirSync(dirPath);
+      for (const entry of entries) {
+        total += this.getDirectorySize(path.join(dirPath, entry));
+      }
+    } catch (e) {}
+    return total;
+  }
+
+  freeProfileDiskSpace(id, isRunning = false) {
     const profile = this.getProfile(id);
-    if (!profile) return { success: false, message: 'Không tìm thấy profile' };
+    if (!profile) return { success: false, message: 'Không tìm thấy profile', freedBytes: 0, freedMB: '0.00' };
 
     const storagePath = this.settings.localStoragePath || this.localStorageDefault;
     const profileDir = profile.profilePath || path.join(storagePath, id);
-    if (fs.existsSync(profileDir)) {
-      const cacheDirs = [
-        path.join(profileDir, 'Default', 'Cache'),
-        path.join(profileDir, 'Default', 'Code Cache'),
-        path.join(profileDir, 'Default', 'GPUCache'),
-        path.join(profileDir, 'Default', 'Service Worker', 'CacheStorage'),
-        path.join(profileDir, 'Default', 'ShaderCache'),
-        path.join(profileDir, 'ShaderCache'),
-        path.join(profileDir, 'GrShaderCache')
-      ];
-      cacheDirs.forEach(dir => {
-        if (fs.existsSync(dir)) {
-          try {
-            fs.rmSync(dir, { recursive: true, force: true });
-          } catch (e) {}
-        }
-      });
+    if (!fs.existsSync(profileDir)) {
+      return { success: false, message: 'Thư mục profile không tồn tại', freedBytes: 0, freedMB: '0.00' };
     }
-    return { success: true, message: 'Đã xóa cache thành công' };
+
+    const beforeBytes = this.getDirectorySize(profileDir);
+
+    // 1. Danh sách các thư mục đệm/rác an toàn tuyệt đối bên trong Default
+    const defaultJunkDirs = [
+      path.join(profileDir, 'Default', 'Cache'),
+      path.join(profileDir, 'Default', 'Code Cache'),
+      path.join(profileDir, 'Default', 'GPUCache'),
+      path.join(profileDir, 'Default', 'DawnCache'),
+      path.join(profileDir, 'Default', 'DawnGraphiteCache'),
+      path.join(profileDir, 'Default', 'DawnWebGPUCache'),
+      path.join(profileDir, 'Default', 'ShaderCache'),
+      path.join(profileDir, 'Default', 'Media Cache'),
+      path.join(profileDir, 'Default', 'Service Worker', 'CacheStorage'),
+      path.join(profileDir, 'Default', 'Service Worker', 'ScriptCache'),
+      path.join(profileDir, 'Default', 'File System'),
+      path.join(profileDir, 'Default', 'blob_storage'),
+      path.join(profileDir, 'Default', 'optimization_guide_hint_cache_store'),
+      path.join(profileDir, 'Default', 'Reporting and NEL'),
+      path.join(profileDir, 'Default', 'JumpListIconsMostVisited'),
+      path.join(profileDir, 'Default', 'JumpListIconsRecentClosed'),
+      path.join(profileDir, 'Default', 'Search Logos')
+    ];
+
+    // 2. Danh sách thư mục rác an toàn ở root của profile
+    const rootJunkDirs = [
+      path.join(profileDir, 'ShaderCache'),
+      path.join(profileDir, 'GrShaderCache'),
+      path.join(profileDir, 'GPUPersistentCache'),
+      path.join(profileDir, 'component_crx_cache'),
+      path.join(profileDir, 'optimization_guide_model_store'),
+      path.join(profileDir, 'OnDeviceHeadSuggestModel'),
+      path.join(profileDir, 'Crashpad')
+    ];
+
+    // Dọn dẹp an toàn các thư mục rác
+    const allJunkDirs = [...defaultJunkDirs, ...rootJunkDirs];
+    for (const dir of allJunkDirs) {
+      this.safeRemove(dir);
+    }
+
+    // 3. Xóa cache của tiện ích mở rộng (Extension Cache/GPUCache)
+    const extStorageDir = path.join(profileDir, 'Default', 'Storage', 'ext');
+    if (fs.existsSync(extStorageDir)) {
+      try {
+        const extDirs = fs.readdirSync(extStorageDir);
+        for (const extId of extDirs) {
+          this.safeRemove(path.join(extStorageDir, extId, 'def', 'Cache'));
+          this.safeRemove(path.join(extStorageDir, extId, 'def', 'GPUCache'));
+        }
+      } catch (e) {}
+    }
+
+    // 4. Xóa các file rác trong Default (LOG, LOG.old, *.log, *.tmp, *.dmp)
+    const defaultDir = path.join(profileDir, 'Default');
+    if (fs.existsSync(defaultDir)) {
+      try {
+        const files = fs.readdirSync(defaultDir);
+        for (const f of files) {
+          const lower = f.toLowerCase();
+          if (
+            lower === 'log' ||
+            lower === 'log.old' ||
+            lower.endsWith('.log') ||
+            lower.endsWith('.tmp') ||
+            lower.endsWith('.dmp') ||
+            (!isRunning && lower === 'lock')
+          ) {
+            this.safeRemove(path.join(defaultDir, f));
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 5. Xóa các file rác ở thư mục gốc profile (BrowserMetrics, debug logs, crash dumps, stale locks)
+    try {
+      const rootFiles = fs.readdirSync(profileDir);
+      for (const f of rootFiles) {
+        const lower = f.toLowerCase();
+        if (
+          lower.startsWith('browsermetrics') ||
+          lower.endsWith('.log') ||
+          lower.endsWith('.tmp') ||
+          lower.endsWith('.dmp') ||
+          lower.startsWith('sv_browser_temp_') ||
+          (!isRunning && ['lockfile', 'singletonlock', 'singletoncookie', 'singletonsocket'].includes(lower))
+        ) {
+          this.safeRemove(path.join(profileDir, f));
+        }
+      }
+    } catch (e) {}
+
+    const afterBytes = this.getDirectorySize(profileDir);
+    const freedBytes = Math.max(0, beforeBytes - afterBytes);
+    const freedMB = (freedBytes / (1024 * 1024)).toFixed(2);
+
+    return {
+      success: true,
+      profileId: id,
+      name: profile.name,
+      beforeBytes,
+      afterBytes,
+      freedBytes,
+      freedMB,
+      message: `Đã giải phóng ${freedMB} MB (Đã bảo toàn Cookie & Đăng nhập)`
+    };
+  }
+
+  freeBulkDiskSpace(ids, isRunningCheckFn = null) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return { success: false, message: 'Danh sách profile rỗng', totalFreedBytes: 0, totalFreedMB: '0.00', count: 0 };
+    }
+
+    let totalFreedBytes = 0;
+    let count = 0;
+    const results = [];
+
+    for (const id of ids) {
+      const isRunning = typeof isRunningCheckFn === 'function' ? isRunningCheckFn(id) : false;
+      const res = this.freeProfileDiskSpace(id, isRunning);
+      if (res && res.success) {
+        totalFreedBytes += res.freedBytes;
+        count++;
+        results.push(res);
+      }
+    }
+
+    const totalFreedMB = (totalFreedBytes / (1024 * 1024)).toFixed(2);
+    return {
+      success: true,
+      count,
+      totalFreedBytes,
+      totalFreedMB,
+      results,
+      message: `Đã giải phóng thành công ${totalFreedMB} MB trên ${count} profile (Đã bảo toàn Cookie & Đăng nhập)`
+    };
+  }
+
+  clearCache(id) {
+    return this.freeProfileDiskSpace(id);
   }
 
   deleteProfile(id, options = {}) {

@@ -643,6 +643,41 @@ class GpmApiServer {
           });
         }
 
+        // 8b. GIẢI PHÓNG DUNG LƯỢNG / XÓA CACHE (FREE DISK SPACE / CLEAR CACHE - BẢO TOÀN COOKIE & ĐĂNG NHẬP)
+        // Chuẩn GPMLogin / SV Browser: GET hoặc POST /api/v1/profiles/free-disk/{id} hoặc /api/v1/profiles/clear-cache/{id}
+        // Hoặc bulk: POST /api/v1/profiles/free-disk với body { ids: [...] }
+        const freeDiskMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/(?:free-disk|clear-cache)(?:\/([^\/]+))?$/i);
+        if (freeDiskMatch && (req.method === 'GET' || req.method === 'POST')) {
+          let body = query;
+          if (req.method === 'POST') {
+            const rawBody = await this.readBody(req);
+            try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+          const profileId = extractId(freeDiskMatch) || body.id || body.profile_id;
+          if (profileId) {
+            const isRunning = (typeof this.browserLauncher.isProfileRunning === 'function') ? this.browserLauncher.isProfileRunning(profileId) : false;
+            const res = this.profileStore.freeProfileDiskSpace(profileId, isRunning);
+            return sendJson(res.success ? 200 : 400, {
+              success: !!res.success,
+              data: res,
+              message: res.message || (res.success ? 'OK' : 'Error'),
+              sender: 'SV Browser v5.0.8-stable'
+            });
+          } else if (Array.isArray(body.ids) && body.ids.length > 0) {
+            const res = this.profileStore.freeBulkDiskSpace(body.ids, (id) => {
+              return (typeof this.browserLauncher.isProfileRunning === 'function') ? this.browserLauncher.isProfileRunning(id) : false;
+            });
+            return sendJson(200, {
+              success: true,
+              data: res,
+              message: res.message,
+              sender: 'SV Browser v5.0.8-stable'
+            });
+          } else {
+            return sendJson(400, { success: false, data: null, message: 'Thiếu ID hoặc danh sách IDs của profile cần giải phóng dung lượng', sender: 'SV Browser v5.0.8-stable' });
+          }
+        }
+
         // =========================================================================
         // B. GROUPS ENDPOINTS (Chuẩn GPMLogin API)
         // =========================================================================

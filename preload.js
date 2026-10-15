@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld('api', {
   exportCookies: (profileIds) => ipcRenderer.invoke('profiles:export-cookies', profileIds),
   randomizeFingerprint: (profileIds) => ipcRenderer.invoke('profiles:randomize-fingerprint', profileIds),
   clearCache: (id) => ipcRenderer.invoke('profiles:clear-cache', id),
+  freeDiskSpace: (id) => ipcRenderer.invoke('profiles:free-disk-space', id),
+  freeBulkDiskSpace: (ids) => ipcRenderer.invoke('profiles:free-bulk-disk-space', ids),
 
   // Trash (Thùng rác)
   getTrashProfiles: () => ipcRenderer.invoke('trash:get-all'),
