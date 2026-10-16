@@ -1850,9 +1850,19 @@ export class ProfilesViewComponent {
         return;
       }
 
-      const confirmMsg = `Bạn có chắc chắn muốn giải phóng dung lượng cho ${targetIds.length} profile đã chọn?\n\n` +
+      const runningCount = targetIds.filter(id => {
+        const p = this.profiles.find(x => x.id === id);
+        return p && p.status === 'running';
+      }).length;
+
+      let confirmMsg = `Bạn có chắc chắn muốn giải phóng dung lượng cho ${targetIds.length} profile đã chọn?\n\n` +
         `• Tự động dọn dẹp các tệp đệm, tệp rác (Cache, Code Cache, GPU/Shader Cache, Crashpad dumps, Logs...)\n` +
-        `• ✅ BẢO TOÀN TUYỆT ĐỐI Cookie, Mật khẩu, Tài khoản đã đăng nhập và Tiện ích mở rộng!`;
+        `• ✅ BẢO TOÀN TUYỆT ĐỐI Cookie, Mật khẩu, Tài khoản đã đăng nhập và Tiện ích mở rộng (Extensions)!`;
+
+      if (runningCount > 0) {
+        confirmMsg += `\n\n⚠️ Lưu ý: Có ${runningCount} profile đang mở sẽ được tự động bỏ qua để đảm bảo an toàn cho phiên duyệt web đang chạy.`;
+      }
+
       if (!confirm(confirmMsg)) return;
 
       const btn = e.currentTarget;
@@ -1867,9 +1877,12 @@ export class ProfilesViewComponent {
         if (window.api && window.api.freeBulkDiskSpace) {
           const res = await window.api.freeBulkDiskSpace(targetIds);
           if (res && res.success) {
-            const freedMsg = `🎉 Đã giải phóng thành công ${res.totalFreedMB} MB trên ${res.count} profile!\n\n✅ Toàn bộ Cookie & Phiên đăng nhập đã được bảo toàn nguyên vẹn.`;
+            let freedMsg = `🎉 Đã giải phóng thành công ${res.totalFreedMB} MB trên ${res.count} profile!\n\n✅ Toàn bộ Cookie, Phiên đăng nhập & Tiện ích mở rộng đã được bảo toàn nguyên vẹn.`;
+            if (res.skippedRunning > 0) {
+              freedMsg += `\n(Đã bỏ qua ${res.skippedRunning} profile đang mở để đảm bảo an toàn)`;
+            }
             if (window.showGlobalToast) {
-              window.showGlobalToast(`🎉 Đã giải phóng thành công ${res.totalFreedMB} MB (Bảo toàn Cookie & Đăng nhập)`);
+              window.showGlobalToast(`🎉 Đã giải phóng ${res.totalFreedMB} MB (Bảo toàn Cookie & Tiện ích)`);
             }
             alert(freedMsg);
           } else {
@@ -2367,6 +2380,10 @@ export class ProfilesViewComponent {
       } else if (action === 'free-disk-space') {
         const p = this.profiles.find(x => x.id === profileId);
         const name = p ? p.name : profileId;
+        if (p && p.status === 'running') {
+          alert(`Profile "${name}" đang mở. Vui lòng đóng profile trước khi giải phóng dung lượng để đảm bảo an toàn!`);
+          return;
+        }
         try {
           if (window.showGlobalToast) {
             window.showGlobalToast(`🧹 Đang giải phóng dung lượng cho profile "${name}"...`);
@@ -2375,9 +2392,9 @@ export class ProfilesViewComponent {
             const fn = window.api.freeDiskSpace || window.api.clearCache;
             const res = await fn(profileId);
             if (res && res.success) {
-              const msg = `🎉 Profile "${name}": Đã giải phóng thành công ${res.freedMB || '0.00'} MB!\n\n✅ Toàn bộ Cookie & Phiên đăng nhập được bảo toàn nguyên vẹn.`;
+              const msg = `🎉 Profile "${name}": Đã giải phóng thành công ${res.freedMB || '0.00'} MB!\n\n✅ Toàn bộ Cookie, Phiên đăng nhập & Tiện ích mở rộng (Extensions) được bảo toàn nguyên vẹn.`;
               if (window.showGlobalToast) {
-                window.showGlobalToast(`🎉 Đã giải phóng ${res.freedMB || '0.00'} MB cho "${name}" (Bảo toàn đăng nhập)`);
+                window.showGlobalToast(`🎉 Đã giải phóng ${res.freedMB || '0.00'} MB cho "${name}" (Bảo toàn Tiện ích & Đăng nhập)`);
               }
               alert(msg);
             } else {

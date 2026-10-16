@@ -960,9 +960,23 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       return { success: false, message: 'Thư mục profile không tồn tại', freedBytes: 0, freedMB: '0.00' };
     }
 
+    if (isRunning) {
+      return {
+        success: false,
+        message: 'Profile đang mở. Vui lòng đóng profile trước khi giải phóng dung lượng để tránh xung đột.',
+        freedBytes: 0,
+        freedMB: '0.00'
+      };
+    }
+
     const beforeBytes = this.getDirectorySize(profileDir);
 
     // 1. Danh sách các thư mục đệm/rác an toàn tuyệt đối bên trong Default
+    // ĐẶC BIỆT BẢO VỆ TIỆN ÍCH MỞ RỘNG (EXTENSIONS):
+    // Tuyệt đối KHÔNG xóa thư mục "Service Worker" và "Storage/ext"!
+    // Vì trong Chromium Manifest V3, toàn bộ tiện ích mở rộng chạy ngầm bằng Background Service Worker.
+    // Nếu xóa Service Worker (ScriptCache/CacheStorage), Extension sẽ bị mất mã nguồn đã cache,
+    // dẫn đến extension bị vô hiệu hóa/ngừng hoạt động cho đến khi người dùng vào tắt bật lại thủ công!
     const defaultJunkDirs = [
       path.join(profileDir, 'Default', 'Cache'),
       path.join(profileDir, 'Default', 'Code Cache'),
@@ -972,10 +986,6 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       path.join(profileDir, 'Default', 'DawnWebGPUCache'),
       path.join(profileDir, 'Default', 'ShaderCache'),
       path.join(profileDir, 'Default', 'Media Cache'),
-      path.join(profileDir, 'Default', 'Service Worker', 'CacheStorage'),
-      path.join(profileDir, 'Default', 'Service Worker', 'ScriptCache'),
-      path.join(profileDir, 'Default', 'File System'),
-      path.join(profileDir, 'Default', 'blob_storage'),
       path.join(profileDir, 'Default', 'optimization_guide_hint_cache_store'),
       path.join(profileDir, 'Default', 'Reporting and NEL'),
       path.join(profileDir, 'Default', 'JumpListIconsMostVisited'),
@@ -1000,19 +1010,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       this.safeRemove(dir);
     }
 
-    // 3. Xóa cache của tiện ích mở rộng (Extension Cache/GPUCache)
-    const extStorageDir = path.join(profileDir, 'Default', 'Storage', 'ext');
-    if (fs.existsSync(extStorageDir)) {
-      try {
-        const extDirs = fs.readdirSync(extStorageDir);
-        for (const extId of extDirs) {
-          this.safeRemove(path.join(extStorageDir, extId, 'def', 'Cache'));
-          this.safeRemove(path.join(extStorageDir, extId, 'def', 'GPUCache'));
-        }
-      } catch (e) {}
-    }
-
-    // 4. Xóa các file rác trong Default (LOG, LOG.old, *.log, *.tmp, *.dmp)
+    // 3. Xóa các file rác trong Default (LOG, LOG.old, *.log, *.tmp, *.dmp)
     const defaultDir = path.join(profileDir, 'Default');
     if (fs.existsSync(defaultDir)) {
       try {
@@ -1033,7 +1031,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       } catch (e) {}
     }
 
-    // 5. Xóa các file rác ở thư mục gốc profile (BrowserMetrics, debug logs, crash dumps, stale locks)
+    // 4. Xóa các file rác ở thư mục gốc profile (BrowserMetrics, debug logs, crash dumps, stale locks)
     try {
       const rootFiles = fs.readdirSync(profileDir);
       for (const f of rootFiles) {
@@ -1063,21 +1061,26 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       afterBytes,
       freedBytes,
       freedMB,
-      message: `Đã giải phóng ${freedMB} MB (Đã bảo toàn Cookie & Đăng nhập)`
+      message: `Đã giải phóng ${freedMB} MB (Đã bảo toàn Cookie & Tiện ích)`
     };
   }
 
   freeBulkDiskSpace(ids, isRunningCheckFn = null) {
     if (!Array.isArray(ids) || ids.length === 0) {
-      return { success: false, message: 'Danh sách profile rỗng', totalFreedBytes: 0, totalFreedMB: '0.00', count: 0 };
+      return { success: false, message: 'Danh sách profile rỗng', totalFreedBytes: 0, totalFreedMB: '0.00', count: 0, skippedRunning: 0 };
     }
 
     let totalFreedBytes = 0;
     let count = 0;
+    let skippedRunning = 0;
     const results = [];
 
     for (const id of ids) {
       const isRunning = typeof isRunningCheckFn === 'function' ? isRunningCheckFn(id) : false;
+      if (isRunning) {
+        skippedRunning++;
+        continue;
+      }
       const res = this.freeProfileDiskSpace(id, isRunning);
       if (res && res.success) {
         totalFreedBytes += res.freedBytes;
@@ -1087,13 +1090,19 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     }
 
     const totalFreedMB = (totalFreedBytes / (1024 * 1024)).toFixed(2);
+    let msg = `Đã giải phóng thành công ${totalFreedMB} MB trên ${count} profile (Đã bảo toàn Cookie & Tiện ích)`;
+    if (skippedRunning > 0) {
+      msg += ` (${skippedRunning} profile đang mở được giữ nguyên an toàn)`;
+    }
+
     return {
       success: true,
       count,
+      skippedRunning,
       totalFreedBytes,
       totalFreedMB,
       results,
-      message: `Đã giải phóng thành công ${totalFreedMB} MB trên ${count} profile (Đã bảo toàn Cookie & Đăng nhập)`
+      message: msg
     };
   }
 
