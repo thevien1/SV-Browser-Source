@@ -2,6 +2,7 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const ProxyChecker = require('./proxyChecker');
+const { getApiDocsHtml } = require('./apiDocsTemplate');
 
 /**
  * SV Browser REST API Server & API Gateway
@@ -96,8 +97,17 @@ class GpmApiServer {
       };
 
       try {
-        // 1. Root / Ping Endpoint (Chuẩn chính xác GPMLogin & SV Browser API)
-        if (pathname === '/' || pathname === '/api' || pathname === '/api/v1' || pathname === '/api/v2' || pathname === '/api/v3') {
+        // 1. Root / Ping / Docs Endpoint
+        if (pathname === '/' || pathname === '/api' || pathname === '/api/v1' || pathname === '/api/v2' || pathname === '/api/v3' || pathname === '/docs' || pathname === '/api-docs') {
+          const acceptHeader = (req.headers.accept || '').toLowerCase();
+          const wantsHtml = pathname === '/docs' || pathname === '/api-docs' || (acceptHeader.includes('text/html') && query.format !== 'json');
+
+          if (wantsHtml) {
+            const host = req.headers.host || '127.0.0.1:8725';
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            return res.end(getApiDocsHtml(host));
+          }
+
           return sendJson(200, {
             success: true,
             data: 'SV Browser API',
@@ -439,10 +449,44 @@ class GpmApiServer {
           });
         }
 
+        // 4b. DANH SÁCH PROFILES ĐANG CHẠY (ACTIVE / RUNNING PROFILES)
+        // GET /api/v1/profiles/active
+        const activeMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/active$/i);
+        if (activeMatch && req.method === 'GET') {
+          const storagePath = (this.profileStore.settings && this.profileStore.settings.localStoragePath) || '';
+          const activeList = [];
+          if (this.browserLauncher && this.browserLauncher.runningProfiles) {
+            for (const [id, runInfo] of this.browserLauncher.runningProfiles.entries()) {
+              const p = this.profileStore.getProfile(id) || {};
+              activeList.push({
+                id: id,
+                name: p.name || runInfo.name || '',
+                group_id: p.group_id || p.group || 'all',
+                storage_path: p.storage_path || p.profilePath || `${storagePath}\\${id}`,
+                raw_proxy: (p.proxy && p.proxy !== 'No Proxy') ? p.proxy : (p.raw_proxy || ''),
+                status: 'running',
+                port: runInfo.debugPort || null,
+                remote_debugging_port: runInfo.debugPort || null,
+                remote_debugging_address: runInfo.remote_debugging_address || (runInfo.debugPort ? `127.0.0.1:${runInfo.debugPort}` : null),
+                websocket_debugging_url: runInfo.websocket_debugging_url || (runInfo.debugPort ? `ws://127.0.0.1:${runInfo.debugPort}/devtools/browser` : null)
+              });
+            }
+          }
+          return sendJson(200, {
+            success: true,
+            data: {
+              total: activeList.length,
+              profiles: activeList
+            },
+            message: 'OK',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
         // 5. CHI TIẾT 1 PROFILE (GET ONE PROFILE)
         // Chuẩn GPMLogin: GET /api/v1/profiles/{id}
         const getOneMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-]+)$/i);
-        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note', 'update-tags', 'tags', 'tag'].includes(getOneMatch[1].toLowerCase())) {
+        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note', 'update-tags', 'tags', 'tag', 'active'].includes(getOneMatch[1].toLowerCase())) {
           const profileId = getOneMatch[1];
           const p = this.profileStore.getProfile(profileId);
           if (!p) {
@@ -969,6 +1013,33 @@ class GpmApiServer {
             success: true,
             data: null,
             message: 'OK',
+            sender: 'SV Browser v5.0.8-stable'
+          });
+        }
+
+        // 18b. KIỂM TRA KẾT NỐI PROXY (CHECK PROXY LIVE/DIE)
+        // Chuẩn GPMLogin: GET /api/v1/proxies/check/{id}
+        const checkProxyMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?proxies\/check(?:\/([^\/]+))?$/i);
+        if (checkProxyMatch && req.method === 'GET') {
+          const proxyId = extractId(checkProxyMatch);
+          if (!proxyId) {
+            return sendJson(400, { success: false, data: null, message: 'Thiếu ID proxy cần kiểm tra', sender: 'SV Browser v5.0.8-stable' });
+          }
+          const proxyItem = this.profileStore.getProxy(proxyId);
+          if (!proxyItem || !proxyItem.raw_proxy) {
+            return sendJson(404, { success: false, data: null, message: 'Proxy không tồn tại', sender: 'SV Browser v5.0.8-stable' });
+          }
+          const checkRes = await ProxyChecker.testProxy(proxyItem.raw_proxy);
+          return sendJson(200, {
+            success: true,
+            data: {
+              id: proxyId,
+              live: checkRes.live,
+              status: checkRes.status || (checkRes.live ? 'Live' : 'Die'),
+              ip: checkRes.ip || '',
+              country: checkRes.country || ''
+            },
+            message: checkRes.live ? 'Proxy hoạt động tốt (Live)' : (checkRes.error || 'Proxy không thể kết nối (Die)'),
             sender: 'SV Browser v5.0.8-stable'
           });
         }

@@ -159,6 +159,7 @@ async function run() {
     'proxyChecker.js',
     'extensionStore.js',
     'gpmApiServer.js',
+    'apiDocsTemplate.js',
     'driverDownloader.js',
     'driverIconManager.js',
     'taskbarManager.js',
