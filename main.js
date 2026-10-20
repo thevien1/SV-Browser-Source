@@ -245,10 +245,18 @@ ipcMain.handle('profiles:get-all', async () => {
 });
 
 ipcMain.handle('profiles:create', async (event, data) => {
+  const lic = await licenseManager.checkStatus();
+  if (!lic || !lic.isActivated || lic.isExpired) {
+    return { success: false, message: 'Bản quyền chưa được kích hoạt hoặc đã hết hạn. Vui lòng nhập License Key hợp lệ!' };
+  }
   return profileStore.createProfile(data);
 });
 
 ipcMain.handle('profiles:batch-create', async (event, options) => {
+  const lic = await licenseManager.checkStatus();
+  if (!lic || !lic.isActivated || lic.isExpired) {
+    return { success: false, message: 'Bản quyền chưa được kích hoạt hoặc đã hết hạn. Vui lòng nhập License Key hợp lệ!' };
+  }
   return profileStore.batchCreate(options);
 });
 
