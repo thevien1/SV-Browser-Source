@@ -836,7 +836,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SV Browser API - Tài liệu hướng dẫn lập trình & Tương tác</title>
   <style>
-    :root {
+    :root, [data-theme="dark"] {
       --bg-main: #0b0f19;
       --bg-card: #111827;
       --bg-sub: #1e293b;
@@ -847,6 +847,9 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       --accent: #0ea5e9;
       --accent-hover: #0284c7;
       --code-bg: #070a12;
+      --code-header-bg: #141b2d;
+      --header-bg: rgba(11, 15, 25, 0.94);
+      --body-bg-tint: rgba(15, 23, 42, 0.4);
       
       --color-get: #10b981;
       --bg-get: rgba(16, 185, 129, 0.12);
@@ -865,6 +868,134 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       --border-delete: rgba(239, 68, 68, 0.35);
     }
 
+    [data-theme="light"] {
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-sub: #f1f5f9;
+      --border-color: #e2e8f0;
+      --border-light: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --code-bg: #0f172a;
+      --code-header-bg: #1e293b;
+      --header-bg: rgba(255, 255, 255, 0.95);
+      --body-bg-tint: rgba(241, 245, 249, 0.85);
+
+      --color-get: #059669;
+      --bg-get: rgba(16, 185, 129, 0.1);
+      --border-get: rgba(16, 185, 129, 0.3);
+
+      --color-post: #2563eb;
+      --bg-post: rgba(59, 130, 246, 0.1);
+      --border-post: rgba(59, 130, 246, 0.3);
+
+      --color-put: #d97706;
+      --bg-put: rgba(245, 158, 11, 0.1);
+      --border-put: rgba(245, 158, 11, 0.3);
+
+      --color-delete: #dc2626;
+      --bg-delete: rgba(239, 68, 68, 0.1);
+      --border-delete: rgba(239, 68, 68, 0.3);
+    }
+
+    [data-theme="ocean"] {
+      --bg-main: #06152b;
+      --bg-card: #0c2340;
+      --bg-sub: #133358;
+      --border-color: #1a4576;
+      --border-light: #245c9c;
+      --text-main: #f0f7ff;
+      --text-muted: #93c5fd;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --code-bg: #040e1d;
+      --code-header-bg: #0d2747;
+      --header-bg: rgba(6, 21, 43, 0.94);
+      --body-bg-tint: rgba(12, 35, 64, 0.4);
+
+      --color-get: #10b981;
+      --bg-get: rgba(16, 185, 129, 0.15);
+      --border-get: rgba(16, 185, 129, 0.35);
+
+      --color-post: #38bdf8;
+      --bg-post: rgba(56, 189, 248, 0.15);
+      --border-post: rgba(56, 189, 248, 0.35);
+
+      --color-put: #fbbf24;
+      --bg-put: rgba(251, 191, 36, 0.15);
+      --border-put: rgba(251, 191, 36, 0.35);
+
+      --color-delete: #f87171;
+      --bg-delete: rgba(248, 113, 113, 0.15);
+      --border-delete: rgba(248, 113, 113, 0.35);
+    }
+
+    [data-theme="dracula"] {
+      --bg-main: #14121e;
+      --bg-card: #1f1b2e;
+      --bg-sub: #2e2844;
+      --border-color: #3e365b;
+      --border-light: #5a4e84;
+      --text-main: #f5f3ff;
+      --text-muted: #c4b5fd;
+      --accent: #bd93f9;
+      --accent-hover: #ff79c6;
+      --code-bg: #0d0c14;
+      --code-header-bg: #221d33;
+      --header-bg: rgba(20, 18, 30, 0.94);
+      --body-bg-tint: rgba(31, 27, 46, 0.4);
+
+      --color-get: #50fa7b;
+      --bg-get: rgba(80, 250, 123, 0.15);
+      --border-get: rgba(80, 250, 123, 0.35);
+
+      --color-post: #8be9fd;
+      --bg-post: rgba(139, 233, 253, 0.15);
+      --border-post: rgba(139, 233, 253, 0.35);
+
+      --color-put: #ffb86c;
+      --bg-put: rgba(255, 184, 108, 0.15);
+      --border-put: rgba(255, 184, 108, 0.35);
+
+      --color-delete: #ff5555;
+      --bg-delete: rgba(255, 85, 85, 0.15);
+      --border-delete: rgba(255, 85, 85, 0.35);
+    }
+
+    [data-theme="emerald"] {
+      --bg-main: #061913;
+      --bg-card: #0c2b21;
+      --bg-sub: #133e30;
+      --border-color: #1a5542;
+      --border-light: #25785d;
+      --text-main: #ecfdf5;
+      --text-muted: #86efac;
+      --accent: #10b981;
+      --accent-hover: #34d399;
+      --code-bg: #03110d;
+      --code-header-bg: #0f3327;
+      --header-bg: rgba(6, 25, 19, 0.94);
+      --body-bg-tint: rgba(12, 43, 33, 0.4);
+
+      --color-get: #10b981;
+      --bg-get: rgba(16, 185, 129, 0.15);
+      --border-get: rgba(16, 185, 129, 0.35);
+
+      --color-post: #34d399;
+      --bg-post: rgba(52, 211, 153, 0.15);
+      --border-post: rgba(52, 211, 153, 0.35);
+
+      --color-put: #f59e0b;
+      --bg-put: rgba(245, 158, 11, 0.15);
+      --border-put: rgba(245, 158, 11, 0.35);
+
+      --color-delete: #ef4444;
+      --bg-delete: rgba(239, 68, 68, 0.15);
+      --border-delete: rgba(239, 68, 68, 0.35);
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -879,10 +1010,10 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(11, 15, 25, 0.92);
+      background: var(--header-bg);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border-color);
-      padding: 14px 24px;
+      padding: 12px 24px;
     }
     .header-content {
       max-width: 1400px;
@@ -914,7 +1045,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     .brand-title h1 {
       font-size: 18px;
       font-weight: 700;
-      color: #fff;
+      color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -939,13 +1070,75 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       box-shadow: 0 0 8px #10b981;
     }
 
+    /* Theme Switcher Styles */
+    .theme-control-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 5px 12px;
+      border-radius: 8px;
+    }
+    .theme-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .theme-select-input {
+      background: var(--bg-sub);
+      color: var(--text-main);
+      border: 1px solid var(--border-light);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .theme-select-input:focus {
+      border-color: var(--accent);
+    }
+    .theme-color-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 4px;
+    }
+    .color-dot {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .color-dot:hover {
+      transform: scale(1.25);
+    }
+    .color-dot.active {
+      border-color: #fff;
+      box-shadow: 0 0 0 1.5px var(--accent);
+    }
+    .dot-dark { background: #0b0f19; border: 1px solid #475569; }
+    .dot-light { background: #ffffff; border: 1px solid #94a3b8; }
+    .dot-ocean { background: #0ea5e9; }
+    .dot-dracula { background: #bd93f9; }
+    .dot-emerald { background: #10b981; }
+
     .base-url-box {
       display: flex;
       align-items: center;
       gap: 8px;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
-      padding: 6px 12px;
+      padding: 5px 12px;
       border-radius: 8px;
       font-size: 13px;
     }
@@ -958,7 +1151,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       background: var(--bg-sub);
       color: var(--text-main);
       border: 1px solid var(--border-light);
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 6px;
       font-size: 12px;
       font-weight: 500;
@@ -967,10 +1160,11 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       align-items: center;
       gap: 5px;
       transition: all 0.15s ease;
+      text-decoration: none;
     }
     .btn-action-small:hover {
-      background: #334155;
-      border-color: #475569;
+      background: var(--border-light);
+      color: var(--text-main);
     }
 
     /* Sub Toolbar: Search & Filters */
@@ -993,7 +1187,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       width: 100%;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
-      color: #fff;
+      color: var(--text-main);
       padding: 10px 16px 10px 38px;
       border-radius: 8px;
       font-size: 13px;
@@ -1031,7 +1225,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       transition: all 0.15s;
     }
     .pill-btn:hover {
-      color: #fff;
+      color: var(--text-main);
       background: var(--bg-sub);
     }
     .pill-btn.active {
@@ -1066,13 +1260,13 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       gap: 6px;
     }
     .cat-btn:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      background: var(--bg-sub);
     }
     .cat-btn.active {
-      color: #38bdf8;
-      background: rgba(14, 165, 233, 0.1);
-      border-color: rgba(14, 165, 233, 0.3);
+      color: var(--accent);
+      background: rgba(14, 165, 233, 0.12);
+      border-color: var(--accent);
       font-weight: 600;
     }
 
@@ -1144,7 +1338,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 14px;
       font-weight: 600;
-      color: #fff;
+      color: var(--text-main);
     }
     .endpoint-path span.param {
       color: #38bdf8;
@@ -1169,14 +1363,14 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       display: none;
       padding: 16px 20px 22px;
       border-top: 1px solid var(--border-color);
-      background: rgba(15, 23, 42, 0.4);
+      background: var(--body-bg-tint);
     }
     .endpoint-card.open .endpoint-body {
       display: block;
     }
 
     .desc-text {
-      color: #cbd5e1;
+      color: var(--text-muted);
       font-size: 13.5px;
       margin-bottom: 18px;
       line-height: 1.6;
@@ -1186,7 +1380,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     .params-title {
       font-size: 13px;
       font-weight: 700;
-      color: #e2e8f0;
+      color: var(--text-main);
       margin-bottom: 8px;
       display: flex;
       align-items: center;
@@ -1208,8 +1402,8 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       border-bottom: 1px solid var(--border-color);
     }
     .params-table th {
-      background: #1e293b;
-      color: #94a3b8;
+      background: var(--bg-sub);
+      color: var(--text-muted);
       font-weight: 600;
       text-transform: uppercase;
       font-size: 11px;
@@ -1247,7 +1441,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       overflow: hidden;
     }
     .code-header {
-      background: #141b2d;
+      background: var(--code-header-bg);
       padding: 8px 14px;
       display: flex;
       align-items: center;
@@ -1348,12 +1542,36 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <!-- Theme Switcher (Đổi màu) -->
+        <div class="theme-control-container">
+          <span class="theme-title">🎨 Đổi màu:</span>
+          <select id="theme-select" class="theme-select-input" onchange="switchTheme(this.value)" title="Chọn giao diện màu">
+            <option value="dark">🌙 Tối (Mặc định)</option>
+            <option value="light">☀️ Sáng (Light)</option>
+            <option value="ocean">🌊 Xanh Biển</option>
+            <option value="dracula">🔮 Tím Cyber</option>
+            <option value="emerald">🌲 Xanh Ngọc</option>
+          </select>
+          <div class="theme-color-dots">
+            <button type="button" class="color-dot dot-dark" title="Giao diện Tối" onclick="switchTheme('dark')"></button>
+            <button type="button" class="color-dot dot-light" title="Giao diện Sáng" onclick="switchTheme('light')"></button>
+            <button type="button" class="color-dot dot-ocean" title="Xanh Biển" onclick="switchTheme('ocean')"></button>
+            <button type="button" class="color-dot dot-dracula" title="Tím Cyber" onclick="switchTheme('dracula')"></button>
+            <button type="button" class="color-dot dot-emerald" title="Xanh Ngọc" onclick="switchTheme('emerald')"></button>
+          </div>
+        </div>
+
         <div class="base-url-box">
           <span style="color: var(--text-muted);">Base URL:</span>
           <span class="base-url-text" id="base-url-display">${baseUrl}</span>
           <button class="btn-action-small" onclick="copyBaseUrl()" title="Sao chép Base URL">📋 Sao chép</button>
         </div>
+
+        <a href="https://svbrowser.site" target="_blank" rel="noopener noreferrer" class="btn-action-small" style="color: var(--accent); font-weight: 600;" title="Trang chủ & Tài liệu online">
+          🌐 svbrowser.site ↗
+        </a>
+
         <button class="btn-action-small" onclick="toggleAllCards()" id="btn-toggle-all">Mở tất cả ⌵</button>
       </div>
     </div>
@@ -1498,6 +1716,28 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
 
       document.getElementById('filtered-count').innerText = 'Hiển thị ' + visibleCount + ' / ' + cards.length + ' endpoints';
     }
+
+    function switchTheme(themeName) {
+      document.documentElement.setAttribute('data-theme', themeName);
+      try {
+        localStorage.setItem('sv_api_theme', themeName);
+      } catch (e) {}
+
+      const sel = document.getElementById('theme-select');
+      if (sel && sel.value !== themeName) {
+        sel.value = themeName;
+      }
+
+      document.querySelectorAll('.color-dot').forEach(dot => {
+        dot.classList.toggle('active', dot.classList.contains('dot-' + themeName));
+      });
+    }
+
+    // Khởi tạo theme ban đầu từ localStorage
+    try {
+      const savedTheme = localStorage.getItem('sv_api_theme') || 'dark';
+      switchTheme(savedTheme);
+    } catch (e) {}
   </script>
 </body>
 </html>`;

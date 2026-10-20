@@ -1016,9 +1016,9 @@ function findAutomateEditorInstallation() {
   return {
     installed: false,
     targetPath: settings.automateEditorPath || 'D:\\Phần mềm\\GPMAutomateEditor',
-    downloadUrl: 'https://gpmautomate.com/',
-    appStoreUrl: 'https://app.gpmautomate.com/',
-    docsUrl: 'https://docs.gpmautomate.com/'
+    downloadUrl: 'https://svbrowser.site/',
+    appStoreUrl: 'https://svbrowser.site/',
+    docsUrl: 'http://localhost:8725/'
   };
 }
 
