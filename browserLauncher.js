@@ -88,6 +88,39 @@ class BrowserLauncher extends EventEmitter {
     return { success: false, message: 'ProfileStore not found' };
   }
 
+  /**
+   * Kiểm tra xem thư mục profile của Firefox có đang bị khóa bởi process Firefox nào không
+   */
+  isFirefoxProfileLocked(profileDir) {
+    if (!profileDir) return false;
+    const lockFile = path.join(profileDir, 'parent.lock');
+    if (!fs.existsSync(lockFile)) return false;
+    try {
+      const fd = fs.openSync(lockFile, 'r+');
+      fs.closeSync(fd);
+      return false; // Mở được file để ghi -> không có Firefox nào đang chạy
+    } catch (e) {
+      return true; // EBUSY hoặc EPERM -> Firefox đang chiếm dụng độc quyền
+    }
+  }
+
+  /**
+   * Truy vấn ProcessId thực tế của Firefox đang chạy với profileDir
+   */
+  getFirefoxPidForProfile(profileDir) {
+    try {
+      const { execSync } = require('child_process');
+      const cleanPath = profileDir.replace(/'/g, "''");
+      const psCode = `Get-CimInstance Win32_Process -Filter "Name = 'firefox.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${cleanPath}') -and $_.CommandLine -notlike '*-contentproc*' } | Select-Object -ExpandProperty ProcessId`;
+      const b64 = Buffer.from(psCode, 'utf16le').toString('base64');
+      const out = execSync(`powershell -NoProfile -EncodedCommand ${b64}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+      const pid = parseInt(out.split(/\\r?\\n/)[0], 10);
+      return isNaN(pid) ? null : pid;
+    } catch (e) {
+      return null;
+    }
+  }
+
   getChromedriverPath() {
     const candidates = [
       path.join(process.resourcesPath || '', 'chromedriver.exe'),
@@ -457,11 +490,33 @@ class BrowserLauncher extends EventEmitter {
       }
       if (profile.startUrl) args.push(profile.startUrl);
 
-      // Cấu hình Proxy tự động cho Firefox thông qua user.js
-      if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
-        try {
-          const userJsPath = path.join(profileDir, 'user.js');
-          const proxyLines = [];
+      // Cấu hình user.js cho Firefox: Tắt màn hình chào mừng (First-run), telemetry, mặc định browser, nạp proxy & extensions
+      try {
+        const userJsPath = path.join(profileDir, 'user.js');
+        const ffPrefs = [
+          '// Tự động cấu hình bởi SV Browser',
+          'user_pref("browser.aboutwelcome.enabled", false);',
+          'user_pref("trailhead.firstrun.didSeeAboutWelcome", true);',
+          'user_pref("browser.startup.firstrunSkipsHomepage", true);',
+          'user_pref("browser.startup.page", 0);',
+          'user_pref("browser.startup.homepage_override.mstone", "ignore");',
+          'user_pref("browser.onboarding.enabled", false);',
+          'user_pref("browser.uitour.enabled", false);',
+          'user_pref("datareporting.policy.dataSubmissionPolicyAcceptedVersion", 2);',
+          'user_pref("datareporting.policy.dataSubmissionPolicyBypassAcceptance", true);',
+          'user_pref("datareporting.policy.firstRunURL", "");',
+          'user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);',
+          'user_pref("doh-rollout.doneFirstRun", true);',
+          'user_pref("browser.shell.checkDefaultBrowser", false);',
+          'user_pref("extensions.pocket.enabled", false);',
+          'user_pref("browser.newtabpage.enabled", false);',
+          'user_pref("xpinstall.signatures.required", false);',
+          'user_pref("extensions.autoDisableScopes", 0);',
+          'user_pref("extensions.enabledScopes", 15);',
+          'user_pref("extensions.experiments.enabled", true);'
+        ];
+
+        if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
           const proxyStr = profile.proxy.trim();
           let host = '', port = 80;
           const isSocks = (profile.proxyType && profile.proxyType.toLowerCase().includes('socks')) || proxyStr.toLowerCase().startsWith('socks');
@@ -475,23 +530,51 @@ class BrowserLauncher extends EventEmitter {
           }
 
           if (host && port) {
-            proxyLines.push('user_pref("network.proxy.type", 1);');
+            ffPrefs.push('user_pref("network.proxy.type", 1);');
             if (isSocks) {
-              proxyLines.push(`user_pref("network.proxy.socks", "${host}");`);
-              proxyLines.push(`user_pref("network.proxy.socks_port", ${port});`);
-              proxyLines.push('user_pref("network.proxy.socks_version", 5);');
-              proxyLines.push('user_pref("network.proxy.socks_remote_dns", true);');
+              ffPrefs.push(`user_pref("network.proxy.socks", "${host}");`);
+              ffPrefs.push(`user_pref("network.proxy.socks_port", ${port});`);
+              ffPrefs.push('user_pref("network.proxy.socks_version", 5);');
+              ffPrefs.push('user_pref("network.proxy.socks_remote_dns", true);');
             } else {
-              proxyLines.push(`user_pref("network.proxy.http", "${host}");`);
-              proxyLines.push(`user_pref("network.proxy.http_port", ${port});`);
-              proxyLines.push(`user_pref("network.proxy.ssl", "${host}");`);
-              proxyLines.push(`user_pref("network.proxy.ssl_port", ${port});`);
+              ffPrefs.push(`user_pref("network.proxy.http", "${host}");`);
+              ffPrefs.push(`user_pref("network.proxy.http_port", ${port});`);
+              ffPrefs.push(`user_pref("network.proxy.ssl", "${host}");`);
+              ffPrefs.push(`user_pref("network.proxy.ssl_port", ${port});`);
             }
-            fs.writeFileSync(userJsPath, proxyLines.join('\n') + '\n', 'utf8');
           }
-        } catch (e) {
-          console.error('Lỗi cấu hình proxy user.js cho Firefox:', e.message);
         }
+        fs.writeFileSync(userJsPath, ffPrefs.join('\n') + '\n', 'utf8');
+
+        // Nạp extensions cho Firefox vào thư mục <profileDir>/extensions
+        if (this.extensionStore) {
+          try {
+            const enabledExtPaths = this.extensionStore.getEnabledExtensionPaths();
+            if (enabledExtPaths && enabledExtPaths.length > 0) {
+              const ffExtDir = path.join(profileDir, 'extensions');
+              if (!fs.existsSync(ffExtDir)) fs.mkdirSync(ffExtDir, { recursive: true });
+              for (const extPath of enabledExtPaths) {
+                const manifestPath = path.join(extPath, 'manifest.json');
+                if (fs.existsSync(manifestPath)) {
+                  let extId = path.basename(extPath);
+                  try {
+                    const mData = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                    const geckoId = mData.browser_specific_settings?.gecko?.id || mData.applications?.gecko?.id;
+                    if (geckoId) extId = geckoId;
+                  } catch (e) {}
+                  const targetFolder = path.join(ffExtDir, extId);
+                  if (!fs.existsSync(targetFolder)) {
+                    try {
+                      fs.cpSync(extPath, targetFolder, { recursive: true });
+                    } catch (cpErr) {}
+                  }
+                }
+              }
+            }
+          } catch (extErr) {}
+        }
+      } catch (e) {
+        console.error('Lỗi cấu hình user.js cho Firefox:', e.message);
       }
     } else {
       // Các flags chuẩn 100% trích xuất từ GPMLogin Global theo đúng mẫu Command Line
@@ -792,8 +875,8 @@ try {
         } catch (e) {}
       }
 
-      // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi
-      if (child.exitCode !== null) {
+      // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi (đối với Chromium)
+      if (type !== 'firefox' && child.exitCode !== null) {
         this.runningProfiles.delete(profileId);
         return {
           success: false,
@@ -825,13 +908,44 @@ try {
 
       this.runningProfiles.set(profileId, profileInfo);
 
-      child.on('exit', () => {
-        this.runningProfiles.delete(profileId);
-        if (profile.isEphemeral && profileDir && fs.existsSync(profileDir)) {
-          try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) {}
-        }
-        this.emit('profile-closed', { profileId });
-      });
+      if (type === 'firefox') {
+        // Với Firefox trên Windows: bootstrap process thoát ngay sau khi GUI process mở
+        // Tìm PID thực tế của Firefox GUI
+        setTimeout(() => {
+          const realPid = this.getFirefoxPidForProfile(profileDir);
+          if (realPid && profileInfo) {
+            profileInfo.realPid = realPid;
+            profileInfo.pid = realPid;
+          }
+        }, 600);
+
+        // Theo dõi trạng thái đóng bằng parent.lock của Firefox
+        profileInfo.ffMonitorTimer = setInterval(() => {
+          if (!this.isFirefoxProfileLocked(profileDir)) {
+            clearInterval(profileInfo.ffMonitorTimer);
+            this.runningProfiles.delete(profileId);
+            this.emit('profile-closed', { profileId });
+          }
+        }, 1500);
+
+        child.on('exit', () => {
+          setTimeout(() => {
+            if (!this.isFirefoxProfileLocked(profileDir)) {
+              if (profileInfo.ffMonitorTimer) clearInterval(profileInfo.ffMonitorTimer);
+              this.runningProfiles.delete(profileId);
+              this.emit('profile-closed', { profileId });
+            }
+          }, 800);
+        });
+      } else {
+        child.on('exit', () => {
+          this.runningProfiles.delete(profileId);
+          if (profile.isEphemeral && profileDir && fs.existsSync(profileDir)) {
+            try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) {}
+          }
+          this.emit('profile-closed', { profileId });
+        });
+      }
 
       child.on('error', (err) => {
         console.error(`Lỗi chạy profile ${profileId}:`, err);
@@ -877,10 +991,22 @@ try {
       return { success: true, message: 'Profile không đang chạy' };
     }
 
-    const pid = running.pid;
+    if (running.ffMonitorTimer) {
+      clearInterval(running.ffMonitorTimer);
+    }
+
+    const pid = running.realPid || running.pid;
     try {
       if (process.platform === 'win32') {
-        exec(`taskkill /PID ${pid} /T /F`, () => {});
+        if (pid) {
+          exec(`taskkill /PID ${pid} /T /F`, () => {});
+        }
+        if (running.browserType === 'firefox' && running.profileDir) {
+          const ffPid = this.getFirefoxPidForProfile(running.profileDir);
+          if (ffPid && ffPid !== pid) {
+            exec(`taskkill /PID ${ffPid} /T /F`, () => {});
+          }
+        }
       } else {
         process.kill(pid, 'SIGTERM');
       }
@@ -898,7 +1024,12 @@ try {
   }
 
   isProfileRunning(profileId) {
-    return this.runningProfiles.has(profileId);
+    const running = this.runningProfiles.get(profileId);
+    if (!running) return false;
+    if (running.browserType === 'firefox' && running.profileDir) {
+      return this.isFirefoxProfileLocked(running.profileDir);
+    }
+    return true;
   }
 
   getRunningInfo(profileId) {

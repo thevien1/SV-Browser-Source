@@ -777,6 +777,119 @@ tr:hover .browser-icon-badge-container img {
   white-space: nowrap;
 }
 
+/* Custom Browser Select Dropdown with Icons */
+.custom-browser-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+.custom-browser-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-main, #0f172a);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.custom-browser-dropdown-trigger:hover,
+.custom-browser-dropdown-container.open .custom-browser-dropdown-trigger {
+  border-color: #0284c7;
+}
+
+.custom-browser-dropdown-container.open .custom-browser-dropdown-trigger {
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+.custom-browser-dropdown-trigger .trigger-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.custom-browser-dropdown-trigger .trigger-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.custom-browser-dropdown-trigger .trigger-arrow {
+  font-size: 11px;
+  color: #64748b;
+  margin-left: auto;
+  transition: transform 0.2s;
+}
+
+.custom-browser-dropdown-container.open .custom-browser-dropdown-trigger .trigger-arrow {
+  transform: rotate(180deg);
+}
+
+.custom-browser-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  max-height: 250px;
+  overflow-y: auto;
+  display: none;
+  padding: 4px;
+}
+
+.custom-browser-dropdown-container.open .custom-browser-dropdown-menu {
+  display: block;
+}
+
+.custom-browser-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.custom-browser-option:hover {
+  background: #f1f5f9;
+}
+
+.custom-browser-option.selected {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.custom-browser-option .option-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.custom-browser-option .option-label {
+  flex: 1;
+}
+
 
 .profile-info {
   display: flex;

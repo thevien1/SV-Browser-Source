@@ -2238,9 +2238,11 @@ export class ProfilesViewComponent {
 
         if (window.api && window.api.launchProfile) {
           const res = await window.api.launchProfile(id, index ? parseInt(index, 10) : null);
-          if (!res.success) {
-            // Hiển thị thông báo nếu proxy không hoạt động
-            alert(res.message || 'Không thể mở profile do lỗi kết nối!');
+          if (res && res.success) {
+            this.updateProfileStatus(id, true);
+          } else {
+            // Hiển thị thông báo nếu proxy không hoạt động hoặc lỗi
+            alert(res?.message || 'Không thể mở profile do lỗi kết nối!');
             await this.loadProfiles();
           }
         }
@@ -2257,6 +2259,7 @@ export class ProfilesViewComponent {
 
         if (window.api && window.api.closeProfile) {
           await window.api.closeProfile(id);
+          this.updateProfileStatus(id, false);
         }
         return;
       }

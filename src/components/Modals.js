@@ -1333,6 +1333,7 @@ export class ModalsComponent {
         }
         appendAdditionalBrowsers(select);
         this.updateSummary();
+        this.syncCustomBrowserDropdown('#quick-browser-core');
       }
 
       if (batchSelect) {
@@ -1362,10 +1363,92 @@ export class ModalsComponent {
           });
         }
         appendAdditionalBrowsers(editSelect);
+        this.syncCustomBrowserDropdown('#edit-quick-browser-core');
       }
+
+      this.syncCustomBrowserDropdown('#batch-browser-type');
     } catch (e) {
       console.error('Lỗi load available cores:', e);
     }
+  }
+
+  /**
+   * Tạo giao diện Dropdown tùy biến có kèm icon SVG chính hãng cho từng trình duyệt
+   */
+  syncCustomBrowserDropdown(selectSelector) {
+    const select = this.container.querySelector(selectSelector);
+    if (!select) return;
+
+    select.style.display = 'none';
+    const parent = select.parentElement;
+    if (!parent) return;
+
+    const oldPrev = parent.querySelector('#quick-browser-icon-preview, #edit-browser-icon-preview, #batch-browser-icon-preview');
+    if (oldPrev) oldPrev.style.display = 'none';
+
+    let wrapper = parent.querySelector('.custom-browser-dropdown-container');
+    if (!wrapper) {
+      wrapper = document.createElement('div');
+      wrapper.className = 'custom-browser-dropdown-container';
+      parent.appendChild(wrapper);
+
+      document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+          wrapper.classList.remove('open');
+        }
+      });
+    }
+
+    const currentVal = select.value;
+    const selectedOpt = Array.from(select.options).find(o => o.value === currentVal) || select.options[0];
+    const selText = selectedOpt ? selectedOpt.textContent : '';
+    const selType = currentVal ? currentVal.split('|')[0] : 'chrome';
+
+    let optionsHtml = '';
+    Array.from(select.options).forEach(opt => {
+      const val = opt.value;
+      const bType = val ? val.split('|')[0] : 'chrome';
+      const isSelected = val === select.value;
+      optionsHtml += `
+        <div class="custom-browser-option ${isSelected ? 'selected' : ''}" data-value="${opt.value}">
+          <div class="option-icon">${getBrowserIconHtml(bType, 18)}</div>
+          <div class="option-label">${opt.textContent}</div>
+        </div>
+      `;
+    });
+
+    wrapper.innerHTML = `
+      <div class="custom-browser-dropdown-trigger">
+        <div class="trigger-icon">${getBrowserIconHtml(selType, 18)}</div>
+        <div class="trigger-text">${selText}</div>
+        <div class="trigger-arrow">⌵</div>
+      </div>
+      <div class="custom-browser-dropdown-menu">
+        ${optionsHtml}
+      </div>
+    `;
+
+    const trigger = wrapper.querySelector('.custom-browser-dropdown-trigger');
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.custom-browser-dropdown-container.open').forEach(el => {
+          if (el !== wrapper) el.classList.remove('open');
+        });
+        wrapper.classList.toggle('open');
+      });
+    }
+
+    wrapper.querySelectorAll('.custom-browser-option').forEach(optEl => {
+      optEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = optEl.getAttribute('data-value');
+        select.value = val;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        wrapper.classList.remove('open');
+        this.syncCustomBrowserDropdown(selectSelector);
+      });
+    });
   }
 
   bindEvents() {
@@ -2125,9 +2208,11 @@ export class ModalsComponent {
           nameInput.value = `Profile ${Math.floor(1000 + Math.random() * 9000)}`;
         }
         this.updateSummary();
+        this.syncCustomBrowserDropdown('#quick-browser-core');
       } else if (id === 'modal-batch-create') {
         const countInput = this.container.querySelector('#batch-create-count');
         if (countInput) countInput.value = defaultCount || 1;
+        this.syncCustomBrowserDropdown('#batch-browser-type');
         if (window.api && window.api.getGroups) {
           window.api.getGroups().then(groups => this.setGroups(groups)).catch(() => {});
         }
@@ -2210,6 +2295,7 @@ export class ModalsComponent {
       const exists = Array.from(coreEl.options).some(opt => opt.value === browserCore);
       if (exists) coreEl.value = browserCore;
       else if (coreEl.options.length > 0) coreEl.selectedIndex = 0;
+      this.syncCustomBrowserDropdown('#edit-quick-browser-core');
     }
 
     const taskbarEl = this.container.querySelector('#edit-quick-taskbar-title');
