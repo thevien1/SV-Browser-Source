@@ -6,6 +6,8 @@
  * 3. Modal Admin Tạo Key bản quyền (7 ngày, 5 máy, Vô hạn...)
  */
 
+import { getBrowserIconHtml } from '../data/browserIcons.js';
+
 export class ModalsComponent {
   constructor(options = {}) {
     this.container = options.container || document.getElementById('modals-container');
@@ -130,13 +132,8 @@ export class ModalsComponent {
                         <option value="edge|124.0">Edge (124.0)</option>
                         <option value="brave|1.65">Brave (1.65)</option>
                       </select>
-                      <div style="position: absolute; left: 10px; top: 9px; pointer-events: none;">
-                        <svg width="20" height="20" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="10" fill="#EA4335" />
-                          <circle cx="12" cy="12" r="6" fill="#FBBC05" />
-                          <path d="M12 2a10 10 0 0 1 8.66 5H12z" fill="#4285F4" />
-                          <circle cx="12" cy="12" r="3.5" fill="#ffffff" />
-                        </svg>
+                      <div id="quick-browser-icon-preview" style="position: absolute; left: 10px; top: 9px; pointer-events: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
+                        ${getBrowserIconHtml('chrome', 20)}
                       </div>
                     </div>
                   </div>
@@ -755,8 +752,8 @@ export class ModalsComponent {
                         <option value="edge|124.0">Edge (124.0)</option>
                         <option value="brave|1.65">Brave (1.65)</option>
                       </select>
-                      <div style="position: absolute; left: 10px; top: 9px; pointer-events: none;">
-                        <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#EA4335" /><circle cx="12" cy="12" r="6" fill="#FBBC05" /><path d="M12 2a10 10 0 0 1 8.66 5H12z" fill="#4285F4" /><circle cx="12" cy="12" r="3.5" fill="#ffffff" /></svg>
+                      <div id="edit-browser-icon-preview" style="position: absolute; left: 10px; top: 9px; pointer-events: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
+                        ${getBrowserIconHtml('chrome', 20)}
                       </div>
                     </div>
                   </div>
@@ -1779,8 +1776,11 @@ export class ModalsComponent {
 
   updateSummary() {
     const coreVal = this.container.querySelector('#quick-browser-core')?.value || 'chrome|151.0.7922.76';
-    const [, version] = coreVal.split('|');
+    const [browserType, version] = coreVal.split('|');
     const major = (version || '151').split('.')[0];
+
+    const iconPrev = this.container.querySelector('#quick-browser-icon-preview');
+    if (iconPrev) iconPrev.innerHTML = getBrowserIconHtml(browserType, 20);
 
     const taskbar = this.container.querySelector('#quick-taskbar-title')?.value.trim() || '';
     const proxyType = this.container.querySelector('#quick-proxy-type')?.value || 'None';
@@ -2291,8 +2291,11 @@ export class ModalsComponent {
 
   updateEditSummary() {
     const coreVal = this.container.querySelector('#edit-quick-browser-core')?.value || 'chrome|151.0.7922.76';
-    const [, version] = coreVal.split('|');
+    const [browserType, version] = coreVal.split('|');
     const major = (version || '151').split('.')[0];
+
+    const iconPrev = this.container.querySelector('#edit-browser-icon-preview');
+    if (iconPrev) iconPrev.innerHTML = getBrowserIconHtml(browserType, 20);
 
     const taskbar = this.container.querySelector('#edit-quick-taskbar-title')?.value.trim() || '';
     const proxyType = this.container.querySelector('#edit-quick-proxy-type')?.value || 'None';

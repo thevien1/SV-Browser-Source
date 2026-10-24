@@ -1,4 +1,5 @@
 import { renderFlagHtml } from '../data/countries.js';
+import { getBrowserIconHtml } from '../data/browserIcons.js';
 
 export class ProfilesViewComponent {
 
@@ -3368,21 +3369,7 @@ export class ProfilesViewComponent {
   }
 
   getBrowserIcon(type) {
-    const t = (type || 'chrome').toLowerCase();
-    if (t === 'brave') {
-      return `<span style="color: #ea580c; font-size: 15px;">★</span>`;
-    } else if (t === 'edge') {
-      return `<div style="width: 13px; height: 13px; border-radius: 50%; background-color: #0284c7;"></div>`;
-    } else if (t === 'firefox') {
-      return `<div style="width: 13px; height: 13px; border-radius: 50%; background-color: #ea580c;"></div>`;
-    }
-    return `<svg viewBox="0 0 24 24" width="18" height="18">
-      <circle cx="12" cy="12" r="10" fill="#4285F4"/>
-      <circle cx="12" cy="12" r="4" fill="#ffffff"/>
-      <path d="M12 2a10 10 0 0 1 8.66 5H12z" fill="#EA4335"/>
-      <path d="M20.66 7a10 10 0 0 1-5 13.66L12 12z" fill="#FBBC05"/>
-      <path d="M3.34 7l4.33 7.5L12 12 3.34 7z" fill="#34A853"/>
-    </svg>`;
+    return getBrowserIconHtml(type, 22);
   }
 
   getProxyDisplay(country, proxy, profileId, profileName) {
