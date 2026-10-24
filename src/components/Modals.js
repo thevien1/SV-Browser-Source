@@ -1302,22 +1302,22 @@ export class ModalsComponent {
         const hasFirefox = !!(detected && detected.firefox);
         const ffOpt = document.createElement('option');
         ffOpt.value = 'firefox|default';
-        ffOpt.textContent = `Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt'})`;
+        ffOpt.textContent = `Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt ✕'})`;
         targetSel.appendChild(ffOpt);
 
-        // Thêm Brave & Edge nếu có
-        if (detected && detected.brave) {
-          const braveOpt = document.createElement('option');
-          braveOpt.value = 'brave|default';
-          braveOpt.textContent = 'Brave Browser (Đã cài đặt ✓)';
-          targetSel.appendChild(braveOpt);
-        }
-        if (detected && detected.edge) {
-          const edgeOpt = document.createElement('option');
-          edgeOpt.value = 'edge|default';
-          edgeOpt.textContent = 'Microsoft Edge (Đã cài đặt ✓)';
-          targetSel.appendChild(edgeOpt);
-        }
+        // Thêm Brave
+        const hasBrave = !!(detected && detected.brave);
+        const braveOpt = document.createElement('option');
+        braveOpt.value = 'brave|default';
+        braveOpt.textContent = `Brave Browser (${hasBrave ? 'Đã cài đặt ✓' : 'Chưa cài đặt ✕'})`;
+        targetSel.appendChild(braveOpt);
+
+        // Thêm Edge
+        const hasEdge = !!(detected && detected.edge);
+        const edgeOpt = document.createElement('option');
+        edgeOpt.value = 'edge|default';
+        edgeOpt.textContent = `Microsoft Edge (${hasEdge ? 'Đã cài đặt ✓' : 'Chưa cài đặt ✕'})`;
+        targetSel.appendChild(edgeOpt);
       };
 
       if (select) {

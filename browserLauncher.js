@@ -195,6 +195,25 @@ class BrowserLauncher extends EventEmitter {
     const gpmCores = this.getAvailableChromiumCores();
     const defaultGpmExe = gpmCores.length > 0 ? gpmCores[0].path : null;
 
+    // Tìm các đường dẫn driver nội bộ (portable)
+    const candidateDriversDirs = [
+      path.join(process.resourcesPath || '', 'drivers'),
+      path.join(path.dirname(process.execPath || ''), 'drivers'),
+      path.join(__dirname, 'drivers')
+    ].filter(d => Boolean(d) && fs.existsSync(d));
+
+    const portableBravePaths = [];
+    const portableFirefoxPaths = [];
+    for (const d of candidateDriversDirs) {
+      portableBravePaths.push(path.join(d, 'BraveCore', 'brave.exe'));
+      portableBravePaths.push(path.join(d, 'Brave', 'brave.exe'));
+      portableBravePaths.push(path.join(d, 'Brave-Browser', 'Application', 'brave.exe'));
+
+      portableFirefoxPaths.push(path.join(d, 'FirefoxCore', 'firefox.exe'));
+      portableFirefoxPaths.push(path.join(d, 'Firefox', 'firefox.exe'));
+      portableFirefoxPaths.push(path.join(d, 'Mozilla Firefox', 'firefox.exe'));
+    }
+
     const candidates = {
       chrome: [
         defaultGpmExe,
@@ -207,6 +226,7 @@ class BrowserLauncher extends EventEmitter {
         path.join(programFiles, 'Chromium', 'Application', 'chrome.exe')
       ].filter(Boolean),
       brave: [
+        ...portableBravePaths,
         path.join(programFiles, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
         path.join(localAppData, 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe')
       ],
@@ -219,6 +239,7 @@ class BrowserLauncher extends EventEmitter {
         path.join(programFiles, 'Opera', 'launcher.exe')
       ],
       firefox: [
+        ...portableFirefoxPaths,
         path.join(programFiles, 'Mozilla Firefox', 'firefox.exe'),
         path.join(programFilesX86, 'Mozilla Firefox', 'firefox.exe'),
         path.join(localAppData, 'Mozilla Firefox', 'firefox.exe')
@@ -271,11 +292,19 @@ class BrowserLauncher extends EventEmitter {
       return { path: browsers[type], type, version: 'system' };
     }
 
+    // Nếu người dùng chọn đích danh Firefox hoặc Brave mà máy chưa cài
+    if (type === 'firefox') {
+      throw new Error('Máy tính chưa có trình duyệt Mozilla Firefox! Bạn vui lòng cài đặt Firefox (hoặc copy thư mục Firefox vào thư mục drivers/) để mở profile này.');
+    }
+    if (type === 'brave') {
+      throw new Error('Máy tính chưa có trình duyệt Brave Browser! Bạn vui lòng cài đặt Brave (hoặc copy thư mục Brave vào thư mục drivers/) để mở profile này.');
+    }
+    if (type === 'edge') {
+      throw new Error('Máy tính chưa có trình duyệt Microsoft Edge!');
+    }
+
     // Fallbacks
     if (browsers.chrome) return { path: browsers.chrome, type: 'chrome', version: 'default' };
-    if (browsers.brave) return { path: browsers.brave, type: 'brave', version: 'default' };
-    if (browsers.edge) return { path: browsers.edge, type: 'edge', version: 'default' };
-    if (browsers.firefox) return { path: browsers.firefox, type: 'firefox', version: 'default' };
 
     throw new Error(`Không tìm thấy trình duyệt nào phù hợp cho (${browserType} ${version})`);
   }
