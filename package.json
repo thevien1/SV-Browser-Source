@@ -1,6 +1,6 @@
 {
   "name": "sv-browser",
-  "version": "1.0.41",
+  "version": "1.0.42",
   "description": "SV Browser Antidetect Multi-Browser Profile Manager & Automation",
   "main": "main.js",
   "scripts": {

@@ -508,13 +508,16 @@ export class ModalsComponent {
             <div style="margin-bottom: 18px;">
               <label style="font-size: 13px; font-weight: 600; margin-bottom: 6px; display: block;">Trình duyệt</label>
               <div style="display: flex; gap: 10px;">
-                <div style="flex: 1;">
-                  <select class="form-control" id="batch-browser-type" style="height: 38px; cursor: pointer;">
-                    <option value="chrome" selected>🌐 Chrome</option>
-                    <option value="firefox">🦊 Firefox</option>
-                    <option value="edge">🌊 Edge</option>
-                    <option value="brave">🦁 Brave</option>
+                <div class="browser-select-box" style="position: relative; flex: 1;">
+                  <select class="form-control" id="batch-browser-type" style="height: 38px; padding-left: 36px; cursor: pointer;">
+                    <option value="chrome" selected>Chrome</option>
+                    <option value="firefox">Firefox</option>
+                    <option value="edge">Edge</option>
+                    <option value="brave">Brave</option>
                   </select>
+                  <div id="batch-browser-icon-preview" style="position: absolute; left: 10px; top: 9px; pointer-events: none; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px;">
+                    ${getBrowserIconHtml('chrome', 20)}
+                  </div>
                 </div>
                 <div style="flex: 1.4;">
                   <select class="form-control" id="batch-browser-version" style="height: 38px; cursor: pointer;">
@@ -1299,20 +1302,20 @@ export class ModalsComponent {
         const hasFirefox = !!(detected && detected.firefox);
         const ffOpt = document.createElement('option');
         ffOpt.value = 'firefox|default';
-        ffOpt.textContent = `🦊 Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt'})`;
+        ffOpt.textContent = `Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt'})`;
         targetSel.appendChild(ffOpt);
 
         // Thêm Brave & Edge nếu có
         if (detected && detected.brave) {
           const braveOpt = document.createElement('option');
           braveOpt.value = 'brave|default';
-          braveOpt.textContent = '🦁 Brave Browser (Đã cài đặt ✓)';
+          braveOpt.textContent = 'Brave Browser (Đã cài đặt ✓)';
           targetSel.appendChild(braveOpt);
         }
         if (detected && detected.edge) {
           const edgeOpt = document.createElement('option');
           edgeOpt.value = 'edge|default';
-          edgeOpt.textContent = '🌊 Microsoft Edge (Đã cài đặt ✓)';
+          edgeOpt.textContent = 'Microsoft Edge (Đã cài đặt ✓)';
           targetSel.appendChild(edgeOpt);
         }
       };
@@ -1484,6 +1487,9 @@ export class ModalsComponent {
     // Thay đổi loại trình duyệt trong Tạo hàng loạt (Chrome, Firefox, Edge, Brave)
     this.container.querySelector('#batch-browser-type')?.addEventListener('change', (e) => {
       const bType = e.target.value;
+      const iconPrev = this.container.querySelector('#batch-browser-icon-preview');
+      if (iconPrev) iconPrev.innerHTML = getBrowserIconHtml(bType, 20);
+
       const bVer = this.container.querySelector('#batch-browser-version');
       if (!bVer) return;
       if (bType === 'firefox') {
@@ -2955,20 +2961,7 @@ export class ModalsComponent {
     cores.forEach(core => {
       const isFirefox = core.type === 'firefox' || core.name.toLowerCase().includes('firefox');
       const iconBg = isFirefox ? '#450a0a' : '#0f172a';
-      const iconSvg = isFirefox ? `
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" fill="#ea580c"/>
-          <path d="M12 3a9 9 0 0 0-9 9c0 4.97 4.03 9 9 9s9-4.03 9-9a9 9 0 0 0-9-9zm4.5 12.5c-.8.8-1.9 1.3-3.1 1.3-2.4 0-4.4-2-4.4-4.4 0-1.4.7-2.7 1.8-3.5-.2.8 0 1.6.4 2.2.4.6 1.1 1 1.8 1 .4 0 .8-.1 1.1-.3-.2-.5-.1-1.1.2-1.5.3-.4.8-.7 1.3-.8-.3.7-.1 1.5.3 2 .4.6 1.1.9 1.8.9.3 0 .7-.1 1-.3-.3.8-.7 1.5-1.2 2.1l-.2.3z" fill="#ffffff"/>
-        </svg>
-      ` : `
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" fill="#1e293b"/>
-          <circle cx="12" cy="12" r="4.2" fill="#38bdf8"/>
-          <path d="M12 2a10 10 0 0 1 8.66 5l-4.33 7.5A5 5 0 0 0 12 7V2z" fill="#ef4444"/>
-          <path d="M20.66 7a10 10 0 0 1 0 10H12l4.33-7.5a5 5 0 0 0 4.33-2.5z" fill="#eab308"/>
-          <path d="M12 17a5 5 0 0 0-4.33-2.5L3.34 7A10 10 0 0 1 12 22v-5z" fill="#22c55e"/>
-        </svg>
-      `;
+      const iconSvg = getBrowserIconHtml(isFirefox ? 'firefox' : 'chrome', 22);
 
       const isCurrentlyDownloading = this._downloadingCores && this._downloadingCores.has(core.name);
 
