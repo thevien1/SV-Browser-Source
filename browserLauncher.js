@@ -427,6 +427,43 @@ class BrowserLauncher extends EventEmitter {
         args.push('-private');
       }
       if (profile.startUrl) args.push(profile.startUrl);
+
+      // Cấu hình Proxy tự động cho Firefox thông qua user.js
+      if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
+        try {
+          const userJsPath = path.join(profileDir, 'user.js');
+          const proxyLines = [];
+          const proxyStr = profile.proxy.trim();
+          let host = '', port = 80;
+          const isSocks = (profile.proxyType && profile.proxyType.toLowerCase().includes('socks')) || proxyStr.toLowerCase().startsWith('socks');
+
+          let cleanStr = proxyStr.replace(/^(?:https?|socks[45]):\/\//i, '');
+          if (cleanStr.includes('@')) cleanStr = cleanStr.split('@')[1];
+          const parts = cleanStr.split(':');
+          if (parts.length >= 2) {
+            host = parts[0].trim();
+            port = parseInt(parts[1], 10) || 80;
+          }
+
+          if (host && port) {
+            proxyLines.push('user_pref("network.proxy.type", 1);');
+            if (isSocks) {
+              proxyLines.push(`user_pref("network.proxy.socks", "${host}");`);
+              proxyLines.push(`user_pref("network.proxy.socks_port", ${port});`);
+              proxyLines.push('user_pref("network.proxy.socks_version", 5);');
+              proxyLines.push('user_pref("network.proxy.socks_remote_dns", true);');
+            } else {
+              proxyLines.push(`user_pref("network.proxy.http", "${host}");`);
+              proxyLines.push(`user_pref("network.proxy.http_port", ${port});`);
+              proxyLines.push(`user_pref("network.proxy.ssl", "${host}");`);
+              proxyLines.push(`user_pref("network.proxy.ssl_port", ${port});`);
+            }
+            fs.writeFileSync(userJsPath, proxyLines.join('\n') + '\n', 'utf8');
+          }
+        } catch (e) {
+          console.error('Lỗi cấu hình proxy user.js cho Firefox:', e.message);
+        }
+      }
     } else {
       // Các flags chuẩn 100% trích xuất từ GPMLogin Global theo đúng mẫu Command Line
       args = [
@@ -718,11 +755,13 @@ try {
 
       child.unref();
 
-      // Lấy WebSocket URL chuẩn cho Puppeteer / Playwright
+      // Lấy WebSocket URL chuẩn cho Puppeteer / Playwright (chỉ với Chromium)
       let wsUrl = `ws://127.0.0.1:${debugPort}/devtools/browser`;
-      try {
-        wsUrl = await this.getWebSocketDebuggerUrl(debugPort);
-      } catch (e) {}
+      if (type !== 'firefox') {
+        try {
+          wsUrl = await this.getWebSocketDebuggerUrl(debugPort);
+        } catch (e) {}
+      }
 
       // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi
       if (child.exitCode !== null) {

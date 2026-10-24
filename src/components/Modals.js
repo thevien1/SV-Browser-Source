@@ -1291,13 +1291,38 @@ export class ModalsComponent {
     if (!window.api || !window.api.getAvailableCores) return;
     try {
       const cores = await window.api.getAvailableCores();
+      const detected = window.api.detectBrowsers ? await window.api.detectBrowsers() : {};
       const select = this.container.querySelector('#quick-browser-core');
       const batchSelect = this.container.querySelector('#batch-browser-version');
       const editSelect = this.container.querySelector('#edit-quick-browser-core');
 
-      if (cores && cores.length > 0) {
-        if (select) {
-          select.innerHTML = '';
+      const appendAdditionalBrowsers = (targetSel) => {
+        if (!targetSel) return;
+        // Thêm Firefox
+        const hasFirefox = !!(detected && detected.firefox);
+        const ffOpt = document.createElement('option');
+        ffOpt.value = 'firefox|default';
+        ffOpt.textContent = `🦊 Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt'})`;
+        targetSel.appendChild(ffOpt);
+
+        // Thêm Brave & Edge nếu có
+        if (detected && detected.brave) {
+          const braveOpt = document.createElement('option');
+          braveOpt.value = 'brave|default';
+          braveOpt.textContent = '🦁 Brave Browser (Đã cài đặt ✓)';
+          targetSel.appendChild(braveOpt);
+        }
+        if (detected && detected.edge) {
+          const edgeOpt = document.createElement('option');
+          edgeOpt.value = 'edge|default';
+          edgeOpt.textContent = '🌊 Microsoft Edge (Đã cài đặt ✓)';
+          targetSel.appendChild(edgeOpt);
+        }
+      };
+
+      if (select) {
+        select.innerHTML = '';
+        if (cores && cores.length > 0) {
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
@@ -1305,11 +1330,14 @@ export class ModalsComponent {
             if (idx === 0) opt.selected = true;
             select.appendChild(opt);
           });
-          this.updateSummary();
         }
+        appendAdditionalBrowsers(select);
+        this.updateSummary();
+      }
 
-        if (batchSelect) {
-          batchSelect.innerHTML = '';
+      if (batchSelect) {
+        batchSelect.innerHTML = '';
+        if (cores && cores.length > 0) {
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = c.version;
@@ -1317,10 +1345,14 @@ export class ModalsComponent {
             if (idx === 0) opt.selected = true;
             batchSelect.appendChild(opt);
           });
+        } else {
+          batchSelect.innerHTML = '<option value="default" selected>Phiên bản mặc định</option>';
         }
+      }
 
-        if (editSelect) {
-          editSelect.innerHTML = '';
+      if (editSelect) {
+        editSelect.innerHTML = '';
+        if (cores && cores.length > 0) {
           cores.forEach((c, idx) => {
             const opt = document.createElement('option');
             opt.value = `chrome|${c.version}`;
@@ -1329,14 +1361,7 @@ export class ModalsComponent {
             editSelect.appendChild(opt);
           });
         }
-      } else {
-        const noCoreOpt = (sel) => {
-          if (!sel) return;
-          sel.innerHTML = '<option value="" disabled selected>⚠️ Chưa có Core nào trong máy (Mở Trình quản lý cập nhật để tải)</option>';
-        };
-        noCoreOpt(select);
-        noCoreOpt(batchSelect);
-        noCoreOpt(editSelect);
+        appendAdditionalBrowsers(editSelect);
       }
     } catch (e) {
       console.error('Lỗi load available cores:', e);
@@ -1457,6 +1482,22 @@ export class ModalsComponent {
     // Submit "+ Tạo profile" (Hàng loạt - Ảnh 3)
     this.container.querySelector('#btn-submit-batch-create')?.addEventListener('click', async () => {
       await this.handleBatchCreateProfile();
+    });
+
+    // Thay đổi loại trình duyệt trong Tạo hàng loạt (Chrome, Firefox, Edge, Brave)
+    this.container.querySelector('#batch-browser-type')?.addEventListener('change', (e) => {
+      const bType = e.target.value;
+      const bVer = this.container.querySelector('#batch-browser-version');
+      if (!bVer) return;
+      if (bType === 'firefox') {
+        bVer.innerHTML = '<option value="default" selected>Firefox Default (Hệ thống)</option><option value="135.0">Firefox 135.0</option><option value="125.0">Firefox 125.0</option>';
+      } else if (bType === 'edge') {
+        bVer.innerHTML = '<option value="default" selected>Edge Default (Hệ thống)</option><option value="124.0">Edge 124.0</option>';
+      } else if (bType === 'brave') {
+        bVer.innerHTML = '<option value="default" selected>Brave Default (Hệ thống)</option><option value="1.65">Brave 1.65</option>';
+      } else {
+        this.loadAvailableCores();
+      }
     });
 
 
