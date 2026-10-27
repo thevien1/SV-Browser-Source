@@ -139,18 +139,21 @@ class GpmApiServer {
 
         // 2. MỞ TRÌNH DUYỆT (START BROWSER)
         // Chuẩn GPMLogin: GET /api/v1/profiles/start/{id}
-        // Tham số query: remote_debugging_port, window_scale, window_pos, window_size, skip_proxy_check, addition_args
+        // Chuẩn Chạy Ẩn (Headless): GET /api/v1/profiles/start-headless/{id} hoặc tham số ?headless=true
+        // Tham số query: remote_debugging_port, window_scale, window_pos, window_size, skip_proxy_check, addition_args, headless
+        const startHeadlessMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/start-headless(?:\/([^\/]+))?$/i);
         const startMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/start(?:\/([^\/]+))?$/i);
-        if (startMatch && (req.method === 'GET' || req.method === 'POST')) {
-          const profileId = extractId(startMatch);
-          if (!profileId) {
-            return sendJson(400, { success: false, message: 'Thiếu ID của profile cần mở', sender: 'SV Browser v5.0.8-stable' });
-          }
-
+        if ((startHeadlessMatch || startMatch) && (req.method === 'GET' || req.method === 'POST')) {
+          const isHeadlessRoute = !!startHeadlessMatch;
           let body = query;
           if (req.method === 'POST') {
             const rawBody = await this.readBody(req);
             try { body = { ...query, ...JSON.parse(rawBody) }; } catch (e) { body = query; }
+          }
+
+          const profileId = extractId(startHeadlessMatch || startMatch) || (body.id || body.profile_id || '').toString().trim();
+          if (!profileId) {
+            return sendJson(400, { success: false, message: 'Thiếu ID của profile cần mở', sender: 'SV Browser v5.0.8-stable' });
           }
 
           const originalProfile = this.profileStore.getProfile(profileId);
@@ -170,8 +173,16 @@ class GpmApiServer {
           }
 
           // Xử lý các query params theo chuẩn GPMLogin API
-          const isIncognito = body.incognito === 'true' || body.incognito === '1' ||
-                              body.is_incognito === 'true' || body.is_incognito === '1';
+          const isIncognito = body.incognito === 'true' || body.incognito === true || body.incognito === '1' ||
+                              body.is_incognito === 'true' || body.is_incognito === true || body.is_incognito === '1' ||
+                              query.incognito === 'true' || query.incognito === '1';
+          const isHeadless = isHeadlessRoute ||
+                             body.headless === 'true' || body.headless === true || body.headless === '1' ||
+                             body.is_headless === 'true' || body.is_headless === true || body.is_headless === '1' ||
+                             body.mode === 'headless' ||
+                             query.headless === 'true' || query.headless === '1' ||
+                             query.is_headless === 'true' || query.is_headless === '1';
+
           const launchOptions = {
             remote_debugging_port: (body.remote_debugging_port || query.remote_debugging_port) ? parseInt(body.remote_debugging_port || query.remote_debugging_port, 10) : undefined,
             window_scale: (body.window_scale || query.window_scale) ? parseFloat(body.window_scale || query.window_scale) : undefined,
@@ -179,7 +190,8 @@ class GpmApiServer {
             window_size: body.window_size || query.window_size || undefined,
             skip_proxy_check: body.skip_proxy_check === 'true' || body.skip_proxy_check === true || body.skip_proxy_check === '1',
             addition_args: body.addition_args || query.addition_args || undefined,
-            incognito: isIncognito
+            incognito: isIncognito,
+            headless: isHeadless
           };
 
           // Kiểm tra kết nối proxy & kiểm tra IP trước khi mở Chrome (trừ khi có cờ skip_proxy_check=true)
@@ -229,12 +241,14 @@ class GpmApiServer {
                 websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
                 is_incognito: !!result.is_incognito,
+                is_headless: !!result.is_headless,
                 ip: profile.ip || '',
                 country: profile.proxyCountry || '',
                 addition_info: result.addition_info || {
                   process_id: result.pid,
                   profile_name: profile.name || '',
                   is_incognito: !!result.is_incognito,
+                  is_headless: !!result.is_headless,
                   ip: profile.ip || '',
                   country: profile.proxyCountry || '',
                   window_handle: null,
@@ -298,6 +312,12 @@ class GpmApiServer {
             };
           }
 
+          const isHeadless = body.headless === 'true' || body.headless === true || body.headless === '1' ||
+                             body.is_headless === 'true' || body.is_headless === true || body.is_headless === '1' ||
+                             body.mode === 'headless' ||
+                             query.headless === 'true' || query.headless === '1' ||
+                             query.is_headless === 'true' || query.is_headless === '1';
+
           const launchOptions = {
             remote_debugging_port: (body.remote_debugging_port || query.remote_debugging_port) ? parseInt(body.remote_debugging_port || query.remote_debugging_port, 10) : undefined,
             window_scale: (body.window_scale || query.window_scale) ? parseFloat(body.window_scale || query.window_scale) : undefined,
@@ -305,7 +325,8 @@ class GpmApiServer {
             window_size: body.window_size || query.window_size || undefined,
             skip_proxy_check: body.skip_proxy_check === 'true' || body.skip_proxy_check === true || body.skip_proxy_check === '1' || query.skip_proxy_check === 'true' || query.skip_proxy_check === true || query.skip_proxy_check === '1',
             addition_args: body.addition_args || query.addition_args || undefined,
-            incognito: true
+            incognito: true,
+            headless: isHeadless
           };
 
           // Kiểm tra kết nối proxy nếu profile có sử dụng proxy
@@ -343,12 +364,14 @@ class GpmApiServer {
                 websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
                 is_incognito: true,
+                is_headless: !!result.is_headless,
                 ip: profile.ip || '',
                 country: profile.proxyCountry || '',
                 addition_info: result.addition_info || {
                   process_id: result.pid,
                   profile_name: profile.name || '',
                   is_incognito: true,
+                  is_headless: !!result.is_headless,
                   ip: profile.ip || '',
                   country: profile.proxyCountry || '',
                   window_handle: null,
@@ -468,7 +491,10 @@ class GpmApiServer {
                 port: runInfo.debugPort || null,
                 remote_debugging_port: runInfo.debugPort || null,
                 remote_debugging_address: runInfo.remote_debugging_address || (runInfo.debugPort ? `127.0.0.1:${runInfo.debugPort}` : null),
-                websocket_debugging_url: runInfo.websocket_debugging_url || (runInfo.debugPort ? `ws://127.0.0.1:${runInfo.debugPort}/devtools/browser` : null)
+                websocket_debugging_url: runInfo.websocket_debugging_url || (runInfo.debugPort ? `ws://127.0.0.1:${runInfo.debugPort}/devtools/browser` : null),
+                pid: runInfo.pid || null,
+                is_incognito: !!runInfo.isIncognito,
+                is_headless: !!runInfo.isHeadless
               });
             }
           }
@@ -486,7 +512,7 @@ class GpmApiServer {
         // 5. CHI TIẾT 1 PROFILE (GET ONE PROFILE)
         // Chuẩn GPMLogin: GET /api/v1/profiles/{id}
         const getOneMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/([a-zA-Z0-9\-]+)$/i);
-        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'update-note', 'note', 'update-tags', 'tags', 'tag', 'active'].includes(getOneMatch[1].toLowerCase())) {
+        if (getOneMatch && req.method === 'GET' && !['start', 'stop', 'close', 'create', 'update', 'delete', 'start-incognito', 'start-headless', 'update-note', 'note', 'update-tags', 'tags', 'tag', 'active'].includes(getOneMatch[1].toLowerCase())) {
           const profileId = getOneMatch[1];
           const p = this.profileStore.getProfile(profileId);
           if (!p) {
@@ -509,6 +535,7 @@ class GpmApiServer {
               remote_debugging_port: this.browserLauncher.runningProfiles.get(p.id)?.debugPort || null,
               remote_debugging_address: this.browserLauncher.runningProfiles.get(p.id)?.remote_debugging_address || null,
               websocket_debugging_url: this.browserLauncher.runningProfiles.get(p.id)?.websocket_debugging_url || null,
+              is_headless: !!this.browserLauncher.runningProfiles.get(p.id)?.isHeadless,
               created_at: typeof p.createdAt === 'number' ? new Date(p.createdAt).toISOString() : (p.createdAt || new Date().toISOString()),
               updated_at: typeof p.updatedAt === 'number' ? new Date(p.updatedAt).toISOString() : (p.updatedAt || new Date().toISOString()),
               tags: Array.isArray(p.tags) ? p.tags : [],

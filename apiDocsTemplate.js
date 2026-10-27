@@ -176,10 +176,12 @@ const ENDPOINTS_DATA = [
       { name: 'win_pos', type: 'string', in: 'query/body', required: false, default: '0,0', desc: 'Tọa độ cửa sổ (Ví dụ: 0,0 hoặc 960,0)' },
       { name: 'win_scale', type: 'number', in: 'query/body', required: false, default: '0.8', desc: 'Tỉ lệ zoom cửa sổ (Ví dụ: 0.8 hoặc 1.0)' },
       { name: 'skip_proxy_check', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Bỏ qua bước test proxy trước khi mở (true / false)' },
+      { name: 'headless', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Khởi chạy ở chế độ ẩn ngầm (true: chạy headless không hiện cửa sổ, siêu tiết kiệm RAM/CPU / false: mở giao diện)' },
       { name: 'add_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome (Ví dụ: --disable-notifications)' }
     ],
     requestBody: {
       proxy: "136.162.249.147:3128:user:pass",
+      headless: false,
       win_size: "1280,720",
       win_pos: "100,50",
       win_scale: 0.8,
@@ -220,6 +222,46 @@ const ENDPOINTS_DATA = [
         remote_debugging_address: "127.0.0.1:52342",
         websocket_debugging_url: "ws://127.0.0.1:52342/devtools/browser/3b75c12e",
         incognito: true
+      },
+      message: "OK",
+      sender: "SV Browser v5.0.8-stable"
+    }
+  },
+  {
+    id: 'profiles-start-headless',
+    category: 'profiles',
+    categoryName: 'Quản lý Profile',
+    method: 'GET',
+    path: '/api/v1/profiles/start-headless/{id}',
+    title: 'Khởi chạy Profile ở chế độ ẩn (Headless - Chạy ngầm không hiện cửa sổ, siêu tiết kiệm RAM/CPU)',
+    description: 'Mở Chrome / Chromium / Firefox ở chế độ chạy ngầm hoàn toàn (--headless=new, tắt GPU, tiết kiệm RAM/CPU tối đa), không hiện cửa sổ Chrome lên màn hình nhưng vẫn mở đầy đủ cổng remote debugging port và WebSocket URL để các công cụ tự động hóa (Puppeteer, Playwright, Selenium, GPM Automate) kết nối điều khiển.',
+    params: [
+      { name: 'id', type: 'string', in: 'path', required: true, default: '8eda4c94-689b-45f3-9bfa-4b5c3b86c537', desc: 'UUID của profile cần khởi chạy ngầm' },
+      { name: 'proxy', type: 'string', in: 'query/body', required: false, default: '', desc: 'Proxy động ghi đè lúc chạy (host:port hoặc host:port:user:pass)' },
+      { name: 'skip_proxy_check', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Bỏ qua bước test proxy trước khi mở (true / false)' },
+      { name: 'add_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome' }
+    ],
+    requestBody: {
+      proxy: "",
+      skip_proxy_check: false,
+      add_args: ""
+    },
+    responseBody: {
+      success: true,
+      data: {
+        profile_id: "8eda4c94-689b-45f3-9bfa-4b5c3b86c537",
+        remote_debugging_port: 52343,
+        remote_debugging_address: "127.0.0.1:52343",
+        websocket_debugging_url: "ws://127.0.0.1:52343/devtools/browser/9a8b7c6d-1234-5678-90ab-cdef12345678",
+        browser_location: "D:\\Phần mềm\\GPMLoginGlobal-v1\\drivers\\ChromiumCore_v151\\chrome.exe",
+        driver_path: "D:\\Phần mềm\\GPMLoginGlobal-v1\\chromedriver.exe",
+        is_headless: true,
+        addition_info: {
+          process_id: 8492,
+          profile_name: "Profile SV #01",
+          is_headless: true,
+          is_incognito: false
+        }
       },
       message: "OK",
       sender: "SV Browser v5.0.8-stable"
@@ -1596,7 +1638,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
   <!-- Category Nav -->
   <div class="category-nav">
     <button class="cat-btn active" data-cat="all" onclick="filterByCategory('all', this)">⚡ Tất cả danh mục</button>
-    <button class="cat-btn" data-cat="profiles" onclick="filterByCategory('profiles', this)">📁 Quản lý Profile (13)</button>
+    <button class="cat-btn" data-cat="profiles" onclick="filterByCategory('profiles', this)">📁 Quản lý Profile (14)</button>
     <button class="cat-btn" data-cat="proxies" onclick="filterByCategory('proxies', this)">🌐 Quản lý Proxy (6)</button>
     <button class="cat-btn" data-cat="groups" onclick="filterByCategory('groups', this)">📂 Quản lý Nhóm (4)</button>
     <button class="cat-btn" data-cat="tags" onclick="filterByCategory('tags', this)">🏷️ Thẻ Tags (2)</button>

@@ -374,6 +374,11 @@ class BrowserLauncher extends EventEmitter {
       (profile && (profile.incognito || profile.is_incognito || profile.isIncognito))
     );
 
+    const isHeadless = !!(
+      (options && (options.headless || options.is_headless || options.isHeadless || options.mode === 'headless' || options.headless === 'true' || options.is_headless === 'true')) ||
+      (profile && (profile.headless || profile.is_headless || profile.isHeadless))
+    );
+
     // Kiểm tra bản quyền trước khi mở profile
     if (this.licenseManager) {
       const lic = await this.licenseManager.checkStatus();
@@ -394,6 +399,7 @@ class BrowserLauncher extends EventEmitter {
         pid: cur.pid,
         profile_id: profileId,
         is_incognito: cur.isIncognito || false,
+        is_headless: cur.isHeadless || false,
         remote_debugging_port: cur.debugPort,
         remote_debugging_address: `127.0.0.1:${cur.debugPort}`,
         websocket_debugging_url: cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
@@ -403,6 +409,7 @@ class BrowserLauncher extends EventEmitter {
           process_id: cur.pid,
           profile_name: profile.name || '',
           is_incognito: cur.isIncognito || false,
+          is_headless: cur.isHeadless || false,
           window_handle: null,
           exec_time: Date.now() - (cur.startTime || Date.now())
         },
@@ -485,6 +492,9 @@ class BrowserLauncher extends EventEmitter {
         '-profile', profileDir,
         '-no-remote'
       ];
+      if (isHeadless) {
+        args.push('-headless');
+      }
       if (isIncognito) {
         args.push('-private');
       }
@@ -607,6 +617,16 @@ class BrowserLauncher extends EventEmitter {
         `--remote-debugging-port=${debugPort}`,
         '--remote-allow-origins=*'
       ];
+
+      if (isHeadless) {
+        // Chế độ chạy ngầm / ẩn Chrome (Headless new engine hỗ trợ 100% extensions và fingerprint, tiết kiệm RAM/GPU)
+        args.push(
+          '--headless=new',
+          '--disable-gpu',
+          '--mute-audio',
+          '--disable-software-rasterizer'
+        );
+      }
 
       if (isIncognito) {
         args.push('--incognito');
@@ -839,6 +859,9 @@ try {
       // 6. Options từ API (window_size, window_pos, window_scale, addition_args)
       if (options && options.window_size) {
         args.push(`--window-size=${options.window_size}`);
+      } else if (isHeadless) {
+        // Mặc định kích thước viewport chuẩn Desktop cho chế độ Headless
+        args.push('--window-size=1280,800');
       }
       if (options && options.window_pos) {
         args.push(`--window-position=${options.window_pos}`);
@@ -894,6 +917,7 @@ try {
         profileDir,
         isEphemeral: !!profile.isEphemeral,
         isIncognito: !!isIncognito,
+        isHeadless: !!isHeadless,
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         browserType: type,
@@ -956,12 +980,13 @@ try {
         this.emit('profile-closed', { profileId, error: err.message });
       });
 
-      this.emit('profile-opened', { profileId, pid: child.pid, debugPort, badgeNumber: badgeNum });
+      this.emit('profile-opened', { profileId, pid: child.pid, debugPort, badgeNumber: badgeNum, isHeadless: !!isHeadless });
       return {
         success: true,
         pid: child.pid,
         profile_id: profileId,
         is_incognito: isIncognito,
+        is_headless: isHeadless,
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         remote_debugging_port: debugPort,
@@ -973,6 +998,7 @@ try {
           process_id: child.pid,
           profile_name: profile.name || '',
           is_incognito: isIncognito,
+          is_headless: isHeadless,
           window_handle: null,
           exec_time: execTime
         },
