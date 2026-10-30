@@ -158,7 +158,12 @@ class App {
       await this.checkBrowserCoresSetup();
     }
 
-    // 4. Đăng ký lắng nghe sự kiện thay đổi trạng thái Profile từ Backend
+    // 4. Tự động kiểm tra bản cập nhật mới khi mở phần mềm sau 2 giây (giống GPMAutomateEditor)
+    setTimeout(() => {
+      this.checkForAppAndCoreUpdates(false);
+    }, 2000);
+
+    // 5. Đăng ký lắng nghe sự kiện thay đổi trạng thái Profile từ Backend
     if (window.api && window.api.onProfileStatusChanged) {
       window.api.onProfileStatusChanged((data) => {
         this.profilesView.updateProfileStatus(data.profileId, data.isRunning);
@@ -239,6 +244,31 @@ class App {
       }
     } catch (err) {
       console.error('Lỗi kiểm tra Core trình duyệt:', err);
+    }
+  }
+
+  /**
+   * Tự động kiểm tra bản cập nhật mới từ GitHub Releases & Server (giống cơ chế GPMAutomateEditor)
+   */
+  async checkForAppAndCoreUpdates(manual = false) {
+    if (!window.api || !window.api.checkAppUpdate) return;
+    try {
+      const updateInfo = await window.api.checkAppUpdate();
+      if (updateInfo && updateInfo.hasUpdate) {
+        if (window.showGlobalToast) {
+          window.showGlobalToast(`🚀 Đã có phiên bản SV Browser mới: v${updateInfo.latestVersion}! Vui lòng cập nhật.`);
+        }
+        setTimeout(() => {
+          this.modals.openUpdateManager();
+        }, 300);
+        return;
+      }
+
+      if (manual && window.showGlobalToast) {
+        window.showGlobalToast(`✓ Bạn đang dùng phiên bản SV Browser mới nhất (v${updateInfo?.currentVersion || '1.0.46'}).`);
+      }
+    } catch (e) {
+      console.warn('Lỗi kiểm tra cập nhật:', e);
     }
   }
 

@@ -144,14 +144,15 @@ class BrowserLauncher extends EventEmitter {
       new DriverIconManager(baseDir).syncAllDriverIcons();
     } catch (e) {}
 
-    // CHỈ QUÉT DUY NHẤT THƯ MỤC drivers NỘI BỘ CỦA ỨNG DỤNG (D:\Phần mềm\GPMLoginGlobal-v1\drivers)
-    // Tuyệt đối không quét từ AppData của GPMLoginGlobal hay bất kỳ phần mềm nào khác
-    const driversDir = path.join(__dirname, 'drivers');
+    // Quét toàn bộ các thư mục drivers hợp lệ (bao gồm AppData bảo lưu vĩnh viễn, Portable cạnh exe, và thư mục nội bộ)
     const candidateDirs = [
-      path.join(process.resourcesPath || '', 'drivers'),
+      path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'drivers'),
+      path.join(process.env.APPDATA || '', 'SVBrowserData', 'drivers'),
+      (this.baseDataDir ? path.join(this.baseDataDir, '..', 'drivers') : null),
       path.join(path.dirname(process.execPath || ''), 'drivers'),
-      driversDir
-    ].filter(d => Boolean(d) && fs.existsSync(d));
+      path.join(process.resourcesPath || '', 'drivers'),
+      path.join(__dirname, 'drivers')
+    ].filter((d, idx, arr) => Boolean(d) && fs.existsSync(d) && arr.indexOf(d) === idx);
 
     const coresMap = new Map();
 
@@ -228,12 +229,15 @@ class BrowserLauncher extends EventEmitter {
     const gpmCores = this.getAvailableChromiumCores();
     const defaultGpmExe = gpmCores.length > 0 ? gpmCores[0].path : null;
 
-    // Tìm các đường dẫn driver nội bộ (portable)
+    // Tìm các đường dẫn driver nội bộ (portable & vĩnh viễn)
     const candidateDriversDirs = [
+      path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'drivers'),
+      path.join(process.env.APPDATA || '', 'SVBrowserData', 'drivers'),
+      (this.baseDataDir ? path.join(this.baseDataDir, '..', 'drivers') : null),
       path.join(process.resourcesPath || '', 'drivers'),
       path.join(path.dirname(process.execPath || ''), 'drivers'),
       path.join(__dirname, 'drivers')
-    ].filter(d => Boolean(d) && fs.existsSync(d));
+    ].filter((d, idx, arr) => Boolean(d) && fs.existsSync(d) && arr.indexOf(d) === idx);
 
     const portableBravePaths = [];
     const portableFirefoxPaths = [];

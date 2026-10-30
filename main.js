@@ -702,17 +702,155 @@ ipcMain.handle('browser:get-cores', async () => {
 });
 
 const DriverDownloader = require('./driverDownloader');
-const driverDownloader = new DriverDownloader(resourceBase);
+const driverDownloader = new DriverDownloader(resourceBase, appDataDir);
 
-ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName) => {
+ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName, forceReinstall = false) => {
   return driverDownloader.downloadAndInstall(downloadUrl, (msg) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('driver:download-progress', { coreName, msg });
     }
-  }, coreName);
+  }, coreName, forceReinstall);
 });
 
 ipcMain.handle('app:get-version', () => app.getVersion());
+
+/**
+ * Hàm so sánh hai chuỗi phiên bản semver (vd: '1.0.46' và '1.0.47')
+ * Trả về: 1 nếu v1 > v2, -1 nếu v1 < v2, 0 nếu bằng nhau
+ */
+function compareSemver(v1, v2) {
+  const clean1 = (v1 || '').replace(/^v/i, '').trim();
+  const clean2 = (v2 || '').replace(/^v/i, '').trim();
+  const base1 = clean1.split('-')[0];
+  const base2 = clean2.split('-')[0];
+  const parts1 = base1.split('.').map(n => parseInt(n, 10) || 0);
+  const parts2 = base2.split('.').map(n => parseInt(n, 10) || 0);
+  const maxLen = Math.max(parts1.length, parts2.length);
+  for (let i = 0; i < maxLen; i++) {
+    const num1 = parts1[i] || 0;
+    const num2 = parts2[i] || 0;
+    if (num1 > num2) return 1;
+    if (num1 < num2) return -1;
+  }
+  return 0;
+}
+
+/**
+ * Kiểm tra cập nhật ứng dụng SV Browser từ GitHub Releases (giống cơ chế GPMAutomateEditor)
+ */
+async function checkGitHubAppUpdate() {
+  const currentAppVersion = app.getVersion();
+  const defaultInfo = {
+    hasUpdate: false,
+    currentVersion: currentAppVersion,
+    latestVersion: currentAppVersion,
+    releaseName: '',
+    releaseNotes: '',
+    publishedAt: '',
+    htmlUrl: 'https://github.com/thevien1/SV-Browser/releases',
+    setupDownloadUrl: '',
+    portableDownloadUrl: ''
+  };
+
+  try {
+    const res = await fetch('https://api.github.com/repos/thevien1/SV-Browser/releases/latest', {
+      headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'SV-Browser-App'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!res.ok) return defaultInfo;
+    const data = await res.json();
+    const rawTag = data.tag_name || '';
+    const latestVersion = rawTag.replace(/^v/i, '').trim();
+    if (!latestVersion) return defaultInfo;
+
+    const hasUpdate = compareSemver(latestVersion, currentAppVersion) > 0;
+    let setupDownloadUrl = '';
+    let portableDownloadUrl = '';
+
+    if (Array.isArray(data.assets) && data.assets.length > 0) {
+      const setupAsset = data.assets.find(a =>
+        typeof a.name === 'string' &&
+        a.name.toLowerCase().includes('setup') &&
+        a.name.toLowerCase().endsWith('.exe')
+      );
+      const portableAsset = data.assets.find(a =>
+        typeof a.name === 'string' &&
+        a.name.toLowerCase().includes('portable') &&
+        a.name.toLowerCase().endsWith('.exe')
+      );
+      const anyExe = data.assets.find(a =>
+        typeof a.name === 'string' &&
+        a.name.toLowerCase().endsWith('.exe')
+      );
+
+      setupDownloadUrl = setupAsset ? setupAsset.browser_download_url : (anyExe ? anyExe.browser_download_url : '');
+      portableDownloadUrl = portableAsset ? portableAsset.browser_download_url : '';
+    }
+
+    return {
+      hasUpdate,
+      currentVersion: currentAppVersion,
+      latestVersion,
+      releaseName: data.name || `SV Browser v${latestVersion}`,
+      releaseNotes: data.body || '',
+      publishedAt: data.published_at || '',
+      htmlUrl: data.html_url || `https://github.com/thevien1/SV-Browser/releases/tag/${rawTag}`,
+      setupDownloadUrl,
+      portableDownloadUrl
+    };
+  } catch (e) {
+    return defaultInfo;
+  }
+}
+
+ipcMain.handle('app:check-update', async () => {
+  return checkGitHubAppUpdate();
+});
+
+ipcMain.handle('app:install-update', async (event, downloadUrl) => {
+  if (!downloadUrl) throw new Error('Không có đường dẫn tải bản cập nhật');
+  const tempDir = app.getPath('temp');
+  const tempInstaller = path.join(tempDir, `SV_Browser_Setup_Update_${Date.now()}.exe`);
+
+  await new Promise((resolve, reject) => {
+    const curl = spawn('curl.exe', ['-L', '--fail', '-o', tempInstaller, downloadUrl], {
+      windowsHide: true
+    });
+
+    curl.stderr.on('data', (data) => {
+      const str = data.toString();
+      if (str.includes('%') || str.includes('k') || str.includes('M')) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app:update-progress', { msg: `[Tải bản cập nhật] ${str.trim().split('\r').pop()}` });
+        }
+      }
+    });
+
+    curl.on('close', (code) => {
+      if (code === 0 && fs.existsSync(tempInstaller) && fs.statSync(tempInstaller).size > 1024 * 1024) {
+        resolve();
+      } else {
+        if (fs.existsSync(tempInstaller)) try { fs.unlinkSync(tempInstaller); } catch (e) {}
+        reject(new Error(`Tải bản cài đặt thất bại (mã lỗi: ${code}). Vui lòng thử tải thủ công qua trình duyệt.`));
+      }
+    });
+
+    curl.on('error', reject);
+  });
+
+  // Chạy file cài đặt và thoát ứng dụng hiện tại để tiến hành nâng cấp
+  const child = spawn(tempInstaller, [], { detached: true, stdio: 'ignore' });
+  child.unref();
+
+  setTimeout(() => {
+    app.quit();
+  }, 1000);
+
+  return { success: true };
+});
 
 ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   const localCores = browserLauncher.getAvailableChromiumCores();
@@ -727,31 +865,45 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   let remoteCores = [];
   let serverAppVersion = currentAppVersion;
 
-  try {
-    const response = await fetch(targetServerUrl, { signal: AbortSignal.timeout(6000) });
-    if (response.ok) {
-      const json = await response.json();
-      if (json.appVersion) appVersion = json.appVersion;
+  // 1. Kiểm tra song song cả GitHub Releases (App update) và API Cores
+  const [appUpdateInfo, coresResponse] = await Promise.all([
+    checkGitHubAppUpdate(),
+    (async () => {
+      try {
+        const res = await fetch(targetServerUrl, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) return await res.json();
+      } catch (e) {
+        console.warn('Không thể kết nối đến server cập nhật cores:', e.message);
+      }
+      return null;
+    })()
+  ]);
 
-      // Hỗ trợ cả json.cores lẫn json.data (định dạng server Prisma trả về)
-      const rawList = Array.isArray(json.cores) ? json.cores : (Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []));
-      remoteCores = rawList.map(item => {
-        const vStr = String(item.coreVersion || item.version || item.majorVersion || '153');
-        const major = item.majorVersion ? String(item.majorVersion) : String(Math.floor(parseFloat(vStr)) || vStr.replace(/\D/g, ''));
-        const name = item.name || `ChromiumCore_v${major}`;
-        return {
-          id: item.id || name,
-          name: name,
-          type: item.type || (name.toLowerCase().includes('firefox') ? 'firefox' : 'chromium'),
-          majorVersion: major,
-          version: item.coreVersion || item.version || '1.0.0',
-          description: item.description || `Antidetect browser based on ${name}`,
-          downloadUrl: item.downloadUrl || ''
-        };
-      });
-    }
-  } catch (e) {
-    console.warn('Không thể kết nối đến server cập nhật:', e.message);
+  if (appUpdateInfo && appUpdateInfo.latestVersion) {
+    serverAppVersion = appUpdateInfo.latestVersion;
+  }
+
+  if (coresResponse) {
+    if (coresResponse.appVersion) serverAppVersion = coresResponse.appVersion;
+
+    const rawList = Array.isArray(coresResponse.cores)
+      ? coresResponse.cores
+      : (Array.isArray(coresResponse.data) ? coresResponse.data : (Array.isArray(coresResponse) ? coresResponse : []));
+
+    remoteCores = rawList.map(item => {
+      const vStr = String(item.coreVersion || item.version || item.majorVersion || '153');
+      const major = item.majorVersion ? String(item.majorVersion) : String(Math.floor(parseFloat(vStr)) || vStr.replace(/\D/g, ''));
+      const name = item.name || `ChromiumCore_v${major}`;
+      return {
+        id: item.id || name,
+        name: name,
+        type: item.type || (name.toLowerCase().includes('firefox') ? 'firefox' : 'chromium'),
+        majorVersion: major,
+        version: item.coreVersion || item.version || '1.0.0',
+        description: item.description || `Antidetect browser based on ${name}`,
+        downloadUrl: item.downloadUrl || ''
+      };
+    });
   }
 
   // Danh sách các Core phát hành chuẩn của hệ sinh thái GPMLogin
@@ -866,6 +1018,8 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     appVersion: currentAppVersion,
     installedAppVersion: currentAppVersion,
     serverAppVersion: serverAppVersion,
+    hasAppUpdate: Boolean(appUpdateInfo && appUpdateInfo.hasUpdate),
+    appUpdateInfo: appUpdateInfo,
     serverUrl: targetServerUrl,
     driversCount: localCores.length,
     cores: results

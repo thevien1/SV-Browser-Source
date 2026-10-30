@@ -4,10 +4,108 @@ const { spawn, spawnSync } = require('child_process');
 const DriverIconManager = require('./driverIconManager');
 
 class DriverDownloader {
-  constructor(baseDir) {
+  constructor(baseDir, appDataDir) {
     this.baseDir = baseDir || __dirname;
-    this.driversDir = path.join(this.baseDir, 'drivers');
+    this.appDataDir = appDataDir || (process.env.APPDATA ? path.join(process.env.APPDATA, 'sv-browser', 'SVBrowserData') : this.baseDir);
+
+    // Ưu tiên lưu drivers vào thư mục an toàn vĩnh viễn (không bao giờ bị xóa khi cập nhật phần mềm)
+    // 1. Nếu ở môi trường dev hoặc portable bên cạnh file exe có thư mục drivers và có quyền ghi -> dùng nó
+    // 2. Nếu không (bản cài đặt Program Files) -> lưu vào AppData/SVBrowserData/drivers
+    const workspaceDrivers = path.join(this.baseDir, 'drivers');
+    const appDataDrivers = path.join(this.appDataDir, 'drivers');
+
+    let chosenDriversDir = appDataDrivers;
+    try {
+      if (!fs.existsSync(workspaceDrivers)) {
+        fs.mkdirSync(workspaceDrivers, { recursive: true });
+      }
+      const testFile = path.join(workspaceDrivers, `.write_test_${Date.now()}`);
+      fs.writeFileSync(testFile, 'ok');
+      fs.unlinkSync(testFile);
+      chosenDriversDir = workspaceDrivers;
+    } catch (e) {
+      chosenDriversDir = appDataDrivers;
+    }
+
+    this.driversDir = chosenDriversDir;
+    if (!fs.existsSync(this.driversDir)) {
+      try { fs.mkdirSync(this.driversDir, { recursive: true }); } catch (e) {}
+    }
+
     this.iconManager = new DriverIconManager(this.baseDir);
+  }
+
+  /**
+   * Lấy tất cả các thư mục chứa driver có thể có trên máy tính
+   */
+  getAllDriverSearchPaths() {
+    const list = [
+      this.driversDir,
+      path.join(this.appDataDir || '', 'drivers'),
+      path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'drivers'),
+      path.join(process.env.APPDATA || '', 'SVBrowserData', 'drivers'),
+      path.join(path.dirname(process.execPath || ''), 'drivers'),
+      path.join(process.resourcesPath || '', 'drivers'),
+      path.join(this.baseDir, 'drivers'),
+      path.join(__dirname, 'drivers')
+    ];
+    return list.filter((d, idx, arr) => Boolean(d) && fs.existsSync(d) && arr.indexOf(d) === idx);
+  }
+
+  /**
+   * Kiểm tra xem một phiên bản Core đã được cài đặt sẵn ở bất kỳ thư mục nào chưa
+   */
+  isCoreAlreadyInstalled(folderName, majorVersion) {
+    const searchPaths = this.getAllDriverSearchPaths();
+
+    for (const base of searchPaths) {
+      // 1. Kiểm tra chính xác tên folder: e.g. ChromiumCore_v153, ChromiumCore_v155
+      if (folderName) {
+        const targetFolder = path.join(base, folderName);
+        if (fs.existsSync(targetFolder)) {
+          const exe1 = path.join(targetFolder, 'Chrome-bin', 'chrome.exe');
+          const exe2 = path.join(targetFolder, 'chrome.exe');
+          if ((fs.existsSync(exe1) && fs.statSync(exe1).size > 1024 * 1024) ||
+              (fs.existsSync(exe2) && fs.statSync(exe2).size > 1024 * 1024)) {
+            return {
+              isInstalled: true,
+              path: fs.existsSync(exe1) ? exe1 : exe2,
+              folderPath: targetFolder,
+              version: majorVersion ? `${majorVersion}.0.0.0` : null
+            };
+          }
+        }
+      }
+
+      // 2. Kiểm tra theo majorVersion (v153, v154, v155...)
+      if (majorVersion) {
+        try {
+          const items = fs.readdirSync(base, { withFileTypes: true });
+          for (const item of items) {
+            if (!item.isDirectory()) continue;
+            const itemLower = item.name.toLowerCase();
+            const targetLower = `v${majorVersion}`.toLowerCase();
+            const targetFull = `chromiumcore_v${majorVersion}`.toLowerCase();
+            if (itemLower.includes(targetLower) || itemLower === targetFull) {
+              const subFolder = path.join(base, item.name);
+              const exe1 = path.join(subFolder, 'Chrome-bin', 'chrome.exe');
+              const exe2 = path.join(subFolder, 'chrome.exe');
+              if ((fs.existsSync(exe1) && fs.statSync(exe1).size > 1024 * 1024) ||
+                  (fs.existsSync(exe2) && fs.statSync(exe2).size > 1024 * 1024)) {
+                return {
+                  isInstalled: true,
+                  path: fs.existsSync(exe1) ? exe1 : exe2,
+                  folderPath: subFolder,
+                  version: `${majorVersion}.0.0.0`
+                };
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    return { isInstalled: false };
   }
 
   getArchiverPath() {
@@ -30,8 +128,10 @@ class DriverDownloader {
    * Tự động tải, giải nén và nạp icon cho ChromiumCore từ link GitHub hoặc link trực tiếp
    * @param {string} url - Link download chrome.7z hoặc link tag GitHub
    * @param {function} onProgress - Callback tiến trình (string)
+   * @param {string} targetName - Tên thư mục Core (vd: ChromiumCore_v155)
+   * @param {boolean} forceReinstall - Bắt buộc tải lại (chỉ khi người dùng bấm Cài lại / Sửa chữa)
    */
-  async downloadAndInstall(url, onProgress = console.log, targetName = '') {
+  async downloadAndInstall(url, onProgress = console.log, targetName = '', forceReinstall = false) {
     if (!url || typeof url !== 'string') {
       throw new Error('URL không hợp lệ');
     }
@@ -63,6 +163,23 @@ class DriverDownloader {
     if (!fullVersion) fullVersion = `${majorVersion}.0.0.0`;
 
     const folderName = targetName ? targetName.trim() : `ChromiumCore_v${majorVersion}`;
+
+    // NẾU ĐÃ CÀI ĐẶT RỒI VÀ KHÔNG YÊU CẦU CÀI LẠI: GIỮ NGUYÊN, TUYỆT ĐỐI KHÔNG XÓA VÀ KHÔNG TẢI LẠI!
+    if (!forceReinstall) {
+      const already = this.isCoreAlreadyInstalled(folderName, majorVersion);
+      if (already.isInstalled) {
+        onProgress(`✓ [Đã có sẵn] ${folderName} đã được cài đặt trên máy tính tại:\n${already.path}\n(Hệ thống tự động bảo lưu, không cần tải lại).`);
+        return {
+          success: true,
+          alreadyInstalled: true,
+          folderName,
+          version: already.version || fullVersion,
+          majorVersion,
+          path: already.path
+        };
+      }
+    }
+
     const targetDir = path.join(this.driversDir, folderName);
     let ext = '.7z';
     const lowerUrl = downloadUrl.toLowerCase();

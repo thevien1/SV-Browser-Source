@@ -94,8 +94,15 @@ contextBridge.exposeInMainWorld('api', {
   isProfileRunning: (profileId) => ipcRenderer.invoke('browser:is-running', profileId),
   detectBrowsers: () => ipcRenderer.invoke('browser:detect'),
   getAvailableCores: () => ipcRenderer.invoke('browser:get-cores'),
-  downloadCore: (url, name) => ipcRenderer.invoke('driver:download-core', url, name),
+  downloadCore: (url, name, forceReinstall = false) => ipcRenderer.invoke('driver:download-core', url, name, forceReinstall),
   fetchUpdateList: (serverUrl) => ipcRenderer.invoke('driver:get-update-list', serverUrl),
+  checkAppUpdate: () => ipcRenderer.invoke('app:check-update'),
+  installAppUpdate: (downloadUrl) => ipcRenderer.invoke('app:install-update', downloadUrl),
+  onAppUpdateProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('app:update-progress', handler);
+    return () => ipcRenderer.removeListener('app:update-progress', handler);
+  },
   onDownloadProgress: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('driver:download-progress', handler);
