@@ -35,6 +35,8 @@ const ProxyStore = require('./proxyStore');
 const ExtensionStore = require('./extensionStore');
 const GpmApiServer = require('./gpmApiServer');
 const ProxyChecker = require('./proxyChecker');
+const { preserveDrivers } = require('./driverStorage');
+const { createAppUpdater } = require('./appUpdater');
 
 let mainWindow = null;
 const appDataDir = path.join(app.getPath('userData'), 'SVBrowserData');
@@ -70,6 +72,7 @@ const extensionStore = new ExtensionStore(resourceBase, appDataDir);
 const savedSettings = profileStore.getSettings();
 const initialStorageDir = savedSettings.localStoragePath || defaultStorageDir;
 const browserLauncher = new BrowserLauncher(initialStorageDir);
+browserLauncher.driverDataDir = path.join(appDataDir, 'drivers');
 browserLauncher.setExtensionStore(extensionStore);
 browserLauncher.setProfileStore(profileStore);
 browserLauncher.setLicenseManager(licenseManager);
@@ -738,119 +741,11 @@ function compareSemver(v1, v2) {
 /**
  * Kiểm tra cập nhật ứng dụng SV Browser từ GitHub Releases (giống cơ chế GPMAutomateEditor)
  */
-async function checkGitHubAppUpdate() {
-  const currentAppVersion = app.getVersion();
-  const defaultInfo = {
-    hasUpdate: false,
-    currentVersion: currentAppVersion,
-    latestVersion: currentAppVersion,
-    releaseName: '',
-    releaseNotes: '',
-    publishedAt: '',
-    htmlUrl: 'https://github.com/thevien1/SV-Browser/releases',
-    setupDownloadUrl: '',
-    portableDownloadUrl: ''
-  };
-
-  try {
-    const res = await fetch('https://api.github.com/repos/thevien1/SV-Browser/releases/latest', {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'SV-Browser-App'
-      },
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!res.ok) return defaultInfo;
-    const data = await res.json();
-    const rawTag = data.tag_name || '';
-    const latestVersion = rawTag.replace(/^v/i, '').trim();
-    if (!latestVersion) return defaultInfo;
-
-    const hasUpdate = compareSemver(latestVersion, currentAppVersion) > 0;
-    let setupDownloadUrl = '';
-    let portableDownloadUrl = '';
-
-    if (Array.isArray(data.assets) && data.assets.length > 0) {
-      const setupAsset = data.assets.find(a =>
-        typeof a.name === 'string' &&
-        a.name.toLowerCase().includes('setup') &&
-        a.name.toLowerCase().endsWith('.exe')
-      );
-      const portableAsset = data.assets.find(a =>
-        typeof a.name === 'string' &&
-        a.name.toLowerCase().includes('portable') &&
-        a.name.toLowerCase().endsWith('.exe')
-      );
-      const anyExe = data.assets.find(a =>
-        typeof a.name === 'string' &&
-        a.name.toLowerCase().endsWith('.exe')
-      );
-
-      setupDownloadUrl = setupAsset ? setupAsset.browser_download_url : (anyExe ? anyExe.browser_download_url : '');
-      portableDownloadUrl = portableAsset ? portableAsset.browser_download_url : '';
-    }
-
-    return {
-      hasUpdate,
-      currentVersion: currentAppVersion,
-      latestVersion,
-      releaseName: data.name || `SV Browser v${latestVersion}`,
-      releaseNotes: data.body || '',
-      publishedAt: data.published_at || '',
-      htmlUrl: data.html_url || `https://github.com/thevien1/SV-Browser/releases/tag/${rawTag}`,
-      setupDownloadUrl,
-      portableDownloadUrl
-    };
-  } catch (e) {
-    return defaultInfo;
-  }
-}
-
-ipcMain.handle('app:check-update', async () => {
-  return checkGitHubAppUpdate();
+const appUpdater = createAppUpdater(async () => {
+  await preserveDrivers(appDataDir, [path.join(resourceBase, 'drivers'), path.join(path.dirname(process.execPath), 'drivers')]);
 });
-
-ipcMain.handle('app:install-update', async (event, downloadUrl) => {
-  if (!downloadUrl) throw new Error('Không có đường dẫn tải bản cập nhật');
-  const tempDir = app.getPath('temp');
-  const tempInstaller = path.join(tempDir, `SV_Browser_Setup_Update_${Date.now()}.exe`);
-
-  await new Promise((resolve, reject) => {
-    const curl = spawn('curl.exe', ['-L', '--fail', '-o', tempInstaller, downloadUrl], {
-      windowsHide: true
-    });
-
-    curl.stderr.on('data', (data) => {
-      const str = data.toString();
-      if (str.includes('%') || str.includes('k') || str.includes('M')) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('app:update-progress', { msg: `[Tải bản cập nhật] ${str.trim().split('\r').pop()}` });
-        }
-      }
-    });
-
-    curl.on('close', (code) => {
-      if (code === 0 && fs.existsSync(tempInstaller) && fs.statSync(tempInstaller).size > 1024 * 1024) {
-        resolve();
-      } else {
-        if (fs.existsSync(tempInstaller)) try { fs.unlinkSync(tempInstaller); } catch (e) {}
-        reject(new Error(`Tải bản cài đặt thất bại (mã lỗi: ${code}). Vui lòng thử tải thủ công qua trình duyệt.`));
-      }
-    });
-
-    curl.on('error', reject);
-  });
-
-  // Chạy file cài đặt và thoát ứng dụng hiện tại để tiến hành nâng cấp
-  const child = spawn(tempInstaller, [], { detached: true, stdio: 'ignore' });
-  child.unref();
-
-  setTimeout(() => {
-    app.quit();
-  }, 1000);
-
-  return { success: true };
-});
+async function checkGitHubAppUpdate() { return appUpdater.check(); }
+ipcMain.handle('app:check-update', checkGitHubAppUpdate);
 
 ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
   const localCores = browserLauncher.getAvailableChromiumCores();
@@ -1276,6 +1171,8 @@ ipcMain.handle('automation:open-folder', async () => {
 // App Lifecycle
 app.whenReady().then(() => {
   createWindow();
+  preserveDrivers(appDataDir, [path.join(resourceBase, 'drivers'), path.join(path.dirname(process.execPath), 'drivers')])
+    .catch(error => console.error('[Driver migration]', error.message));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

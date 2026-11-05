@@ -96,8 +96,9 @@ contextBridge.exposeInMainWorld('api', {
   getAvailableCores: () => ipcRenderer.invoke('browser:get-cores'),
   downloadCore: (url, name, forceReinstall = false) => ipcRenderer.invoke('driver:download-core', url, name, forceReinstall),
   fetchUpdateList: (serverUrl) => ipcRenderer.invoke('driver:get-update-list', serverUrl),
+  getAppUpdateState: () => ipcRenderer.invoke('app:get-update-state'),
   checkAppUpdate: () => ipcRenderer.invoke('app:check-update'),
-  installAppUpdate: (downloadUrl) => ipcRenderer.invoke('app:install-update', downloadUrl),
+  installAppUpdate: () => ipcRenderer.invoke('app:install-update'),
   onAppUpdateProgress: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('app:update-progress', handler);

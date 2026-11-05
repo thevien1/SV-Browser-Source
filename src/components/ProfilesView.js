@@ -2687,10 +2687,22 @@ export class ProfilesViewComponent {
     this.currentEditingTagsProfileId = null;
   }
 
-  async loadProfiles() {
+  isProfileTableBusy() {
+    const active = document.activeElement;
+    return Boolean(
+      this.container.querySelector('.is-dragging') ||
+      (active && this.container.contains(active) &&
+        active.matches('input:not([type="checkbox"]), textarea, [contenteditable="true"]'))
+    );
+  }
+
+  async loadProfiles({ background = false } = {}) {
     if (!window.api || !window.api.getProfiles) return;
+    if (background && this.isProfileTableBusy()) return;
     try {
-      this.profiles = await window.api.getProfiles();
+      const profiles = await window.api.getProfiles();
+      if (background && (this.isProfileTableBusy() || JSON.stringify(profiles) === JSON.stringify(this.profiles))) return;
+      this.profiles = profiles;
       const sortSelect = this.container.querySelector('#filter-sort');
       if (sortSelect && sortSelect.value !== this.filter.sort) {
         sortSelect.value = this.filter.sort;

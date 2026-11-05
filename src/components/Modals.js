@@ -2915,6 +2915,19 @@ export class ModalsComponent {
     }
   }
 
+  updateAppButton(state) {
+    this._appUpdateState = state;
+    const btn = this.container.querySelector('#btn-install-app-update');
+    if (!btn) return;
+    btn.disabled = Boolean(this._appInstallRequested) || ['preserving', 'installing', 'checking'].includes(state.status) || !state.supported;
+    if (state.status === 'preserving') btn.innerText = 'Đang giữ lại Chromium...';
+    else if (state.status === 'installing') btn.innerText = 'Đang khởi động lại...';
+    else if (state.status === 'downloading') btn.innerText = this._appInstallRequested
+      ? `Đang tải ${Math.round(state.percent || 0)}%...` : `Cập nhật (${Math.round(state.percent || 0)}%)`;
+    else if (!state.supported) btn.innerText = 'Cần dùng bản Setup';
+    else btn.innerText = state.error ? 'Thử lại cập nhật' : 'Cập nhật ngay';
+  }
+
   initUpdateManagerEvents() {
     if (this._updateEventsInited) return;
     this._updateEventsInited = true;
@@ -2964,16 +2977,7 @@ export class ModalsComponent {
     // Lắng nghe tiến trình tải bản cập nhật ứng dụng SV Browser
     if (window.api && window.api.onAppUpdateProgress) {
       window.api.onAppUpdateProgress((payload) => {
-        const msg = (payload && payload.msg) || String(payload || '');
-        const btn = this.container.querySelector('#btn-install-app-update');
-        if (btn) {
-          const match = msg.match(/(\d+[\d\.]*%|\d+[\d\.]*\s*M|\d+[\d\.]*\s*k)/i);
-          if (match) {
-            btn.innerText = `Đang tải bản cập nhật (${match[0]})...`;
-          } else {
-            btn.innerText = `Đang khởi chạy cài đặt...`;
-          }
-        }
+        this.updateAppButton(payload);
       });
     }
   }
@@ -3018,89 +3022,15 @@ export class ModalsComponent {
     const appUpdateInfo = data.appUpdateInfo || {};
 
     // 1. DÒNG THÔNG BÁO BẢN CẬP NHẬT ỨNG DỤNG SV BROWSER (GIỐNG GPMAutomateEditor)
-    if (hasAppUpdate) {
-      html += `
-        <div class="update-manager-item" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); margin-bottom: 12px; border-radius: 10px; padding: 14px 16px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);">
-          <div class="update-item-left" style="width: 100%;">
-            <div class="update-item-icon" style="background: #f59e0b; color: #ffffff; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-              🚀
-            </div>
-            <div style="flex: 1;">
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span class="update-item-title" style="font-size: 16px; font-weight: 800; color: #92400e;">Đã có phiên bản SV Browser mới!</span>
-                <span style="background: #fef3c7; color: #b45309; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid #fde68a;">
-                  v${appVer} ➔ v${appUpdateInfo.latestVersion || data.serverAppVersion}
-                </span>
-                <span style="background: #ef4444; color: #ffffff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
-                  Bản mới nhất
-                </span>
-              </div>
-              <div class="update-item-desc" style="color: #78350f; font-weight: 500; margin-top: 4px;">
-                ${appUpdateInfo.releaseName || `Bản phát hành SV Browser v${appUpdateInfo.latestVersion || data.serverAppVersion}`}
-              </div>
-              ${appUpdateInfo.releaseNotes ? `
-                <div style="margin-top: 8px; padding: 8px 12px; background: rgba(255, 255, 255, 0.75); border: 1px solid #fde68a; border-radius: 6px; font-size: 11.5px; color: #451a03; max-height: 80px; overflow-y: auto; white-space: pre-wrap; font-family: monospace;">
-                  ${appUpdateInfo.releaseNotes.trim()}
-                </div>
-              ` : ''}
-              <div style="display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                ${appUpdateInfo.setupDownloadUrl ? `
-                  <button id="btn-install-app-update" class="btn-update-action" data-download-url="${appUpdateInfo.setupDownloadUrl}" style="background: #ea580c; color: #ffffff; font-weight: 700; padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; box-shadow: 0 2px 8px rgba(234, 88, 12, 0.35);">
-                    ⬇ Tự động Tải & Cài đặt cập nhật
-                  </button>
-                ` : ''}
-                <button class="btn-repair-action" id="btn-open-browser-update" data-url="${appUpdateInfo.setupDownloadUrl || appUpdateInfo.htmlUrl || 'https://github.com/thevien1/SV-Browser/releases'}" style="padding: 7px 14px; font-size: 12px;">
-                  🌐 Tải qua trình duyệt (GitHub)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      // Ứng dụng đang ở bản mới nhất
-      html += `
-        <div class="update-manager-item" style="border: 1.5px solid #bae6fd; background: #f0f9ff; margin-bottom: 12px;">
-          <div class="update-item-left">
-            <div class="update-item-icon" style="background: #e0f2fe; color: #0284c7;">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" fill="#0284c7"/>
-                <path d="M8 17l4-10 4 10M9.5 13h5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="update-item-title" style="font-size: 15px; font-weight: 700;">SV Browser</span>
-                <span style="background: #0284c7; color: #ffffff; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">v${appVer}</span>
-                <span style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 3px;">
-                  ✓ Đã cài đặt phiên bản mới nhất
-                </span>
-              </div>
-              <div class="update-item-desc">Phần mềm quản lý Profile & Tự động hóa Antidetect SV Browser</div>
-              <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                <span class="update-item-status-latest" style="margin-top: 0; color: #16a34a; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
-                  Hệ thống đang chạy phiên bản chính xác: v${appVer} (Mới nhất)
-                </span>
-                <button class="btn-repair-action" id="btn-recheck-app-update">Kiểm tra lại</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // 2. BANNER BẢO LƯU CHROMIUM CORES VĨNH VIỄN
     html += `
-      <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 12px; color: #166534; display: flex; align-items: flex-start; gap: 10px;">
-        <span style="font-size: 18px; line-height: 1;">🛡️</span>
+      <div class="update-manager-item" style="margin-bottom:12px;gap:16px;justify-content:space-between">
         <div>
-          <div style="font-weight: 700; font-size: 12.5px;">Cơ chế bảo lưu Chromium Cores vĩnh viễn:</div>
-          <div style="margin-top: 2px; color: #15803d; line-height: 1.4;">
-            Các phiên bản Chromium đã cài đặt (<b>${installedCoresCount}/${cores.length}</b> bản) được giữ nguyên vẹn trên máy và <b>tuyệt đối không bị xóa khi bạn cập nhật SV Browser</b>. Hệ thống chỉ tải những phiên bản Chromium nào máy tính chưa cài.
-          </div>
+          <div class="update-item-title">SV Browser · v${appVer}</div>
+          <div class="update-item-desc">${appUpdateInfo.error ? 'Không thể kiểm tra cập nhật. Hãy thử lại.' : hasAppUpdate ? `Bản mới: v${appUpdateInfo.latestVersion}` : 'Đang dùng bản mới nhất'}</div>
         </div>
+        ${hasAppUpdate ? '<button id="btn-install-app-update" class="btn-update-action">Cập nhật ngay</button>' : '<button id="btn-recheck-app-update" class="btn-repair-action">Kiểm tra lại</button>'}
       </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px">Chromium đã tải được giữ lại khi cập nhật ứng dụng.</div>
     `;
 
     // Cảnh báo nếu chưa cài đặt Core nào
@@ -3176,31 +3106,27 @@ export class ModalsComponent {
 
     listEl.innerHTML = html;
 
+    if (this._appUpdateState) this.updateAppButton(this._appUpdateState);
+    window.api.getAppUpdateState?.().then(state => this.updateAppButton(state)).catch(() => {});
+
     // Gắn sự kiện nút cài đặt ứng dụng tự động
     const installAppBtn = listEl.querySelector('#btn-install-app-update');
     if (installAppBtn) {
       installAppBtn.addEventListener('click', async () => {
-        const url = installAppBtn.getAttribute('data-download-url');
-        if (!url) return;
+        if (this._appInstallRequested) return;
+        this._appInstallRequested = true;
         installAppBtn.disabled = true;
         installAppBtn.innerText = 'Đang tải bản cập nhật...';
         try {
-          await window.api.installAppUpdate(url);
+          await window.api.installAppUpdate();
         } catch (e) {
+          this._appInstallRequested = false;
           alert('Lỗi cập nhật: ' + e.message);
           installAppBtn.disabled = false;
           installAppBtn.innerText = '⬇ Thử lại cài đặt';
         }
       });
     }
-
-    // Nút mở link GitHub trên trình duyệt
-    listEl.querySelector('#btn-open-browser-update')?.addEventListener('click', (e) => {
-      const url = e.currentTarget.getAttribute('data-url');
-      if (url && window.api && window.api.openExternal) {
-        window.api.openExternal(url);
-      }
-    });
 
     // Nút kiểm tra lại App Update
     listEl.querySelector('#btn-recheck-app-update')?.addEventListener('click', () => {

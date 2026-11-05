@@ -33,8 +33,10 @@ if (!token) {
 
 const distDir = path.join(__dirname, '..', 'dist');
 const filesToUpload = [
-  `SV Browser Setup ${pkg.version || '1.0.1'}.exe`,
-  `SV Browser ${pkg.version || '1.0.1'} Portable.exe`
+  `SV-Browser-Setup-${pkg.version}.exe`,
+  `SV-Browser-Setup-${pkg.version}.exe.blockmap`,
+  `SV-Browser-${pkg.version}-Portable.exe`,
+  'latest.yml'
 ];
 
 function request(options, data) {

@@ -8,31 +8,12 @@ class DriverDownloader {
     this.baseDir = baseDir || __dirname;
     this.appDataDir = appDataDir || (process.env.APPDATA ? path.join(process.env.APPDATA, 'sv-browser', 'SVBrowserData') : this.baseDir);
 
-    // Ưu tiên lưu drivers vào thư mục an toàn vĩnh viễn (không bao giờ bị xóa khi cập nhật phần mềm)
-    // 1. Nếu ở môi trường dev hoặc portable bên cạnh file exe có thư mục drivers và có quyền ghi -> dùng nó
-    // 2. Nếu không (bản cài đặt Program Files) -> lưu vào AppData/SVBrowserData/drivers
-    const workspaceDrivers = path.join(this.baseDir, 'drivers');
-    const appDataDrivers = path.join(this.appDataDir, 'drivers');
-
-    let chosenDriversDir = appDataDrivers;
-    try {
-      if (!fs.existsSync(workspaceDrivers)) {
-        fs.mkdirSync(workspaceDrivers, { recursive: true });
-      }
-      const testFile = path.join(workspaceDrivers, `.write_test_${Date.now()}`);
-      fs.writeFileSync(testFile, 'ok');
-      fs.unlinkSync(testFile);
-      chosenDriversDir = workspaceDrivers;
-    } catch (e) {
-      chosenDriversDir = appDataDrivers;
-    }
-
-    this.driversDir = chosenDriversDir;
-    if (!fs.existsSync(this.driversDir)) {
-      try { fs.mkdirSync(this.driversDir, { recursive: true }); } catch (e) {}
-    }
+    // Keep downloads outside the installation directory so NSIS upgrades cannot delete them.
+    this.driversDir = path.join(this.appDataDir, 'drivers');
+    fs.mkdirSync(this.driversDir, { recursive: true });
 
     this.iconManager = new DriverIconManager(this.baseDir);
+    this.iconManager.driversDir = this.driversDir;
   }
 
   /**

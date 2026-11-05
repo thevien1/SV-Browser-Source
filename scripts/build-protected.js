@@ -70,6 +70,7 @@ function copyDirRecursive(src, dest) {
 }
 
 function cleanDir(dir) {
+  if (path.resolve(dir) !== stagingDir) throw new Error('Unsafe staging cleanup path');
   if (fs.existsSync(dir)) {
     try {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -152,6 +153,8 @@ async function run() {
   // 2. Danh sách các file backend Node.js cần mã hóa
   const nodeFiles = [
     'main.js',
+    'appUpdater.js',
+    'driverStorage.js',
     'licenseManager.js',
     'browserLauncher.js',
     'profileStore.js',
@@ -229,9 +232,12 @@ async function run() {
     version: appVersion,
     description: "SV Browser Antidetect Multi-Browser Profile Manager",
     main: "main.js",
+    dependencies: rootPkg.dependencies,
     author: "SV Browser Team"
   };
   fs.writeFileSync(path.join(stagingDir, 'package.json'), JSON.stringify(appPkg, null, 2), 'utf8');
+
+  require('child_process').execSync('npm.cmd install --omit=dev --ignore-scripts --no-audit --no-fund', { cwd: stagingDir, stdio: 'inherit' });
 
   console.log('\n[Bước 3/4] Cấu hình Electron Builder đóng gói...');
 
@@ -283,7 +289,11 @@ async function run() {
         }
       ]
     },
+    publish: [{ provider: "github", owner: "thevien1", repo: "SV-Browser", releaseType: "release" }],
     nsis: {
+      artifactName: "SV-Browser-Setup-${version}.${ext}",
+      include: path.join(rootDir, "scripts", "preserve-drivers.nsh"),
+      deleteAppDataOnUninstall: false,
       oneClick: false,
       allowToChangeInstallationDirectory: true,
       createDesktopShortcut: true,
@@ -291,12 +301,13 @@ async function run() {
       shortcutName: "SV Browser"
     },
     portable: {
-      artifactName: "SV Browser ${version} Portable.exe"
+      artifactName: "SV-Browser-${version}-Portable.exe"
     }
   };
 
   console.log('\n[Bước 4/4] Bắt đầu đóng gói Windows (.exe)... Vui lòng đợi trong giây lát...');
   const buildResult = await builder.build({
+    publish: "never",
     config: builderConfig
   });
 

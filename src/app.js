@@ -150,6 +150,7 @@ class App {
     await this.loadGroups();
     await this.loadTags();
     await this.profilesView.loadProfiles();
+    this.startProfileAutoRefresh();
     await this.settingsView.loadData(this.licenseStatus);
 
     // 3. Kiểm tra thiết lập thư mục lưu trữ Local Storage & Core trình duyệt lần đầu
@@ -331,6 +332,23 @@ class App {
       }
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  startProfileAutoRefresh() {
+    clearInterval(this._profileRefreshTimer);
+    this._profileRefreshTimer = setInterval(async () => {
+      if (this._profileRefreshPending) return;
+      this._profileRefreshPending = true;
+      try {
+        await this.profilesView.loadProfiles({ background: true });
+      } finally {
+        this._profileRefreshPending = false;
+      }
+    }, 60_000);
+    if (!this._profileRefreshCleanupRegistered) {
+      window.addEventListener('beforeunload', () => clearInterval(this._profileRefreshTimer), { once: true });
+      this._profileRefreshCleanupRegistered = true;
     }
   }
 

@@ -123,6 +123,7 @@ class BrowserLauncher extends EventEmitter {
 
   getChromedriverPath() {
     const candidates = [
+      ...(this.driverDataDir ? [path.join(this.driverDataDir, 'chromedriver.exe')] : []),
       path.join(process.resourcesPath || '', 'chromedriver.exe'),
       path.join(path.dirname(process.execPath || ''), 'chromedriver.exe'),
       path.join(__dirname, 'chromedriver.exe')
@@ -146,6 +147,7 @@ class BrowserLauncher extends EventEmitter {
 
     // Quét toàn bộ các thư mục drivers hợp lệ (bao gồm AppData bảo lưu vĩnh viễn, Portable cạnh exe, và thư mục nội bộ)
     const candidateDirs = [
+      this.driverDataDir,
       path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'drivers'),
       path.join(process.env.APPDATA || '', 'SVBrowserData', 'drivers'),
       (this.baseDataDir ? path.join(this.baseDataDir, '..', 'drivers') : null),
@@ -231,6 +233,7 @@ class BrowserLauncher extends EventEmitter {
 
     // Tìm các đường dẫn driver nội bộ (portable & vĩnh viễn)
     const candidateDriversDirs = [
+      this.driverDataDir,
       path.join(process.env.APPDATA || '', 'sv-browser', 'SVBrowserData', 'drivers'),
       path.join(process.env.APPDATA || '', 'SVBrowserData', 'drivers'),
       (this.baseDataDir ? path.join(this.baseDataDir, '..', 'drivers') : null),
