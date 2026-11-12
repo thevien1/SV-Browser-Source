@@ -13,6 +13,6 @@ Có thể chạy workflow **Build macOS** trong GitHub Actions sau khi đưa mã
 
 Bản mặc định chưa ký Developer ID và chưa notarize; để phân phối công khai cần cấu hình chứng chỉ Apple, notarization và kiểm thử thực tế trên cả hai kiến trúc.
 
-Ứng dụng phát hiện Chrome cài trong `/Applications` hoặc `~/Applications`, và tải Chrome for Testing Stable đúng kiến trúc từ nguồn Google. Có thể tạo nhiều profile Chrome với thư mục dữ liệu riêng. Core Chrome/Chromium `.exe` của Windows không dùng được trên Mac. Chrome for Testing chuẩn không bảo đảm có các bản vá antidetect riêng của core Windows.
+Ứng dụng phát hiện Chrome cài trong `/Applications` hoặc `~/Applications`, và tải core macOS theo downloadUrl do API https://api.svbrowser.site/api/v1/updates/cores cung cấp. Có thể tạo nhiều profile Chrome với thư mục dữ liệu riêng. Core Chrome/Chromium `.exe` của Windows không dùng được trên Mac. Gói core phải chứa Chromium.app đã build đúng kiến trúc; ZIP mã nguồn không thể cài làm trình duyệt.
 
 Đã kiểm thử trên GitHub macOS runners Intel và Apple Silicon: hai profile Chrome đồng thời qua CDP; ứng dụng đóng gói mở được, preload hoạt động, bảng profile và phiên bản hiển thị. Chưa kiểm thử tương tác đầy đủ trên Mac của người dùng. Tự cập nhật ứng dụng chỉ bật cho bản ký Developer ID; xem RELEASE_GUIDE.md. Tích hợp Automate Editor và tùy biến biểu tượng/taskbar của Windows chưa hỗ trợ trên Mac. Selenium cần chromedriver macOS tương ứng đặt trong thư mục drivers; CDP dùng cổng debug của Chrome. Không dùng lại thư mục profile đang mở đồng thời trên hai máy.

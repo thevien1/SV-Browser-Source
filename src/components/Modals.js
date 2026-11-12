@@ -1180,7 +1180,7 @@ export class ModalsComponent {
 
           <!-- Subheader & Actions -->
           <div style="padding: 10px 20px; background: #f8fafc; border-bottom: 1px solid var(--border-color, #e2e8f0); display: flex; justify-content: space-between; align-items: center;">
-            <a href="https://github.com/Hibbiki/chromium-win64/releases" target="_blank" style="color: #0284c7; font-size: 13px; font-weight: 500; text-decoration: none;">Xem chi tiết các bản phát hành</a>
+            <a href="https://api.svbrowser.site/api/v1/updates/cores" target="_blank" style="color: #0284c7; font-size: 13px; font-weight: 500; text-decoration: none;">Xem chi tiết các bản phát hành</a>
             <div style="display: flex; align-items: center; gap: 8px;">
               <button type="button" id="btn-refresh-update-list" title="Quét & Làm mới từ Server" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 10px; font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: pointer; color: #0284c7; font-weight: 600;">
                 <span>🔄</span> Làm mới
@@ -3152,8 +3152,8 @@ export class ModalsComponent {
       const forceReinstall = btn.getAttribute('data-force') === 'true';
 
       if (!downloadUrl) {
-        downloadUrl = prompt(`Nhập link tải (downloadUrl của chrome.7z) cho ${coreName}:`, 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.37-r1681091/chrome.7z');
-        if (!downloadUrl) return;
+        window.showGlobalToast?.('Chưa có link tải. Hãy cập nhật downloadUrl trên server.', true);
+        return;
       }
 
       if (!this._downloadingCores) this._downloadingCores = new Map();
