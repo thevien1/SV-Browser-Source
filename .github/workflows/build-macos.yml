@@ -29,7 +29,14 @@ jobs:
       - shell: bash
         run: set -o pipefail; node scripts/smoke-macos.cjs 2>&1 | tee -a build.log
       - shell: bash
-        run: set -o pipefail; npm run build:mac 2>&1 | tee -a build.log
+        run: |
+          set -o pipefail
+          for attempt in 1 2; do
+            if npm run build:mac 2>&1 | tee -a build.log; then exit 0; fi
+            echo "Retrying macOS packaging after attempt $attempt" | tee -a build.log
+            sleep 5
+          done
+          exit 1
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - shell: bash
