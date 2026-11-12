@@ -19,7 +19,8 @@ const builder = require('electron-builder');
 
 const rootDir = path.resolve(__dirname, '..');
 const stagingDir = path.join(rootDir, 'dist-build-staging');
-const distDir = path.join(rootDir, 'dist');
+const macBuild = process.argv.includes('--mac');
+const distDir = path.join(rootDir, macBuild ? 'dist-mac' : 'dist');
 
 // Cấu hình Obfuscate cho Node.js backend
 const nodeObfuscateOptions = {
@@ -97,6 +98,7 @@ function obfuscateFile(srcPath, destPath, options) {
 }
 
 async function run() {
+  if (macBuild && process.platform !== 'darwin') throw Error('Build macOS cần chạy trên máy Mac. Dùng workflow build-macos trên GitHub Actions hoặc npm run build:mac trên Mac.');
   console.log('====================================================');
   console.log('  SV BROWSER - BẮT ĐẦU ĐÓNG GÓI & BẢO VỆ MÃ NGUỒN  ');
   console.log('====================================================\n');
@@ -108,7 +110,9 @@ async function run() {
   const rootPkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   const oldVer = rootPkg.version || "1.0.1";
   const verParts = oldVer.split('.');
-  if (verParts.length >= 3 && !isNaN(parseInt(verParts[verParts.length - 1], 10))) {
+  if (process.argv.includes('--no-bump')) {
+    // Reuse the release version when building a second platform.
+  } else if (verParts.length >= 3 && !isNaN(parseInt(verParts[verParts.length - 1], 10))) {
     verParts[verParts.length - 1] = parseInt(verParts[verParts.length - 1], 10) + 1;
   } else {
     verParts.push(1);
@@ -153,6 +157,7 @@ async function run() {
   // 2. Danh sách các file backend Node.js cần mã hóa
   const nodeFiles = [
     'main.js',
+    'macBrowser.js',
     'appUpdater.js',
     'driverStorage.js',
     'licenseManager.js',
@@ -237,7 +242,7 @@ async function run() {
   };
   fs.writeFileSync(path.join(stagingDir, 'package.json'), JSON.stringify(appPkg, null, 2), 'utf8');
 
-  require('child_process').execSync('npm.cmd install --omit=dev --ignore-scripts --no-audit --no-fund', { cwd: stagingDir, stdio: 'inherit' });
+  require('child_process').execSync(`${process.platform === 'win32' ? 'npm.cmd' : 'npm'} install --omit=dev --ignore-scripts --no-audit --no-fund`, { cwd: stagingDir, stdio: 'inherit' });
 
   console.log('\n[Bước 3/4] Cấu hình Electron Builder đóng gói...');
 
@@ -245,13 +250,13 @@ async function run() {
   const extraResources = [];
 
   // KHÔNG đóng gói thư mục Extensions vào bộ cài (người dùng tự thêm hoặc tải theo nhu cầu để bộ cài nhẹ)
-  if (fs.existsSync(path.join(rootDir, 'tools'))) {
+  if (!macBuild && fs.existsSync(path.join(rootDir, 'tools'))) {
     extraResources.push({ from: path.join(rootDir, 'tools'), to: 'tools', filter: ['**/*'] });
   }
   if (fs.existsSync(path.join(rootDir, 'policy_templates'))) {
     extraResources.push({ from: path.join(rootDir, 'policy_templates'), to: 'policy_templates', filter: ['**/*'] });
   }
-  if (fs.existsSync(path.join(rootDir, 'chromedriver.exe'))) {
+  if (!macBuild && fs.existsSync(path.join(rootDir, 'chromedriver.exe'))) {
     extraResources.push({ from: path.join(rootDir, 'chromedriver.exe'), to: 'chromedriver.exe' });
   }
   if (fs.existsSync(path.join(rootDir, 'assets'))) {
@@ -306,8 +311,22 @@ async function run() {
   };
 
   console.log('\n[Bước 4/4] Bắt đầu đóng gói Windows (.exe)... Vui lòng đợi trong giây lát...');
+  if (macBuild) {
+    delete builderConfig.win;
+    delete builderConfig.nsis;
+    delete builderConfig.portable;
+    builderConfig.mac = {
+      category: 'public.app-category.productivity',
+      target: ['dmg', 'zip'],
+      artifactName: 'SV-Browser-${version}-mac-${arch}.${ext}',
+      identity: null
+    };
+    // Keep per-architecture updater metadata separate.
+    builderConfig.directories.output = path.join(distDir, process.arch);
+  }
   const buildResult = await builder.build({
     publish: "never",
+    ...(macBuild ? { targets: builder.Platform.MAC.createTarget(['dmg', 'zip'], process.arch === 'arm64' ? builder.Arch.arm64 : builder.Arch.x64) } : {}),
     config: builderConfig
   });
 

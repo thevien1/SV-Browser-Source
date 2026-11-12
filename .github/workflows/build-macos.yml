@@ -1,0 +1,60 @@
+name: Build macOS
+on:
+  push:
+    branches: ['codex/macos-build']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: x64
+          - runner: macos-15
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node --test scripts/test-macos.cjs scripts/test-update.cjs
+      - run: node scripts/smoke-macos.cjs
+      - run: npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Create download release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="mac-v${VERSION}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "SV Browser macOS ${VERSION}" --notes "macOS Intel and Apple Silicon builds. Unsigned preview; Chrome profile smoke tests run on native macOS runners." || gh release view "$TAG"
+          gh release upload "$TAG" dist-mac/${{ matrix.arch }}/*.dmg dist-mac/${{ matrix.arch }}/*.zip --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SV-Browser-mac-${{ matrix.arch }}
+          path: |
+            dist-mac/**/*.dmg
+            dist-mac/**/*.zip
+            dist-mac/**/*.yml
+      - name: Record build result
+        if: always()
+        env:
+          BUILD_STATUS: ${{ job.status }}
+          BUILD_ARCH: ${{ matrix.arch }}
+        run: |
+          RESULT_DIR=$(mktemp -d)
+          cd "$RESULT_DIR"
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'status=%s\narch=%s\ncommit=%s\nrun=https://github.com/%s/actions/runs/%s\n' "$BUILD_STATUS" "$BUILD_ARCH" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > result.txt
+          git add result.txt
+          git commit -m "Record macOS build result"
+          git -c http.https://github.com/.extraheader="$(git -C "$GITHUB_WORKSPACE" config --get http.https://github.com/.extraheader)" push --force "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/codex/macos-result-${{ matrix.arch }}

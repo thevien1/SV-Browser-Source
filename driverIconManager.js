@@ -11,6 +11,7 @@ class DriverIconManager {
   }
 
   ensureTools() {
+    if (process.platform !== 'win32') return;
     if (!fs.existsSync(this.toolsDir)) {
       try { fs.mkdirSync(this.toolsDir, { recursive: true }); } catch (e) {}
     }
@@ -38,6 +39,7 @@ class DriverIconManager {
    * Quét và tự động thêm rcedit-x64.exe cùng đổi icon cho tất cả các phiên bản ChromiumCore
    */
   syncAllDriverIcons() {
+    if (process.platform !== 'win32') return;
     if (!fs.existsSync(this.driversDir)) return;
 
     this.ensureTools();

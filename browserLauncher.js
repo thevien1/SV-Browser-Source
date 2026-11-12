@@ -122,6 +122,10 @@ class BrowserLauncher extends EventEmitter {
   }
 
   getChromedriverPath() {
+    if (process.platform === 'darwin') {
+      const driver = path.join(this.driverDataDir || this.baseDataDir, 'chromedriver');
+      return fs.existsSync(driver) ? driver : '';
+    }
     const candidates = [
       ...(this.driverDataDir ? [path.join(this.driverDataDir, 'chromedriver.exe')] : []),
       path.join(process.resourcesPath || '', 'chromedriver.exe'),
@@ -171,10 +175,14 @@ class BrowserLauncher extends EventEmitter {
           // Kiểm tra exe: Chrome-bin/chrome.exe hoặc trực tiếp chrome.exe
           const p1 = path.join(folderPath, 'Chrome-bin', 'chrome.exe');
           const p2 = path.join(folderPath, 'chrome.exe');
-          if (fs.existsSync(p1)) exePath = p1;
+          if (process.platform === 'darwin') exePath = require('./macBrowser').findChrome(folderPath);
+          else if (fs.existsSync(p1)) exePath = p1;
           else if (fs.existsSync(p2)) exePath = p2;
 
           if (exePath) {
+            if (process.platform === 'darwin') {
+              try { version = JSON.parse(fs.readFileSync(path.join(folderPath, 'version.json'), 'utf8')).version; } catch {}
+            }
             // Tìm version từ thư mục con trong Chrome-bin hoặc trực tiếp trong folder
             const chromeBinDir = path.join(folderPath, 'Chrome-bin');
             const searchDirs = [chromeBinDir, folderPath].filter(d => fs.existsSync(d));
@@ -223,6 +231,7 @@ class BrowserLauncher extends EventEmitter {
    * Dò tìm các trình duyệt có sẵn trên hệ điều hành Windows
    */
   detectBrowsers() {
+    if (process.platform === 'darwin') return require('./macBrowser').detectBrowsers();
     const localAppData = process.env.LOCALAPPDATA || '';
     const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
     const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';

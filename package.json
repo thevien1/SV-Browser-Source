@@ -1,12 +1,13 @@
 {
   "name": "sv-browser",
-  "version": "1.0.52",
+  "version": "1.0.53",
   "description": "SV Browser Antidetect Multi-Browser Profile Manager & Automation",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "keygen": "node licenseGen.js",
     "build": "node scripts/build-protected.js",
+    "build:mac": "node scripts/build-protected.js --mac --no-bump",
     "build:full": "node scripts/build-protected.js --include-drivers",
     "release": "node scripts/upload-release.js"
   },

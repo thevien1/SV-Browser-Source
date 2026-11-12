@@ -38,6 +38,17 @@ class DriverDownloader {
    */
   isCoreAlreadyInstalled(folderName, majorVersion) {
     const searchPaths = this.getAllDriverSearchPaths();
+    if (process.platform === 'darwin') {
+      for (const base of searchPaths) {
+        for (const item of fs.readdirSync(base, { withFileTypes: true })) {
+          if (!item.isDirectory() || (item.name !== folderName && item.name !== `ChromiumCore_v${majorVersion}`)) continue;
+          const folderPath = path.join(base, item.name);
+          const executable = require('./macBrowser').findChrome(folderPath);
+          if (executable) return { isInstalled: true, path: executable, folderPath };
+        }
+      }
+      return { isInstalled: false };
+    }
 
     for (const base of searchPaths) {
       // 1. Kiểm tra chính xác tên folder: e.g. ChromiumCore_v153, ChromiumCore_v155
@@ -113,6 +124,7 @@ class DriverDownloader {
    * @param {boolean} forceReinstall - Bắt buộc tải lại (chỉ khi người dùng bấm Cài lại / Sửa chữa)
    */
   async downloadAndInstall(url, onProgress = console.log, targetName = '', forceReinstall = false) {
+    if (process.platform === 'darwin') return require('./macBrowser').install(this.driversDir, url, onProgress, targetName);
     if (!url || typeof url !== 'string') {
       throw new Error('URL không hợp lệ');
     }

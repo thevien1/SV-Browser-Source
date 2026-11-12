@@ -24,6 +24,15 @@ class LicenseManager {
   getHWID() {
     if (this.cachedHwid) return this.cachedHwid;
     let rawHwid = '';
+    if (process.platform === 'darwin') {
+      const { execFileSync } = require('child_process');
+      const output = execFileSync('/usr/sbin/ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], { encoding: 'utf8' });
+      const uuid = output.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/);
+      if (!uuid) throw Error('Không đọc được mã định danh máy Mac.');
+      const hash = crypto.createHash('sha256').update(uuid[1] + 'HWID_PEPPER').digest('hex').toUpperCase();
+      this.cachedHwid = 'HWID-' + hash.slice(0, 4) + '-' + hash.slice(4, 8) + '-' + hash.slice(8, 12) + '-' + hash.slice(12, 16);
+      return this.cachedHwid;
+    }
     try {
       const out = execSync('reg query HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography /v MachineGuid', {
         encoding: 'utf8',

@@ -895,6 +895,10 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     coreList = defaultCores;
   }
 
+  if (process.platform === 'darwin') {
+    coreList = await require('./macBrowser').catalogue();
+  }
+
   const results = coreList.map(item => {
     const matchedLocal = localCores.find(c => 
       c.name.toLowerCase() === item.name.toLowerCase() || 
