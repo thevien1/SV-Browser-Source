@@ -704,15 +704,21 @@ ipcMain.handle('browser:get-cores', async () => {
   return browserLauncher.getAvailableChromiumCores();
 });
 
+const { normalizeCores, platformName, downloadError } = require('./coreCatalog');
+let availableCoreDownloads = [];
 const DriverDownloader = require('./driverDownloader');
 const driverDownloader = new DriverDownloader(resourceBase, appDataDir);
 
 ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName, forceReinstall = false) => {
+  const core = availableCoreDownloads.find(item => item.downloadUrl === downloadUrl && item.name === coreName && item.platform === platformName(process.platform));
+  if (!core) throw Error('Core không thuộc hệ điều hành này hoặc danh sách đã đổi. Hãy làm mới danh sách core.');
+  const error = downloadError(downloadUrl, core.platform);
+  if (error) throw Error(error);
   return driverDownloader.downloadAndInstall(downloadUrl, (msg) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('driver:download-progress', { coreName, msg });
     }
-  }, coreName, forceReinstall);
+  }, coreName, forceReinstall, core);
 });
 
 ipcMain.handle('app:get-version', () => app.getVersion());
@@ -757,7 +763,6 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     ? customServerUrl.trim()
     : DEFAULT_UPDATE_SERVER_URL;
 
-  let remoteCores = [];
   let serverAppVersion = currentAppVersion;
 
   // 1. Kiểm tra song song cả GitHub Releases (App update) và API Cores
@@ -778,132 +783,15 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
     serverAppVersion = appUpdateInfo.latestVersion;
   }
 
-  if (coresResponse) {
-    if (coresResponse.appVersion) serverAppVersion = coresResponse.appVersion;
-
-    const rawList = Array.isArray(coresResponse.cores)
-      ? coresResponse.cores
-      : (Array.isArray(coresResponse.data) ? coresResponse.data : (Array.isArray(coresResponse) ? coresResponse : []));
-
-    remoteCores = rawList.map(item => {
-      const vStr = String(item.coreVersion || item.version || item.majorVersion || '153');
-      const major = item.majorVersion ? String(item.majorVersion) : String(Math.floor(parseFloat(vStr)) || vStr.replace(/\D/g, ''));
-      const name = item.name || `ChromiumCore_v${major}`;
-      return {
-        id: item.id || name,
-        name: name,
-        type: item.type || (name.toLowerCase().includes('firefox') ? 'firefox' : 'chromium'),
-        majorVersion: major,
-        version: item.coreVersion || item.version || '1.0.0',
-        description: item.description || `Antidetect browser based on ${name}`,
-        downloadUrl: item.downloadUrl || ''
-      };
-    });
-  }
-
-  // Danh sách các Core phát hành chuẩn của hệ sinh thái GPMLogin
-  const defaultCores = [
-    {
-      id: 'ChromiumCore_v153',
-      name: 'ChromiumCore_v153',
-      type: 'chromium',
-      majorVersion: '153',
-      version: '1.0.0',
-      description: 'Antidetect browser based on Chromium core v153',
-      downloadUrl: 'https://github.com/Hibbiki/chromium-win64/releases/download/v153.0.8010.53-r1681091/chrome.7z'
-    },
-    {
-      id: 'FirefoxCore_v152',
-      name: 'FirefoxCore_v152',
-      type: 'firefox',
-      majorVersion: '152',
-      version: '1.1',
-      description: 'Antidetect Browser based on Firefox core',
-      downloadUrl: ''
-    },
-    {
-      id: 'ChromiumCore_v152',
-      name: 'ChromiumCore_v152',
-      type: 'chromium',
-      majorVersion: '152',
-      version: '1.0.0',
-      description: 'Antidetect browser based on Chromium core v152',
-      downloadUrl: 'https://github.com/Hibbiki/chromium-win64/releases/download/v152.0.7977.83-r1669021/chrome.7z'
-    },
-    {
-      id: 'ChromiumCore_v151',
-      name: 'ChromiumCore_v151',
-      type: 'chromium',
-      majorVersion: '151',
-      version: '1.0.0',
-      description: 'Antidetect browser based on Chromium core v151',
-      downloadUrl: ''
-    },
-    {
-      id: 'ChromiumCore_v149',
-      name: 'ChromiumCore_v149',
-      type: 'chromium',
-      majorVersion: '149',
-      version: '1.0.0',
-      description: 'Antidetect browser based on Chromium core v149',
-      downloadUrl: ''
-    },
-    {
-      id: 'FirefoxCore_v149',
-      name: 'FirefoxCore_v149',
-      type: 'firefox',
-      majorVersion: '149',
-      version: '1.2',
-      description: 'Antidetect browser based on Firefox opensource',
-      downloadUrl: ''
-    },
-    {
-      id: 'ChromiumCore_v147',
-      name: 'ChromiumCore_v147',
-      type: 'chromium',
-      majorVersion: '147',
-      version: '1.1',
-      description: 'Antidetect browser based on Chromium V147',
-      downloadUrl: ''
-    },
-    {
-      id: 'ChromiumCore_v144',
-      name: 'ChromiumCore_v144',
-      type: 'chromium',
-      majorVersion: '144',
-      version: '1.1',
-      description: 'Antidetect browser based on Chromium V144',
-      downloadUrl: ''
-    }
-  ];
-
-  // CHỈ HIỂN THỊ CÁC CORE TỪ SERVER API https://api.svbrowser.site/api/v1/updates/cores
-  // Nếu server API trả về danh sách, hiển thị CHÍNH XÁC danh sách đó theo yêu cầu của bạn, không trộn thêm các core khác
-  let coreList = [];
-  if (remoteCores && remoteCores.length > 0) {
-    // Chống trùng lặp theo name / majorVersion
-    const uniqueMap = new Map();
-    for (const rc of remoteCores) {
-      const key = (rc.name || `ChromiumCore_v${rc.majorVersion}`).toLowerCase();
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, rc);
-      }
-    }
-    coreList = Array.from(uniqueMap.values());
-  } else {
-    // Chỉ fallback sang defaultCores khi hoàn toàn không thể kết nối server (mất mạng)
-    coreList = defaultCores;
-  }
-
-  if (process.platform === 'darwin') {
-    coreList = await require('./macBrowser').catalogue();
-  }
+  if (coresResponse?.appVersion) serverAppVersion = coresResponse.appVersion;
+  const coreList = normalizeCores(coresResponse);
+  availableCoreDownloads = coreList;
 
   const results = coreList.map(item => {
-    const matchedLocal = localCores.find(c => 
-      c.name.toLowerCase() === item.name.toLowerCase() || 
-      (item.majorVersion && String(c.majorVersion) === String(item.majorVersion))
-    );
+    const matchedLocal = localCores.find(c => item.version.includes('.')
+      ? c.version === item.version
+      : c.name.toLowerCase() === item.name.toLowerCase() ||
+        (item.majorVersion && String(c.majorVersion) === String(item.majorVersion)));
     const isInstalled = Boolean(matchedLocal);
     return {
       ...item,

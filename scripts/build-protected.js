@@ -158,6 +158,7 @@ async function run() {
   const nodeFiles = [
     'main.js',
     'macBrowser.js',
+    'coreCatalog.js',
     'appUpdater.js',
     'driverStorage.js',
     'licenseManager.js',

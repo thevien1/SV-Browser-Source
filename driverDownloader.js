@@ -123,8 +123,12 @@ class DriverDownloader {
    * @param {string} targetName - Tên thư mục Core (vd: ChromiumCore_v155)
    * @param {boolean} forceReinstall - Bắt buộc tải lại (chỉ khi người dùng bấm Cài lại / Sửa chữa)
    */
-  async downloadAndInstall(url, onProgress = console.log, targetName = '', forceReinstall = false) {
-    if (process.platform === 'darwin') return require('./macBrowser').install(this.driversDir, url, onProgress, targetName);
+  async downloadAndInstall(url, onProgress = console.log, targetName = '', forceReinstall = false, core = {}) {
+    const platform = require('./coreCatalog').platformName(process.platform);
+    if (core.platform && core.platform !== platform) throw Error('Core không đúng hệ điều hành.');
+    const error = require('./coreCatalog').downloadError(url, platform);
+    if (error) throw Error(error);
+    if (process.platform === 'darwin') return require('./macBrowser').install(this.driversDir, url, onProgress, targetName, core);
     if (!url || typeof url !== 'string') {
       throw new Error('URL không hợp lệ');
     }

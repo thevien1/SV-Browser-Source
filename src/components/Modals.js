@@ -3075,7 +3075,8 @@ export class ModalsComponent {
                   `}
                 </span>
               </div>
-              <div class="update-item-desc">${core.description || `Antidetect browser based on ${core.name}`}</div>
+              <div class="update-item-desc">${core.platform === 'macos' ? 'macOS' : 'Windows'} · ${core.description || core.name}</div>
+              ${core.downloadError ? `<div style="color:#c2410c;font-size:12px;margin-top:5px">${core.downloadError}</div>` : ''}
               <div class="core-status-section">
                 ${core.isInstalled ? `
                   <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
@@ -3083,7 +3084,7 @@ export class ModalsComponent {
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="#16a34a"><circle cx="12" cy="12" r="10"/></svg>
                       Đã có sẵn trên máy tính, sẵn sàng sử dụng
                     </span>
-                    <button class="btn-repair-action btn-core-action" data-action="repair" data-force="true" data-url="${core.downloadUrl || ''}" data-name="${core.name}">Cài lại / Sửa chữa</button>
+                    <button class="btn-repair-action btn-core-action" data-action="repair" data-force="true" data-url="${core.downloadUrl || ''}" data-name="${core.name}" ${core.canInstall === false ? 'disabled' : ''}>Cài lại / Sửa chữa</button>
                   </div>
                 ` : `
                   <div style="display: flex; align-items: center; margin-top: 5px;">
@@ -3095,8 +3096,8 @@ export class ModalsComponent {
           </div>
           <div class="core-right-action">
             ${!core.isInstalled ? `
-              <button class="btn-update-action btn-core-action" data-action="download" data-force="false" data-url="${core.downloadUrl || ''}" data-name="${core.name}" ${isCurrentlyDownloading ? 'disabled' : ''}>
-                ${isCurrentlyDownloading ? 'Đang tải...' : '⬇ Tải & Cài đặt'}
+              <button class="btn-update-action btn-core-action" data-action="download" data-force="false" data-url="${core.downloadUrl || ''}" data-name="${core.name}" ${isCurrentlyDownloading || core.canInstall === false ? 'disabled' : ''}>
+                ${isCurrentlyDownloading ? 'Đang tải...' : core.canInstall === false ? 'Cần sửa link trên server' : '⬇ Tải & Cài đặt'}
               </button>
             ` : ''}
           </div>

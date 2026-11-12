@@ -11,8 +11,14 @@ const BrowserLauncher = require('../browserLauncher');
   const launcher = new BrowserLauncher(path.join(temp, 'profiles'));
   launcher.driverDataDir = path.join(temp, 'drivers');
   try {
-    const [core] = await mac.catalogue();
-    await mac.install(launcher.driverDataDir, core.downloadUrl, console.log, core.name);
+    const cores = await mac.catalogue();
+    const core = cores.find(c => c.canInstall);
+    if (!core) {
+      for (const item of cores) await assert.rejects(mac.install(launcher.driverDataDir, item.downloadUrl, console.log, item.name, item), /mã nguồn|Link|core/);
+      console.log('Core API has no installable Mac binaries; source archives are rejected. Native browser launch test not run.');
+      return;
+    }
+    await mac.install(launcher.driverDataDir, core.downloadUrl, console.log, core.name, core);
     assert.equal(launcher.getAvailableChromiumCores()[0].version, core.version);
     for (const id of ['mac-profile-a', 'mac-profile-b']) {
       const result = await launcher.launchProfile({ id, name: id, browserType: 'chrome', version: core.version, proxy: 'No Proxy' }, null, { headless: true });
