@@ -2,7 +2,11 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 function createAppUpdater(beforeInstall) {
-  const supported = app.isPackaged && process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_FILE;
+  const macSigned = process.platform === 'darwin' && require('./package.json').macAutoUpdateSigned === true;
+  const supported = app.isPackaged && (process.platform === 'win32' || macSigned) && !process.env.PORTABLE_EXECUTABLE_FILE;
+  const unsupportedMessage = process.platform === 'darwin'
+    ? 'Tự cập nhật macOS cần bản ứng dụng đã ký Developer ID. Hãy cài bản Mac đã ký từ trang phát hành.'
+    : 'Tự cập nhật chỉ hỗ trợ bản Setup Windows hoặc bản macOS đã ký.';
   let state = { status: 'idle', supported, percent: 0, version: app.getVersion() };
   let checking, downloading, installing;
   const publish = next => {
@@ -21,7 +25,7 @@ function createAppUpdater(beforeInstall) {
     htmlUrl: 'https://github.com/thevien1/SV-Browser/releases' });
 
   const check = async () => {
-    if (!supported) return { ...info(), error: 'Tự cập nhật chỉ hỗ trợ bản Setup Windows.' };
+    if (!supported) return { ...info(), error: unsupportedMessage };
     if (checking) return checking;
     if (['downloading', 'downloaded', 'preserving', 'installing'].includes(state.status)) return info();
     checking = (async () => {
@@ -39,7 +43,7 @@ function createAppUpdater(beforeInstall) {
     return checking;
   };
   const install = async () => {
-    if (!supported) throw Error('Tự cập nhật chỉ hỗ trợ bản Setup Windows.');
+    if (!supported) throw Error(unsupportedMessage);
     if (installing) return installing;
     installing = (async () => {
       if (!['downloaded', 'downloading'].includes(state.status)) await check();

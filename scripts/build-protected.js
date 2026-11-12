@@ -240,6 +240,7 @@ async function run() {
     dependencies: rootPkg.dependencies,
     author: "SV Browser Team"
   };
+  if (macBuild) appPkg.macAutoUpdateSigned = Boolean(process.env.CSC_LINK);
   fs.writeFileSync(path.join(stagingDir, 'package.json'), JSON.stringify(appPkg, null, 2), 'utf8');
 
   require('child_process').execSync(`${process.platform === 'win32' ? 'npm.cmd' : 'npm'} install --omit=dev --ignore-scripts --no-audit --no-fund`, { cwd: stagingDir, stdio: 'inherit' });
@@ -319,8 +320,14 @@ async function run() {
       category: 'public.app-category.productivity',
       target: ['dmg', 'zip'],
       artifactName: 'SV-Browser-${version}-mac-${arch}.${ext}',
-      identity: null
+      ...(process.env.CSC_LINK ? {
+        hardenedRuntime: true,
+        entitlements: path.join(rootDir, 'scripts', 'entitlements.mac.plist'),
+        entitlementsInherit: path.join(rootDir, 'scripts', 'entitlements.mac.plist'),
+        notarize: true
+      } : { identity: null })
     };
+    if (process.env.CSC_LINK) builderConfig.forceCodeSigning = true;
     // Keep per-architecture updater metadata separate.
     builderConfig.directories.output = path.join(distDir, process.arch);
   }

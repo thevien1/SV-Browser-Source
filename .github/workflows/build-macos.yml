@@ -22,10 +22,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: node --test scripts/test-macos.cjs scripts/test-update.cjs
-      - run: node scripts/smoke-macos.cjs
-      - run: npm run build:mac
+      - shell: bash
+        run: set -o pipefail; npm ci 2>&1 | tee -a build.log
+      - shell: bash
+        run: set -o pipefail; node --test scripts/test-macos.cjs scripts/test-update.cjs 2>&1 | tee -a build.log
+      - shell: bash
+        run: set -o pipefail; node scripts/smoke-macos.cjs 2>&1 | tee -a build.log
+      - shell: bash
+        run: set -o pipefail; npm run build:mac 2>&1 | tee -a build.log
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Create download release
@@ -55,6 +59,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           printf 'status=%s\narch=%s\ncommit=%s\nrun=https://github.com/%s/actions/runs/%s\n' "$BUILD_STATUS" "$BUILD_ARCH" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > result.txt
-          git add result.txt
+          if [[ -f "$GITHUB_WORKSPACE/build.log" ]]; then tail -n 180 "$GITHUB_WORKSPACE/build.log" > build.log; fi
+          git add result.txt build.log
           git commit -m "Record macOS build result"
           git -c http.https://github.com/.extraheader="$(git -C "$GITHUB_WORKSPACE" config --get http.https://github.com/.extraheader)" push --force "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/codex/macos-result-${{ matrix.arch }}

@@ -1,0 +1,87 @@
+name: Publish app update
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            platform: windows
+            arch: x64
+          - runner: macos-15-intel
+            platform: mac
+            arch: x64
+          - runner: macos-15
+            platform: mac
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify release version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then exit 1; fi
+      - run: node --test scripts/test-update.cjs scripts/test-macos.cjs
+      - if: matrix.platform == 'mac'
+        run: node scripts/smoke-macos.cjs
+      - if: matrix.platform == 'windows'
+        run: node scripts/build-protected.js --no-bump
+      - if: matrix.platform == 'mac'
+        run: npm run build:mac
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: update-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
+            dist-mac/**/*.dmg
+            dist-mac/**/*.zip
+            dist-mac/**/*.blockmap
+            dist-mac/**/latest-mac.yml
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: update-*
+          path: release-artifacts
+      - run: node scripts/merge-mac-metadata.cjs release-artifacts release-artifacts/latest-mac.yml
+      - name: Publish complete release to public update repository
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then echo 'Add RELEASE_TOKEN with Contents write access to thevien1/SV-Browser in repository Actions secrets.'; exit 1; fi
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          REPO="thevien1/SV-Browser"
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then echo 'Release tag already exists; use a new version to avoid replacing published updates.'; exit 1; fi
+          gh release create "$TAG" --repo "$REPO" --draft --title "SV Browser $VERSION" --notes "Windows Setup/Portable and macOS Intel/Apple Silicon."
+          find release-artifacts -type f \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' -o -name '*.blockmap' -o -name 'latest.yml' \) -print0 | xargs -0 -I {} gh release upload "$TAG" --repo "$REPO" '{}'
+          gh release upload "$TAG" --repo "$REPO" release-artifacts/latest-mac.yml
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
