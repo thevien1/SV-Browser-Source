@@ -26,7 +26,7 @@ test('cores survive removal of the old installation and persistent files are not
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-function fixture(preserve = async () => {}) {
+function fixture(preserve = async () => {}, platform = 'win32', macSigned = false) {
   const updater = new EventEmitter();
   const handlers = {};
   let checks = 0, downloads = 0, installs = 0;
@@ -39,8 +39,8 @@ function fixture(preserve = async () => {}) {
     BrowserWindow: { getAllWindows: () => [] },
     ipcMain: { handle: (name, handler) => { handlers[name] = handler; } },
   };
-  const context = { module: { exports: {} }, process: { platform: 'win32', env: {} }, setImmediate,
-    require: name => name === 'electron' ? electron : { autoUpdater: updater } };
+  const context = { module: { exports: {} }, process: { platform, env: {} }, setImmediate,
+    require: name => name === 'electron' ? electron : name === './package.json' ? { macAutoUpdateSigned: macSigned } : { autoUpdater: updater } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'appUpdater.js'), 'utf8'), context);
   const controller = context.module.exports.createAppUpdater(preserve);
   return { controller, handlers, counts: () => ({ checks, downloads, installs }) };
@@ -63,4 +63,17 @@ test('a failed Chromium backup blocks installation and keeps the app running', a
   await new Promise(setImmediate);
   assert.equal(f.counts().installs, 0);
   assert.equal(f.handlers['app:get-update-state']().status, 'error');
+});
+
+test('signed Mac builds can update; unsigned builds give an actionable error', async () => {
+  const signed = fixture(async () => {}, 'darwin', true);
+  assert.equal((await signed.controller.check()).supported, true);
+  await signed.handlers['app:install-update']();
+  await new Promise(setImmediate);
+  assert.equal(signed.counts().installs, 1);
+  const unsigned = fixture(async () => {}, 'darwin', false);
+  const result = await unsigned.controller.check();
+  assert.equal(result.supported, false);
+  assert.match(result.error, /Developer ID/);
+  assert.equal(unsigned.counts().checks, 0);
 });

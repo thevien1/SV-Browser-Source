@@ -45,7 +45,7 @@ class BrowserLauncher extends EventEmitter {
     this.licenseManager = manager;
   }
 
-  async getWebSocketDebuggerUrl(port, maxAttempts = 12, delayMs = 150) {
+  async getWebSocketDebuggerUrl(port, maxAttempts = process.platform === 'darwin' ? 80 : 12, delayMs = 150) {
     const http = require('http');
     for (let i = 0; i < maxAttempts; i++) {
       try {
@@ -915,7 +915,7 @@ try {
       }
 
       // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi (đối với Chromium)
-      if (type !== 'firefox' && child.exitCode !== null) {
+      if (type !== 'firefox' && (child.exitCode !== null || child.signalCode !== null)) {
         this.runningProfiles.delete(profileId);
         return {
           success: false,

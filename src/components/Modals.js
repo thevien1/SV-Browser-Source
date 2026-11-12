@@ -2924,7 +2924,7 @@ export class ModalsComponent {
     else if (state.status === 'installing') btn.innerText = 'Đang khởi động lại...';
     else if (state.status === 'downloading') btn.innerText = this._appInstallRequested
       ? `Đang tải ${Math.round(state.percent || 0)}%...` : `Cập nhật (${Math.round(state.percent || 0)}%)`;
-    else if (!state.supported) btn.innerText = 'Cần dùng bản Setup';
+    else if (!state.supported) btn.innerText = 'Cần bản hỗ trợ cập nhật';
     else btn.innerText = state.error ? 'Thử lại cập nhật' : 'Cập nhật ngay';
   }
 

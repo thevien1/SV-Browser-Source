@@ -63,7 +63,9 @@ async function install(driversDir, url, onProgress, targetName) {
     if (!findChrome(temp)) throw Error('Chrome application missing from archive');
     const destination = path.join(driversDir, folderName);
     await fs.promises.mkdir(destination, { recursive: true });
-    await fs.promises.cp(path.join(temp, `chrome-${key}`), path.join(destination, `chrome-${key}`), { recursive: true });
+    // Frameworks inside .app bundles use relative symlinks. Rewriting them to
+    // absolute temp paths would break Chrome as soon as staging is removed.
+    await fs.promises.cp(path.join(temp, `chrome-${key}`), path.join(destination, `chrome-${key}`), { recursive: true, verbatimSymlinks: true });
     const executable = findChrome(destination);
     await fs.promises.chmod(executable, 0o755);
     await fs.promises.writeFile(path.join(destination, 'version.json'), JSON.stringify({ version }));
