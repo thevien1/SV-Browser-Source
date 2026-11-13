@@ -16,7 +16,7 @@ Trong **SV-Browser-Source → Settings → Secrets and variables → Actions**, 
 - `MAC_CSC_KEY_PASSWORD`: mật khẩu `.p12`.
 - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`: thông tin notarization.
 
-Thiếu chứng chỉ, vẫn build được bản Mac thử nghiệm chưa ký, nhưng không hỗ trợ tự cài cập nhật. Muốn dùng tự cập nhật trên Mac, phải cài bản đã ký lần đầu vào `/Applications`.
+Thiếu chứng chỉ, vẫn build được bản Mac chưa ký. Từ 1.0.55, bản này vẫn thông báo cập nhật và có nút tải DMG mới từ release Mac trên SV-Browser-Source hoặc SV-Browser; sau khi tải phải mở DMG để thay ứng dụng. Không tự cài đè bằng Squirrel.Mac. Bản 1.0.54 trở xuống cần tải và cài 1.0.55 thủ công lần đầu. Muốn dùng tự cập nhật trên Mac, phải cài bản đã ký lần đầu vào `/Applications`.
 
 ## Mỗi lần phát hành
 

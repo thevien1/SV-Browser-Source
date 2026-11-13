@@ -1,0 +1,21 @@
+{
+  "note": "Thêm hai entry Mac riêng theo kiến trúc. Không sửa link Intel thành link ARM cho tất cả máy. sizeBytes lấy theo file thực tế.",
+  "cores": [
+    {
+      "id": "ChromiumCore_v156_macos_x64",
+      "name": "ChromiumCore_v156",
+      "platform": "macos",
+      "arch": "x64",
+      "coreVersion": "156.0.8078.79",
+      "downloadUrl": "https://storage.googleapis.com/chromium-browser-snapshots/Mac/1737421/chrome-mac.zip"
+    },
+    {
+      "id": "ChromiumCore_v156_macos_arm64",
+      "name": "ChromiumCore_v156",
+      "platform": "macos",
+      "arch": "arm64",
+      "coreVersion": "156.0.8078.79",
+      "downloadUrl": "https://storage.googleapis.com/chromium-browser-snapshots/Mac_Arm/1737421/chrome-mac.zip"
+    }
+  ]
+}
