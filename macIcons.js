@@ -13,10 +13,15 @@ async function applyChromeIcon(executable) {
   const resources = path.join(bundle, 'Contents', 'Resources');
   const digest = crypto.createHash('sha256').update(await fs.promises.readFile(icon)).digest('hex');
   const marker = path.join(path.dirname(bundle), '.sv-chrome-icon');
-  try { if ((await fs.promises.readFile(marker, 'utf8')).trim() === digest) return; } catch {}
+  const plist = path.join(bundle, 'Contents', 'Info.plist');
+  try {
+    const { stdout } = await run('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIconFile', plist]);
+    const current = await fs.promises.readFile(path.join(resources, 'sv-chrome.icns'));
+    if ((await fs.promises.readFile(marker, 'utf8')).trim() === digest && stdout.trim() === 'sv-chrome.icns' &&
+        crypto.createHash('sha256').update(current).digest('hex') === digest) return;
+  } catch {}
   await fs.promises.mkdir(resources, { recursive: true });
   await fs.promises.copyFile(icon, path.join(resources, 'sv-chrome.icns'));
-  const plist = path.join(bundle, 'Contents', 'Info.plist');
   try { await run('/usr/libexec/PlistBuddy', ['-c', 'Set :CFBundleIconFile sv-chrome.icns', plist]); }
   catch { await run('/usr/libexec/PlistBuddy', ['-c', 'Add :CFBundleIconFile string sv-chrome.icns', plist]); }
   // Re-sign only this user-managed downloaded core after changing its resources.
@@ -24,5 +29,7 @@ async function applyChromeIcon(executable) {
   await run('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', '--preserve-metadata=entitlements', bundle], { timeout: 120000 });
   await run('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle], { timeout: 120000 });
   await fs.promises.writeFile(marker, digest);
+  const now = new Date();
+  await fs.promises.utimes(bundle, now, now);
 }
 module.exports = { applyChromeIcon };
