@@ -29,7 +29,7 @@ test('cores survive removal of the old installation and persistent files are not
 function fixture(preserve = async () => {}, platform = 'win32', macSigned = false) {
   const updater = new EventEmitter();
   const handlers = {};
-  let checks = 0, downloads = 0, installs = 0;
+  let checks = 0, downloads = 0, installs = 0, opened = 0;
   updater.currentVersion = { compare: () => -1 };
   updater.checkForUpdates = async () => { checks++; return { updateInfo: { version: '1.0.99' } }; };
   updater.downloadUpdate = async () => { downloads++; updater.emit('update-downloaded', { version: '1.0.99' }); };
@@ -38,12 +38,15 @@ function fixture(preserve = async () => {}, platform = 'win32', macSigned = fals
     app: { isPackaged: true, getVersion: () => '1.0.48' },
     BrowserWindow: { getAllWindows: () => [] },
     ipcMain: { handle: (name, handler) => { handlers[name] = handler; } },
+    shell: { openExternal: async () => { opened++; } },
   };
   const context = { module: { exports: {} }, process: { platform, env: {} }, setImmediate,
-    require: name => name === 'electron' ? electron : name === './package.json' ? { macAutoUpdateSigned: macSigned } : { autoUpdater: updater } };
+    require: name => name === 'electron' ? electron : name === './package.json' ? { macAutoUpdateSigned: macSigned }
+      : name === './macUpdates' ? { findMacUpdate: async () => ({ version: '1.0.99', downloadUrl: 'https://github.com/thevien1/SV-Browser-Source/releases/download/mac-v1.0.99/update.dmg' }) }
+      : { autoUpdater: updater } };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'appUpdater.js'), 'utf8'), context);
   const controller = context.module.exports.createAppUpdater(preserve);
-  return { controller, handlers, counts: () => ({ checks, downloads, installs }) };
+  return { controller, handlers, counts: () => ({ checks, downloads, installs }), opened: () => opened };
 }
 
 test('one click preserves drivers then installs and restarts exactly once', async () => {
@@ -65,7 +68,7 @@ test('a failed Chromium backup blocks installation and keeps the app running', a
   assert.equal(f.handlers['app:get-update-state']().status, 'error');
 });
 
-test('signed Mac builds can update; unsigned builds give an actionable error', async () => {
+test('signed Mac builds install; unsigned Mac builds detect updates and offer DMG without Squirrel installation', async () => {
   const signed = fixture(async () => {}, 'darwin', true);
   assert.equal((await signed.controller.check()).supported, true);
   await signed.handlers['app:install-update']();
@@ -73,7 +76,11 @@ test('signed Mac builds can update; unsigned builds give an actionable error', a
   assert.equal(signed.counts().installs, 1);
   const unsigned = fixture(async () => {}, 'darwin', false);
   const result = await unsigned.controller.check();
-  assert.equal(result.supported, false);
-  assert.match(result.error, /Developer ID/);
+  assert.equal(result.supported, true);
+  assert.equal(result.hasUpdate, true);
+  assert.equal(result.manualUpdate, true);
+  assert.equal((await unsigned.handlers['app:install-update']()).manual, true);
+  assert.equal(unsigned.opened(), 1);
+  assert.equal(unsigned.counts().installs, 0);
   assert.equal(unsigned.counts().checks, 0);
 });

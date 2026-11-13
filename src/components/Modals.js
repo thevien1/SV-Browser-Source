@@ -2925,7 +2925,7 @@ export class ModalsComponent {
     else if (state.status === 'downloading') btn.innerText = this._appInstallRequested
       ? `Đang tải ${Math.round(state.percent || 0)}%...` : `Cập nhật (${Math.round(state.percent || 0)}%)`;
     else if (!state.supported) btn.innerText = 'Cần bản hỗ trợ cập nhật';
-    else btn.innerText = state.error ? 'Thử lại cập nhật' : 'Cập nhật ngay';
+    else btn.innerText = state.error ? 'Thử lại cập nhật' : state.manualUpdate ? 'Tải bản Mac mới' : 'Cập nhật ngay';
   }
 
   initUpdateManagerEvents() {
@@ -3027,6 +3027,7 @@ export class ModalsComponent {
         <div>
           <div class="update-item-title">SV Browser · v${appVer}</div>
           <div class="update-item-desc">${appUpdateInfo.error ? 'Không thể kiểm tra cập nhật. Hãy thử lại.' : hasAppUpdate ? `Bản mới: v${appUpdateInfo.latestVersion}` : 'Đang dùng bản mới nhất'}</div>
+          ${appUpdateInfo.manualUpdate ? '<div style="font-size:12px;color:#64748b;margin-top:4px">Bản Mac này hỗ trợ thông báo và tải DMG mới. Sau khi tải, mở DMG để thay ứng dụng trong Applications.</div>' : ''}
         </div>
         ${hasAppUpdate ? '<button id="btn-install-app-update" class="btn-update-action">Cập nhật ngay</button>' : '<button id="btn-recheck-app-update" class="btn-repair-action">Kiểm tra lại</button>'}
       </div>
@@ -3119,7 +3120,11 @@ export class ModalsComponent {
         installAppBtn.disabled = true;
         installAppBtn.innerText = 'Đang tải bản cập nhật...';
         try {
-          await window.api.installAppUpdate();
+          const result = await window.api.installAppUpdate();
+          if (result?.manual) {
+            this._appInstallRequested = false;
+            this.updateAppButton(this._appUpdateState || { supported: true, manualUpdate: true });
+          }
         } catch (e) {
           this._appInstallRequested = false;
           alert('Lỗi cập nhật: ' + e.message);

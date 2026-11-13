@@ -1,13 +1,14 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 function createAppUpdater(beforeInstall) {
   const macSigned = process.platform === 'darwin' && require('./package.json').macAutoUpdateSigned === true;
-  const supported = app.isPackaged && (process.platform === 'win32' || macSigned) && !process.env.PORTABLE_EXECUTABLE_FILE;
+  const manualMac = process.platform === 'darwin' && !macSigned;
+  const supported = app.isPackaged && ['win32', 'darwin'].includes(process.platform) && !process.env.PORTABLE_EXECUTABLE_FILE;
   const unsupportedMessage = process.platform === 'darwin'
     ? 'Tự cập nhật macOS cần bản ứng dụng đã ký Developer ID. Hãy cài bản Mac đã ký từ trang phát hành.'
     : 'Tự cập nhật chỉ hỗ trợ bản Setup Windows hoặc bản macOS đã ký.';
-  let state = { status: 'idle', supported, percent: 0, version: app.getVersion() };
+  let state = { status: 'idle', supported, manualUpdate: manualMac, percent: 0, version: app.getVersion() };
   let checking, downloading, installing;
   const publish = next => {
     state = { ...state, ...next };
@@ -20,7 +21,7 @@ function createAppUpdater(beforeInstall) {
   autoUpdater.on('error', error => publish({ status: 'error', error: error.message }));
   autoUpdater.on('download-progress', p => publish({ status: 'downloading', percent: p.percent }));
   autoUpdater.on('update-downloaded', info => publish({ status: 'downloaded', version: info.version, percent: 100 }));
-  const info = () => ({ ...state, hasUpdate: ['downloading', 'downloaded', 'preserving', 'installing'].includes(state.status),
+  const info = () => ({ ...state, hasUpdate: ['available', 'downloading', 'downloaded', 'preserving', 'installing'].includes(state.status),
     currentVersion: app.getVersion(), latestVersion: state.version, releaseNotes: '', releaseName: '',
     htmlUrl: 'https://github.com/thevien1/SV-Browser/releases' });
 
@@ -31,6 +32,12 @@ function createAppUpdater(beforeInstall) {
     checking = (async () => {
       try {
         publish({ status: 'checking', error: undefined });
+        if (manualMac) {
+          const update = await require('./macUpdates').findMacUpdate(app.getVersion());
+          publish(update ? { status: 'available', version: update.version, downloadUrl: update.downloadUrl }
+            : { status: 'idle', version: app.getVersion(), downloadUrl: undefined });
+          return info();
+        }
         const result = await autoUpdater.checkForUpdates();
         if (result && autoUpdater.currentVersion.compare(result.updateInfo.version) < 0) {
           publish({ status: 'downloading', version: result.updateInfo.version, percent: 0 });
@@ -44,6 +51,12 @@ function createAppUpdater(beforeInstall) {
   };
   const install = async () => {
     if (!supported) throw Error(unsupportedMessage);
+    if (manualMac) {
+      if (state.status !== 'available') await check();
+      if (state.status !== 'available' || !state.downloadUrl) throw Error(state.error || 'Chưa có bản Mac mới.');
+      await shell.openExternal(state.downloadUrl);
+      return { success: true, manual: true };
+    }
     if (installing) return installing;
     installing = (async () => {
       if (!['downloaded', 'downloading'].includes(state.status)) await check();

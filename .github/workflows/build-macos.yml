@@ -25,7 +25,8 @@ jobs:
       - shell: bash
         run: set -o pipefail; npm ci 2>&1 | tee -a build.log
       - shell: bash
-        run: set -o pipefail; node --test scripts/test-macos.cjs scripts/test-update.cjs scripts/test-core-catalog.cjs 2>&1 | tee -a build.log
+        run: set -o pipefail; node --test scripts/test-macos.cjs scripts/test-update.cjs scripts/test-core-catalog.cjs scripts/test-mac-updates.cjs 2>&1 | tee -a build.log
+      - run: node scripts/make-mac-icons.cjs
       - shell: bash
         run: set -o pipefail; node scripts/smoke-macos.cjs 2>&1 | tee -a build.log
       - shell: bash

@@ -32,6 +32,14 @@ function normalizeCores(response, host = process.platform, arch = process.arch) 
     const core = { ...item, id: item.id || `${name}_${platform}`, name, platform, version, majorVersion: major,
       type: item.type || (name.toLowerCase().includes('firefox') ? 'firefox' : 'chromium'), downloadUrl: item.downloadUrl || '' };
     core.downloadError = downloadError(core.downloadUrl, platform);
+    if (platform === 'macos') {
+      const snapshotArch = /chromium-browser-snapshots\/Mac\//.test(core.downloadUrl) ? 'x64'
+        : /chromium-browser-snapshots\/Mac_Arm\//.test(core.downloadUrl) ? 'arm64' : '';
+      if (snapshotArch) {
+        core.arch = snapshotArch;
+        if (snapshotArch !== arch) core.downloadError = `Core này dành cho Mac ${snapshotArch === 'x64' ? 'Intel' : 'Apple Silicon'}, không đúng kiến trúc máy (${arch}). Hãy bổ sung link đúng kiến trúc trên server.`;
+      }
+    }
     core.canInstall = !core.downloadError;
     const key = `${platform}:${name.toLowerCase()}:${version}:${itemArch}`;
     if (!unique.has(key)) unique.set(key, core);

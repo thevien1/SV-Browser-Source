@@ -712,6 +712,7 @@ const driverDownloader = new DriverDownloader(resourceBase, appDataDir);
 ipcMain.handle('driver:download-core', async (event, downloadUrl, coreName, forceReinstall = false) => {
   const core = availableCoreDownloads.find(item => item.downloadUrl === downloadUrl && item.name === coreName && item.platform === platformName(process.platform));
   if (!core) throw Error('Core không thuộc hệ điều hành này hoặc danh sách đã đổi. Hãy làm mới danh sách core.');
+  if (!core.canInstall) throw Error(core.downloadError || 'Core không tương thích máy này.');
   const error = downloadError(downloadUrl, core.platform);
   if (error) throw Error(error);
   return driverDownloader.downloadAndInstall(downloadUrl, (msg) => {

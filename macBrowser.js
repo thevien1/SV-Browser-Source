@@ -60,6 +60,7 @@ async function install(driversDir, url, onProgress, targetName, core = {}) {
   const { downloadError } = require('./coreCatalog');
   const error = downloadError(url, 'macos');
   if (error) throw Error(error);
+  if (core.arch && core.arch !== 'universal' && core.arch !== process.arch) throw Error('Core không đúng kiến trúc máy Mac.');
   const parsed = new URL(url);
   if (!/\.(zip|dmg)$/i.test(parsed.pathname)) throw Error('Core macOS cần file .zip hoặc .dmg chứa Chromium.app đã build.');
   const version = String(core.version || core.coreVersion || (parsed.pathname.match(/\d+\.\d+\.\d+\.\d+/) || [])[0] || (targetName || '').match(/\d+/)?.[0] || '');
@@ -93,6 +94,7 @@ async function install(driversDir, url, onProgress, targetName, core = {}) {
     await fs.promises.cp(found.bundle, bundle, { recursive: true, verbatimSymlinks: true });
     const executable = findChrome(destination);
     await fs.promises.chmod(executable, 0o755);
+    await require('./macIcons').applyChromeIcon(executable);
     await fs.promises.writeFile(path.join(destination, 'version.json'), JSON.stringify({ version, platform: 'macos', arch: process.arch, downloadUrl: url }));
     onProgress('[3/3] Đã cài core macOS.');
     return { success: true, folderName, version, majorVersion: version.split('.')[0], path: executable };

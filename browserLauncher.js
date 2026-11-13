@@ -434,6 +434,13 @@ class BrowserLauncher extends EventEmitter {
     }
 
     const { path: exePath, type, version } = this.getExecutable(profile.browserType || 'chrome', profile.version || '');
+    if (process.platform === 'darwin' && ['chrome', 'chromium'].includes(type) && this.driverDataDir) {
+      const relative = path.relative(path.resolve(this.driverDataDir), path.resolve(exePath));
+      const alreadyRunning = [...this.runningProfiles.values()].some(p => p.browser_location === exePath);
+      if (relative && !relative.startsWith('..') && !path.isAbsolute(relative) && !alreadyRunning) {
+        await require('./macIcons').applyChromeIcon(exePath);
+      }
+    }
     
     // Tính số thứ tự Profile (Badge number) cho Taskbar và Icon (Chuẩn GPMLogin theo ảnh)
     let badgeNum = profileIndex || profile.index || profile.order || profile.stt;

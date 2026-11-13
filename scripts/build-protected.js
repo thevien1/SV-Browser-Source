@@ -99,6 +99,7 @@ function obfuscateFile(srcPath, destPath, options) {
 
 async function run() {
   if (macBuild && process.platform !== 'darwin') throw Error('Build macOS cần chạy trên máy Mac. Dùng workflow build-macos trên GitHub Actions hoặc npm run build:mac trên Mac.');
+  if (macBuild) require('./make-mac-icons.cjs');
   console.log('====================================================');
   console.log('  SV BROWSER - BẮT ĐẦU ĐÓNG GÓI & BẢO VỆ MÃ NGUỒN  ');
   console.log('====================================================\n');
@@ -158,6 +159,8 @@ async function run() {
   const nodeFiles = [
     'main.js',
     'macBrowser.js',
+    'macUpdates.js',
+    'macIcons.js',
     'coreCatalog.js',
     'appUpdater.js',
     'driverStorage.js',
@@ -318,6 +321,7 @@ async function run() {
     delete builderConfig.nsis;
     delete builderConfig.portable;
     builderConfig.mac = {
+      icon: path.join(rootDir, 'assets', 'icon.icns'),
       category: 'public.app-category.productivity',
       target: ['dmg', 'zip'],
       artifactName: 'SV-Browser-${version}-mac-${arch}.${ext}',

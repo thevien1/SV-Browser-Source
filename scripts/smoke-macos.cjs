@@ -14,8 +14,8 @@ const BrowserLauncher = require('../browserLauncher');
     const cores = await mac.catalogue();
     const core = cores.find(c => c.canInstall);
     if (!core) {
-      for (const item of cores) await assert.rejects(mac.install(launcher.driverDataDir, item.downloadUrl, console.log, item.name, item), /mã nguồn|Link|core/);
-      console.log('Core API has no installable Mac binaries; source archives are rejected. Native browser launch test not run.');
+      for (const item of cores) await assert.rejects(mac.install(launcher.driverDataDir, item.downloadUrl, console.log, item.name, item), /mã nguồn|Link|core|kiến trúc/);
+      console.log('Core API has no compatible Mac binaries for this architecture. Invalid or incompatible packages are rejected; native browser launch test not run.');
       return;
     }
     await mac.install(launcher.driverDataDir, core.downloadUrl, console.log, core.name, core);
