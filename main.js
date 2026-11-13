@@ -87,7 +87,7 @@ const gpmApiServer = new GpmApiServer(profileStore, browserLauncher, initialPort
 gpmApiServer.start();
 
 function createWindow() {
-  const iconCandidate = path.join(resourceBase, 'assets', 'icon.ico');
+  const iconCandidate = path.join(resourceBase, 'assets', process.platform === 'darwin' ? 'icon.png' : 'icon.ico');
   mainWindow = new BrowserWindow({
     width: 1366,
     height: 800,
@@ -1063,6 +1063,9 @@ ipcMain.handle('automation:open-folder', async () => {
 
 // App Lifecycle
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(path.join(resourceBase, 'assets', 'icon.png'));
+  }
   createWindow();
   preserveDrivers(appDataDir, [path.join(resourceBase, 'drivers'), path.join(path.dirname(process.execPath), 'drivers')])
     .catch(error => console.error('[Driver migration]', error.message));
