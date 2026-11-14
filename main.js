@@ -121,6 +121,13 @@ function createWindow() {
 
   // Lắng nghe sự kiện browser launcher để báo về UI
   browserLauncher.on('profile-opened', async (data) => {
+    // A key may be suspended while a browser is still starting (e.g. during
+    // macOS bundle signing). Recheck before exposing that session as running.
+    const status = await licenseManager.checkStatus();
+    if (!status.isActivated || status.isBlocked || status.isExpired) {
+      browserLauncher.closeProfile(data.profileId);
+      return;
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('profile-status-changed', {
         profileId: data.profileId,
