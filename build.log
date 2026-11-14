@@ -1,0 +1,180 @@
+  ---
+  duration_ms: 9.243638
+  type: 'test'
+  ...
+# Subtest: server can resume a blocked key without deleting local license files
+ok 15 - server can resume a blocked key without deleting local license files
+  ---
+  duration_ms: 6.093142
+  type: 'test'
+  ...
+# Subtest: offline lifetime access has a bounded server lease, not permanent local approval
+ok 16 - offline lifetime access has a bounded server lease, not permanent local approval
+  ---
+  duration_ms: 6.597014
+  type: 'test'
+  ...
+# Subtest: parallel checks share one server result and a denied license cannot launch profiles
+ok 17 - parallel checks share one server result and a denied license cannot launch profiles
+  ---
+  duration_ms: 8.390246
+  type: 'test'
+  ...
+# Subtest: a disk write failure cannot reopen a key already rejected by the server
+ok 18 - a disk write failure cannot reopen a key already rejected by the server
+  ---
+  duration_ms: 114.098963
+  type: 'test'
+  ...
+# Subtest: Mac source releases are compared numerically and match architecture
+ok 19 - Mac source releases are compared numerically and match architecture
+  ---
+  duration_ms: 5.298136
+  type: 'test'
+  ...
+# Subtest: network errors are not reported as latest; one working repository is enough
+ok 20 - network errors are not reported as latest; one working repository is enough
+  ---
+  duration_ms: 33.94069
+  type: 'test'
+  ...
+# Subtest: Mac arm64: select native Chrome and find application bundle
+ok 21 - Mac arm64: select native Chrome and find application bundle
+  ---
+  duration_ms: 12.352316
+  type: 'test'
+  ...
+# Subtest: Mac x64: select native Chrome and find application bundle
+ok 22 - Mac x64: select native Chrome and find application bundle
+  ---
+  duration_ms: 65.19862
+  type: 'test'
+  ...
+# Subtest: cores survive removal of the old installation and persistent files are not overwritten
+ok 23 - cores survive removal of the old installation and persistent files are not overwritten
+  ---
+  duration_ms: 157.227826
+  type: 'test'
+  ...
+# Subtest: one click preserves drivers then installs and restarts exactly once
+ok 24 - one click preserves drivers then installs and restarts exactly once
+  ---
+  duration_ms: 8.885607
+  type: 'test'
+  ...
+# Subtest: a failed Chromium backup blocks installation and keeps the app running
+ok 25 - a failed Chromium backup blocks installation and keeps the app running
+  ---
+  duration_ms: 3.958065
+  type: 'test'
+  ...
+# Subtest: signed Mac builds install; unsigned Mac builds detect updates and offer DMG without Squirrel installation
+ok 26 - signed Mac builds install; unsigned Mac builds detect updates and offer DMG without Squirrel installation
+  ---
+  duration_ms: 6.384927
+  type: 'test'
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 26
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 742.424123
+[1/3] Đang tải core macOS từ server...
+[2/3] Đang mở gói core macOS...
+[3/3] Đã cài core macOS.
+PASS: two native Mac Chrome profiles run concurrently with separate data directories and working CDP.
+
+> sv-browser@1.0.56 build:mac
+> node scripts/build-protected.js --mac --no-bump
+
+====================================================
+  SV BROWSER - BẮT ĐẦU ĐÓNG GÓI & BẢO VỆ MÃ NGUỒN  
+====================================================
+
+[Phiên bản mới]: Tự động tăng phiên bản: v1.0.56 -> v1.0.56
+
+[Bước 1/4] Chuẩn bị thư mục staging & xóa sạch bản build cũ trong dist...
+
+[Bước 2/4] Đang mã hóa bảo vệ toàn bộ mã nguồn Backend...
+  ✓ Đã mã hóa bảo vệ: main.js
+  ✓ Đã mã hóa bảo vệ: macBrowser.js
+  ✓ Đã mã hóa bảo vệ: macUpdates.js
+  ✓ Đã mã hóa bảo vệ: macIcons.js
+  ✓ Đã mã hóa bảo vệ: coreCatalog.js
+  ✓ Đã mã hóa bảo vệ: appUpdater.js
+  ✓ Đã mã hóa bảo vệ: driverStorage.js
+  ✓ Đã mã hóa bảo vệ: licenseManager.js
+  ✓ Đã mã hóa bảo vệ: licensePolicy.js
+  ✓ Đã mã hóa bảo vệ: browserLauncher.js
+  ✓ Đã mã hóa bảo vệ: profileStore.js
+  ✓ Đã mã hóa bảo vệ: proxyStore.js
+  ✓ Đã mã hóa bảo vệ: proxyChecker.js
+  ✓ Đã mã hóa bảo vệ: extensionStore.js
+  ✓ Đã mã hóa bảo vệ: gpmApiServer.js
+  ✓ Đã mã hóa bảo vệ: apiDocsTemplate.js
+  ✓ Đã mã hóa bảo vệ: driverDownloader.js
+  ✓ Đã mã hóa bảo vệ: driverIconManager.js
+  ✓ Đã mã hóa bảo vệ: taskbarManager.js
+  ✓ Đã mã hóa bảo vệ: iconGenerator.js
+  ✓ Đã mã hóa bảo vệ: preload.js
+
+[Bước 2b/4] Đang mã hóa bảo vệ toàn bộ mã nguồn Frontend (src)...
+  ✓ Đã mã hóa bảo vệ: src/app.js
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/brave.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/chrome.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/edge.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/firefox.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/opera.svg
+  ✓ Đã mã hóa bảo vệ: src/components/ExtensionsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/GroupsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/Modals.js
+  ✓ Đã mã hóa bảo vệ: src/components/PlaceholderView.js
+  ✓ Đã mã hóa bảo vệ: src/components/ProfilesView.js
+  ✓ Đã mã hóa bảo vệ: src/components/ProxyView.js
+  ✓ Đã mã hóa bảo vệ: src/components/SettingsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/Sidebar.js
+  ✓ Đã mã hóa bảo vệ: src/components/Titlebar.js
+  ✓ Đã mã hóa bảo vệ: src/components/TrashView.js
+  ✓ Đã mã hóa bảo vệ: src/data/browserIcons.js
+  ✓ Đã mã hóa bảo vệ: src/data/countries.js
+  ✓ Đã sao chép tài nguyên: src/index.html
+  ✓ Đã sao chép tài nguyên: src/style.css
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+added 16 packages in 2s
+
+[Bước 3/4] Cấu hình Electron Builder đóng gói...
+  -> Thư mục drivers/ (1.2GB) được giữ ngoài gói để bộ cài siêu nhẹ (~80MB)
+     (Người dùng có thể tải driver tự động qua nút bấm trong ứng dụng hoặc copy thư mục drivers cạnh file .exe)
+
+[Bước 4/4] Bắt đầu đóng gói Windows (.exe)... Vui lòng đợi trong giây lát...
+  • electron-builder  version=26.15.3 os=24.6.0
+  • executing @electron/rebuild  electronVersion=44.3.0 arch=x64 buildFromSource=false workspaceRoot=/Users/runner/work/SV-Browser-Source/SV-Browser-Source projectDir=./ appDir=dist-build-staging
+  • installing native dependencies  arch=x64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=x64 electron=44.3.0 appOutDir=dist-mac/x64/mac
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/x64/mac
+  • searching for node modules  pm=npm searchDir=/Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-build-staging
+  • skipped macOS code signing  reason=identity explicitly is set to null
+  • building        target=macOS zip arch=x64 file=dist-mac/x64/SV-Browser-1.0.56-mac-x64.zip
+  • building        target=DMG arch=x64 file=dist-mac/x64/SV-Browser-1.0.56-mac-x64.dmg
+  • downloaded      label=dmgbuild-bundle-x86_64-75c8a6c.tar.gz progress=100%
+  • building block map  blockMapFile=dist-mac/x64/SV-Browser-1.0.56-mac-x64.dmg.blockmap
+  • building block map  blockMapFile=dist-mac/x64/SV-Browser-1.0.56-mac-x64.zip.blockmap
+
+====================================================
+  ĐÓNG GÓI HOÀN TẤT THÀNH CÔNG!                      
+====================================================
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/x64/SV-Browser-1.0.56-mac-x64.dmg.blockmap
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/x64/SV-Browser-1.0.56-mac-x64.dmg
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/x64/SV-Browser-1.0.56-mac-x64.zip.blockmap
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/x64/SV-Browser-1.0.56-mac-x64.zip
+
+Đang dọn dẹp thư mục staging...
+Tổng thời gian thực thi: 134s
+PASS: packaged macOS x64 app opens, preload bridge works, profile table and version render.
