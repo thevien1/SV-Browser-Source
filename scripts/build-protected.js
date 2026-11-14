@@ -165,6 +165,7 @@ async function run() {
     'appUpdater.js',
     'driverStorage.js',
     'licenseManager.js',
+    'licensePolicy.js',
     'browserLauncher.js',
     'profileStore.js',
     'proxyStore.js',

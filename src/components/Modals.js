@@ -2174,6 +2174,17 @@ export class ModalsComponent {
         cardEl.style.background = '#ecfdf5';
         cardEl.style.borderColor = '#a7f3d0';
       }
+    } else if (status && status.isBlocked) {
+      statusEl.innerHTML = '<span style="color:#ef4444;font-weight:700">● Key đã bị tạm khóa / thu hồi</span>';
+      daysEl.innerText = status.message || 'Vui lòng liên hệ quản trị viên để mở khóa.';
+      machinesEl.innerText = `${status.activeMachinesCount || 1} / ${status.maxMachines || 1} máy`;
+      if (btnActivate) btnActivate.innerText = 'Đổi sang key khác';
+      if (labelKeyInput) labelKeyInput.innerText = 'Nhập License Key khác để kích hoạt:';
+      if (currentKeyBox) currentKeyBox.style.display = 'none';
+      if (cardEl) {
+        cardEl.style.background = '#fef2f2';
+        cardEl.style.borderColor = '#fecaca';
+      }
     } else if (status && status.isExpired) {
       statusEl.innerHTML = '<span style="color: #ef4444; font-weight: 700;">● ĐÃ HẾT HẠN (Vui lòng đổi Key mới)</span>';
       daysEl.innerText = '0 ngày (Đã hết hạn)';

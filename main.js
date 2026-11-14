@@ -154,6 +154,9 @@ function createWindow() {
 
   // Chạy ngầm tự động kiểm tra / đồng bộ bản quyền với server định kỳ mỗi 30 giây
   licenseManager.startAutoSync(30, (status) => {
+    if (!status.isActivated || status.isBlocked || status.isExpired) {
+      browserLauncher.closeAllProfiles();
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('license:status-changed', status);
     }
