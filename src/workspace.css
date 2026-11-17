@@ -1,5 +1,6 @@
 /* Workspace refresh: shared tokens, navigation and activity surfaces. */
 :root { --primary-blue:#4f46e5; --primary-blue-hover:#4338ca; --bg-main:#f5f7fc; }
+.dark { --bg-main:#0b1120; }
 #sidebar { background:linear-gradient(170deg,#111a32,#0d1426 65%); width:228px; }
 .sidebar-brand { padding:25px 20px; gap:11px; }
 .sidebar-brand .logo-text { font-size:19px; letter-spacing:.2px; }
