@@ -9,6 +9,7 @@
  * - ModalsComponent: Quản lý các popups (Thêm mới, Tạo hàng loạt, Kích hoạt Key, Admin Keygen)
  */
 
+import { ActivityView } from './components/ActivityView.js';
 import { TitlebarComponent } from './components/Titlebar.js';
 import { SidebarComponent } from './components/Sidebar.js';
 import { ProfilesViewComponent } from './components/ProfilesView.js';
@@ -83,6 +84,7 @@ class App {
     });
 
     this.placeholderView = new PlaceholderViewComponent();
+    this.activityView = new ActivityView(document.getElementById('view-placeholder'));
 
     this.modals = new ModalsComponent({
       onProfileCreated: () => this.profilesView.loadProfiles(),
@@ -360,6 +362,7 @@ class App {
   }
 
   async switchTab(tab) {
+    this.activityView.hide();
     // Chặn chuyển tab nếu chưa kích hoạt bản quyền hợp lệ
     if (!this.licenseStatus?.isActivated || this.licenseStatus?.isExpired) {
       if (window.showGlobalToast) {
@@ -408,6 +411,9 @@ class App {
       if (viewExtensions) viewExtensions.style.display = 'flex';
       if (titleEl) titleEl.innerText = 'Quản lý Extensions';
       this.extensionsView.loadExtensions();
+    } else if (tab === 'log') {
+      if (titleEl) titleEl.innerText = 'Nhật ký hoạt động';
+      await this.activityView.show();
     } else if (tab === 'settings') {
       if (viewSettings) viewSettings.style.display = 'block';
       if (titleEl) titleEl.innerText = 'Cài đặt';

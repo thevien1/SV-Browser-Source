@@ -77,6 +77,29 @@ browserLauncher.setExtensionStore(extensionStore);
 browserLauncher.setProfileStore(profileStore);
 browserLauncher.setLicenseManager(licenseManager);
 
+let activityStore;
+try { activityStore = new (require('./activityStore'))(appDataDir); }
+catch (error) { console.error('Không đọc được lịch sử profile:', error.message); }
+ipcMain.handle('profiles:get-history', (event, filters) => {
+  if (!activityStore) throw Error('Không đọc được dữ liệu lịch sử.');
+  return activityStore.list(filters || {});
+});
+browserLauncher.on('profile-opened', data => {
+  if (!activityStore) return;
+  try {
+    const profile = profileStore.getProfile(data.profileId);
+    const running = browserLauncher.runningProfiles.get(data.profileId);
+    activityStore.opened({ profileId: data.profileId, profileName: data.profileName || profile?.name || running?.profile_name || data.profileId,
+      browser: running?.browserType || profile?.browserType || 'chrome', version: running?.version || profile?.version || '',
+      headless: Boolean(data.isHeadless), source: data.source || 'app' });
+  } catch (error) { console.error('Không lưu được lịch sử mở profile:', error.message); }
+});
+browserLauncher.on('profile-closed', data => {
+  try { activityStore?.closed(data.profileId, data.error); }
+  catch (error) { console.error('Không lưu được lịch sử đóng profile:', error.message); }
+});
+
+
 // Khởi động REST API Gateway (chuẩn SV Browser / GPMLogin cổng 8725 hoặc theo cài đặt riêng)
 const defaultPort = process.env.API_PORT ? parseInt(process.env.API_PORT, 10) : 8725;
 const initialPort = savedSettings.apiPort ? parseInt(savedSettings.apiPort, 10) : defaultPort;

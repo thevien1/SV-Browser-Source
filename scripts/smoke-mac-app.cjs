@@ -47,6 +47,15 @@ const assert = require('node:assert/strict');
         await new Promise(r => setTimeout(r, 500));
       }
       assert.ok(found, `Packaged UI or preload failed: ${errors}`);
+      const historyReply = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(Error('History IPC timeout')), 5000);
+        ws.addEventListener('message', event => { clearTimeout(timer); resolve(JSON.parse(event.data)); }, { once: true });
+      });
+      ws.send(JSON.stringify({ id: 1000, method: 'Runtime.evaluate', params: {
+        expression: "(async()=>{const h=await window.api.getProfileHistory({});return Array.isArray(h.rows)&&typeof h.summary.total==='number'&&!document.querySelector('[data-tab=plugins],[data-tab=appstore],[data-tab=proxy]')&&document.querySelectorAll('.nav-icon').length>=8})()",
+        awaitPromise: true, returnByValue: true
+      } }));
+      assert.equal((await historyReply).result?.result?.value, true, 'History IPC or refreshed navigation failed');
       console.log(`PASS: packaged macOS ${process.arch} app opens, preload bridge works, profile table and version render.`);
     } finally { ws.close(); }
   } finally {

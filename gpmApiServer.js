@@ -6,7 +6,7 @@ const { getApiDocsHtml } = require('./apiDocsTemplate');
 
 /**
  * SV Browser REST API Server & API Gateway
- * Tuân thủ 100% chuẩn GPMLogin Local API specification (https://api-docs.gpmloginapp.com/#overview)
+ * Tuân thủ 100% chuẩn GPMLogin Local API specification (https://svbrowser.site/docs#overview)
  * Cung cấp cổng API cục bộ cho các tool tự động hoá (Python, Node.js, C#, Selenium, Puppeteer, Playwright)
  */
 class GpmApiServer {
@@ -228,7 +228,7 @@ class GpmApiServer {
             }
           }
 
-          const result = await this.browserLauncher.launchProfile(profile, null, launchOptions);
+          const result = await this.browserLauncher.launchProfile(profile, null, { ...launchOptions, source: 'api' });
           if (result && result.success) {
             const port = result.remote_debugging_port || result.port || result.debugPort;
             return sendJson(200, {
@@ -351,7 +351,7 @@ class GpmApiServer {
             }
           }
 
-          const result = await this.browserLauncher.launchProfile(profile, null, launchOptions);
+          const result = await this.browserLauncher.launchProfile(profile, null, { ...launchOptions, source: 'api' });
           if (result && result.success) {
             const port = result.remote_debugging_port || result.port || result.debugPort;
             return sendJson(200, {
@@ -445,7 +445,8 @@ class GpmApiServer {
               raw_proxy: (p.proxy && p.proxy !== 'No Proxy') ? p.proxy : (p.raw_proxy || ''),
               browser: p.browser || { name: p.browserType || 'chrome', version: p.version || '151.0.7922.76' },
               os: p.os || 'windows',
-              note: p.note || p.notes || '',
+              note: p.note ?? p.notes ?? '',
+              notes: p.note ?? p.notes ?? '',
               status: runInfo ? 'running' : 'ready',
               port: runInfo ? runInfo.debugPort : null,
               remote_debugging_port: runInfo ? runInfo.debugPort : null,
@@ -586,6 +587,7 @@ class GpmApiServer {
               browser: newProfile.browser,
               os: newProfile.os,
               note: newProfile.note,
+              notes: newProfile.note,
               created_at: new Date(newProfile.createdAt).toISOString(),
               updated_at: new Date(newProfile.updatedAt).toISOString(),
               tags: newProfile.tags,
@@ -598,7 +600,7 @@ class GpmApiServer {
 
         // 7. CẬP NHẬT GHI CHÚ RIÊNG (UPDATE NOTE)
         // Chuẩn GPMLogin: POST hoặc GET /api/v1/profiles/update-note hoặc /api/v3/profiles/update-note
-        const updateNoteMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/(?:update-note|note)(?:\/([^\/]+))?$/i);
+        const updateNoteMatch = pathname.match(/^\/api\/(?:v[1-3]\/)?profiles?\/(?:update-note|notes?)(?:\/([^\/]+))?$/i);
         if (updateNoteMatch && (req.method === 'POST' || req.method === 'GET' || req.method === 'PUT')) {
           let body = query;
           if (req.method === 'POST' || req.method === 'PUT') {
@@ -610,7 +612,15 @@ class GpmApiServer {
             return sendJson(400, { success: false, data: null, message: 'Thiếu ID của profile cần cập nhật ghi chú', sender: 'SV Browser v5.0.8-stable' });
           }
 
-          const noteVal = body.note !== undefined ? body.note : (body.notes !== undefined ? body.notes : '');
+          const existing = this.profileStore.getProfile(profileId);
+          if (!existing) return sendJson(404, { success: false, data: null, message: 'Profile không tồn tại' });
+          const hasNote = Object.hasOwn(body, 'note') || Object.hasOwn(body, 'notes');
+          if (req.method === 'GET' && !hasNote) {
+            const notes = existing.note ?? existing.notes ?? '';
+            return sendJson(200, { success: true, data: { id: profileId, note: notes, notes }, message: 'OK' });
+          }
+          if (!hasNote || typeof (body.note ?? body.notes) !== 'string') return sendJson(400, { success: false, data: null, message: 'Cần truyền note hoặc notes dạng chuỗi; dùng chuỗi rỗng để xóa ghi chú.' });
+          const noteVal = body.note ?? body.notes;
           const updated = this.profileStore.updateProfile(profileId, {
             note: noteVal,
             notes: noteVal

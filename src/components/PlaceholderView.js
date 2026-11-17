@@ -1,3 +1,4 @@
+import { uiIcon } from './UIIcons.js';
 /**
  * Component: PlaceholderViewComponent
  * Hiển thị giao diện cho các mục như Nhóm, Proxy, Extensions, Automation... khi người dùng bấm vào trên sidebar
@@ -22,46 +23,8 @@ export class PlaceholderViewComponent {
     }
 
     if (tabName === 'about') {
-      this.container.innerHTML = `
-        <div style="padding: 30px; display: flex; flex-direction: column; gap: 20px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main);">Giới thiệu SV Browser</h2>
-            <span style="font-size: 12px; background: #ecfdf5; color: #059669; padding: 3px 10px; border-radius: 12px; font-weight: 600;">Bản quyền chính thức</span>
-          </div>
-
-          <p style="color: var(--text-muted); font-size: 13.5px; max-width: 650px; line-height: 1.6;">
-            <strong>SV Browser</strong> là giải pháp quản lý đa hồ sơ trình duyệt (Antidetect Browser) & Tự động hóa chuyên nghiệp, bảo vệ vân tay số và phục vụ quy trình làm việc hiệu suất cao.
-          </p>
-
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; max-width: 700px; display: flex; flex-direction: column; gap: 14px;">
-            <div style="font-weight: 600; font-size: 15px; color: var(--text-main); margin-bottom: 4px;">🌐 Kênh Chính Thức & Cổng Quản Trị</div>
-            
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
-              <span style="color: var(--text-muted); width: 150px;">Trang chủ chính thức:</span>
-              <a href="https://svbrowser.site" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">https://svbrowser.site</a>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
-              <span style="color: var(--text-muted); width: 150px;">Cổng Quản Lý Bản Quyền:</span>
-              <a href="https://manager.svbrowser.site" target="_blank" style="color: #0284c7; font-weight: 600; text-decoration: none;">https://manager.svbrowser.site</a>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px;">
-              <span style="color: var(--text-muted); width: 150px;">Hệ thống API:</span>
-              <span style="color: var(--text-main); font-family: monospace;">https://api.svbrowser.site</span>
-            </div>
-
-            <div style="margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; gap: 12px;">
-              <button class="btn btn-primary" onclick="window.sidebarComp?.setActiveTab('profiles'); window.appSwitchTab?.('profiles');">
-                ← Quay lại Quản lý Profiles
-              </button>
-              <a href="https://manager.svbrowser.site" target="_blank" class="btn btn-outline" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; color: #0284c7;">
-                🔑 Quản lý bản quyền online
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
+      const version = await window.api.getAppVersion();
+      this.container.innerHTML = `<section class="about-page"><div class="about-orb"></div><div class="about-brand"><img src="../assets/icon.png" alt="SV Browser"><span class="page-eyebrow">YOUR WORKSPACE. YOUR FLOW.</span><h1>SV Browser</h1><p>Không gian làm việc dành cho mọi profile của bạn.</p><span class="about-version">Phiên bản ${version}</span></div><div class="about-features"><div>${uiIcon('profiles',26)}<h3>Profiles tập trung</h3><p>Sắp xếp hồ sơ, nhóm và ghi chú trong một không gian gọn gàng.</p></div><div>${uiIcon('automation',26)}<h3>Làm việc liền mạch</h3><p>Kết nối kịch bản tự động và tiếp tục quy trình của bạn.</p></div><div>${uiIcon('log',26)}<h3>Theo dõi rõ ràng</h3><p>Xem lại lịch sử mở profile ngay trên máy đang sử dụng.</p></div></div><div class="about-links"><a href="https://svbrowser.site" target="_blank" rel="noopener noreferrer">Trang chủ ↗</a><a href="https://svbrowser.site/docs" target="_blank" rel="noopener noreferrer">Tài liệu sử dụng ↗</a></div><p class="about-copyright">SV Browser · Profile & Automation Workspace</p></section>`;
       this.container.style.display = 'flex';
       return;
     }
@@ -271,172 +234,14 @@ export class PlaceholderViewComponent {
     }
   }
 
-  async showDeveloperDocsView(displayName) {
+  async showDeveloperDocsView() {
+    const settings = await window.api.getSettings();
+    const port = Number.parseInt(settings.apiPort, 10);
+    const local = 'http://localhost:' + (port > 0 && port <= 65535 ? port : 8725);
     this.container.style.display = 'flex';
-    this.container.innerHTML = `
-      <div style="padding: 30px; display: flex; flex-direction: column; gap: 24px; max-width: 1000px; width: 100%; box-sizing: border-box;">
-        <!-- Header Title -->
-        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <h2 style="font-size: 22px; font-weight: 700; color: var(--text-main); margin: 0;">${displayName || 'Tài liệu Dành cho Lập trình viên (Developer)'}</h2>
-            <span style="font-size: 12px; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 4px 12px; border-radius: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
-              <span style="width: 7px; height: 7px; background: #10b981; border-radius: 50%; display: inline-block;"></span>
-              Cổng API :8725 Sẵn sàng
-            </span>
-          </div>
-          <button class="btn btn-outline" onclick="window.sidebarComp?.setActiveTab('profiles'); window.appSwitchTab?.('profiles');">
-            ← Quay lại Quản lý Profiles
-          </button>
-        </div>
-
-        <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 0;">
-          SV Browser tích hợp sẵn cổng <strong>REST API Cục bộ (Port 8725)</strong> chuẩn xác theo đặc tả GPMLogin Global API. Hỗ trợ kết nối và điều khiển từ <strong>Python, C#, Node.js, Go</strong> cũng như các thư viện tự động hóa <strong>Selenium, Puppeteer, Playwright</strong>.
-        </p>
-
-        <!-- Main Action Cards -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px;">
-          
-          <!-- Card 1: Local API Dashboard & Documentation -->
-          <div style="background: var(--bg-card); border: 2px solid #0284c7; border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.1);">
-            <div style="position: absolute; top: 0; right: 0; background: #0284c7; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 12px; border-bottom-left-radius: 8px; text-transform: uppercase;">
-              Trực tiếp trên máy
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 44px; height: 44px; background: #e0f2fe; color: #0284c7; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold;">
-                ⚡
-              </div>
-              <div>
-                <div style="font-weight: 700; font-size: 16px; color: var(--text-main);">Tài liệu API Local (Interactive Docs)</div>
-                <div style="font-size: 13px; color: #0284c7; font-family: monospace; font-weight: 600;">http://localhost:8725/</div>
-              </div>
-            </div>
-
-            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0;">
-              Tra cứu toàn bộ endpoint <strong>GET, POST, PUT, DELETE</strong>, nút <strong>Sao chép JSON 1-click</strong>, lệnh cURL, và tính năng <strong>Đổi màu giao diện</strong> ngay trên trình duyệt (hoạt động 100% offline).
-            </p>
-
-            <div style="display: flex; gap: 10px; margin-top: auto; padding-top: 10px;">
-              <button class="btn btn-primary" id="btn-dev-open-local" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; font-weight: 600;">
-                🚀 Mở http://localhost:8725/
-              </button>
-              <button class="btn btn-outline" id="btn-dev-copy-local" style="display: inline-flex; align-items: center; gap: 5px; padding: 9px 14px; font-size: 12.5px;">
-                📋 Copy Link
-              </button>
-            </div>
-          </div>
-
-          <!-- Card 2: Official Website & Online Documentation -->
-          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 22px; display: flex; flex-direction: column; gap: 14px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="width: 44px; height: 44px; background: #ecfdf5; color: #059669; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                🌐
-              </div>
-              <div>
-                <div style="font-weight: 700; font-size: 16px; color: var(--text-main);">Trang Chủ & Tài Liệu Online</div>
-                <div style="font-size: 13px; color: #059669; font-family: monospace; font-weight: 600;">https://svbrowser.site/</div>
-              </div>
-            </div>
-
-            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0;">
-              Kênh chính thức của SV Browser: tra cứu tài liệu hướng dẫn online, tải bản cài đặt mới nhất, cập nhật phiên bản và hỗ trợ kỹ thuật trực tuyến.
-            </p>
-
-            <div style="display: flex; gap: 10px; margin-top: auto; padding-top: 10px;">
-              <button class="btn btn-outline" id="btn-dev-open-online" style="display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; color: #059669; border-color: #a7f3d0; font-weight: 600;">
-                🌐 Mở svbrowser.site ↗
-              </button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Quick API Cheat Sheet -->
-        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 22px;">
-          <div style="font-weight: 700; font-size: 15px; color: var(--text-main); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-            <span>📌</span> Bảng tra cứu nhanh các Endpoint API phổ biến nhất:
-          </div>
-
-          <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-              <thead>
-                <tr style="background: var(--bg-sub, #f8fafc); border-bottom: 2px solid var(--border-color); text-align: left;">
-                  <th style="padding: 10px 12px; font-weight: 600;">Phương thức</th>
-                  <th style="padding: 10px 12px; font-weight: 600;">Đường dẫn (Endpoint)</th>
-                  <th style="padding: 10px 12px; font-weight: 600;">Mô tả chức năng</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(16,185,129,0.15); color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">GET</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Lấy danh sách profiles (phân trang, tìm kiếm, lọc nhóm/tags)</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(16,185,129,0.15); color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">GET</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/active</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Lấy danh sách profile đang chạy kèm cổng debug và WebSocket URL</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(16,185,129,0.15); color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">GET</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/start/{id}</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Khởi chạy profile Chrome và trả về remote_debugging_port</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(16,185,129,0.15); color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">GET</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/stop/{id}</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Đóng profile Chrome theo ID</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(59,130,246,0.15); color: #2563eb; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">POST</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/create</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Tạo profile mới (cấu hình tên, proxy, vân tay canvas/webgl)</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(245,158,11,0.15); color: #d97706; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">PUT/POST</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/update/{id}</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Cập nhật proxy, tên, thông số fingerprint của profile</td>
-                </tr>
-                <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 9px 12px;"><span style="background: rgba(59,130,246,0.15); color: #2563eb; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">POST</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/profiles/free-disk/{id}</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Giải phóng dung lượng (dọn cache/log, bảo toàn cookie & đăng nhập)</td>
-                </tr>
-                <tr>
-                  <td style="padding: 9px 12px;"><span style="background: rgba(16,185,129,0.15); color: #059669; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-family: monospace;">GET</span></td>
-                  <td style="padding: 9px 12px;"><code style="color: #0284c7; font-weight: 600;">/api/v1/proxies/check/{id}</code></td>
-                  <td style="padding: 9px 12px; color: var(--text-muted);">Kiểm tra proxy Live/Die và truy vấn IP, Quốc gia thực tế</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
-
-    this.container.querySelector('#btn-dev-open-local')?.addEventListener('click', () => {
-      if (window.api && window.api.openExternal) {
-        window.api.openExternal('http://localhost:8725/');
-      } else {
-        window.open('http://localhost:8725/', '_blank');
-      }
-    });
-
-    this.container.querySelector('#btn-dev-copy-local')?.addEventListener('click', () => {
-      navigator.clipboard.writeText('http://localhost:8725/').then(() => {
-        if (window.showGlobalToast) {
-          window.showGlobalToast('📋 Đã sao chép http://localhost:8725/ vào bộ nhớ tạm!');
-        }
-      });
-    });
-
-    this.container.querySelector('#btn-dev-open-online')?.addEventListener('click', () => {
-      if (window.api && window.api.openExternal) {
-        window.api.openExternal('https://svbrowser.site/');
-      } else {
-        window.open('https://svbrowser.site/', '_blank');
-      }
-    });
+    this.container.innerHTML = `<section class="docs-page"><span class="page-eyebrow">KNOWLEDGE HUB</span><h1>Bắt đầu từ tài liệu</h1><p>Hướng dẫn sử dụng và kết nối công cụ của bạn với SV Browser.</p><div class="docs-grid"><article class="docs-card">${uiIcon('developer',32)}<span class="docs-label">HƯỚNG DẪN CHÍNH THỨC</span><h2>Tài liệu SV Browser</h2><p>Khám phá tính năng, cách quản lý profile và các hướng dẫn sử dụng.</p><button class="btn btn-primary" id="docs-online">Mở tài liệu ↗</button><small>https://svbrowser.site/docs</small></article><article class="docs-card">${uiIcon('automation',32)}<span class="docs-label">DÀNH CHO AUTOMATION</span><h2>API trên máy của bạn</h2><p>Tra cứu endpoint, ghi chú (Notes), request mẫu và phản hồi của API đang chạy.</p><button class="btn btn-outline" id="docs-local">Xem tài liệu API ↗</button><small>${local}</small></article></div></section>`;
+    this.container.querySelector('#docs-online').onclick = () => window.api.openExternal('https://svbrowser.site/docs');
+    this.container.querySelector('#docs-local').onclick = () => window.api.openExternal(local);
   }
 
   hide() {

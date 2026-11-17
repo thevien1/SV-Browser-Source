@@ -1,3 +1,4 @@
+import { uiIcon } from './UIIcons.js';
 /**
  * Component: Sidebar
  * Quản lý toàn bộ thanh điều hướng bên trái (như hình ảnh người dùng cung cấp)
@@ -29,7 +30,7 @@ export class SidebarComponent {
 
       <div class="sidebar-nav">
         <!-- MAIN SECTION -->
-        <div class="sidebar-section-title">MAIN</div>
+        <div class="sidebar-section-title">KHÔNG GIAN</div>
         
         <div class="nav-item ${this.currentTab === 'profiles' ? 'active' : ''}" data-tab="profiles">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -47,14 +48,7 @@ export class SidebarComponent {
           <span>Nhóm & Tags</span>
         </div>
 
-        <div class="nav-item ${this.currentTab === 'proxy' ? 'active' : ''}" data-tab="proxy">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-          <span>Proxy</span>
-        </div>
+
 
         <div class="nav-item ${this.currentTab === 'extensions' ? 'active' : ''}" data-tab="extensions">
           <svg viewBox="0 0 24 24" fill="currentColor">
@@ -63,13 +57,7 @@ export class SidebarComponent {
           <span>Extensions</span>
         </div>
 
-        <div class="nav-item ${this.currentTab === 'plugins' ? 'active' : ''}" data-tab="plugins">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="1" x2="12" y2="23"></line>
-            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          <span>Plugins</span>
-        </div>
+
 
         <div class="nav-item ${this.currentTab === 'trash' ? 'active' : ''}" data-tab="trash">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -80,7 +68,7 @@ export class SidebarComponent {
         </div>
 
         <!-- AUTOMATION SECTION -->
-        <div class="sidebar-section-title">AUTOMATION</div>
+        <div class="sidebar-section-title">CÔNG CỤ</div>
 
         <div class="nav-item ${this.currentTab === 'automation' ? 'active' : ''}" data-tab="automation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -93,25 +81,18 @@ export class SidebarComponent {
           <span>Automation</span>
         </div>
 
-        <div class="nav-item ${this.currentTab === 'appstore' ? 'active' : ''}" data-tab="appstore">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <path d="M16 10a4 4 0 0 1-8 0"></path>
-          </svg>
-          <span>App store</span>
-        </div>
+
 
         <div class="nav-item ${this.currentTab === 'developer' ? 'active' : ''}" data-tab="developer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="16 18 22 12 16 6"></polyline>
             <polyline points="8 6 2 12 8 18"></polyline>
           </svg>
-          <span>Developer</span>
+          <span>Tài liệu</span>
         </div>
 
         <!-- OTHERS SECTION -->
-        <div class="sidebar-section-title">OTHERS</div>
+        <div class="sidebar-section-title">QUẢN LÝ</div>
 
         <div class="nav-item ${this.currentTab === 'settings' ? 'active' : ''}" data-tab="settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -129,7 +110,7 @@ export class SidebarComponent {
             <line x1="16" y1="17" x2="8" y2="17"></line>
             <polyline points="10 9 9 9 8 9"></polyline>
           </svg>
-          <span>Log</span>
+          <span>Lịch sử profile</span>
         </div>
 
         <div class="nav-item ${this.currentTab === 'about' ? 'active' : ''}" data-tab="about">
@@ -164,6 +145,15 @@ export class SidebarComponent {
       </div>
     `;
 
+    this.container.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+      item.setAttribute('role', 'button');
+      item.tabIndex = 0;
+      item.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); item.click(); }
+      };
+      const svg = item.querySelector('svg');
+      if (svg) svg.outerHTML = '<span class="nav-icon">' + uiIcon(item.dataset.tab) + '</span>';
+    });
     this.bindEvents();
   }
 
@@ -193,8 +183,10 @@ export class SidebarComponent {
     this.container.querySelectorAll('.nav-item[data-tab]').forEach(item => {
       if (item.getAttribute('data-tab') === tab) {
         item.classList.add('active');
+        item.setAttribute('aria-current', 'page');
       } else {
         item.classList.remove('active');
+        item.removeAttribute('aria-current');
       }
     });
   }

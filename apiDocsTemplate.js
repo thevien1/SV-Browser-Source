@@ -5,6 +5,19 @@
  */
 
 const ENDPOINTS_DATA = [
+  {
+    id: 'notes-read', category: 'notes', categoryName: 'Ghi chú (Notes)', method: 'GET', path: '/api/v1/profiles/notes/{id}',
+    title: 'Đọc ghi chú profile', description: 'Lấy ghi chú hiện tại, không thay đổi nội dung. Hỗ trợ API v1, v2, v3.',
+    params: [{ name: 'id', type: 'string', in: 'path', required: true, default: 'profile-id', desc: 'ID profile' }], requestBody: null,
+    responseBody: { success: true, data: { id: 'profile-id', note: 'Khách hàng A', notes: 'Khách hàng A' }, message: 'OK' }
+  },
+  {
+    id: 'notes-update', category: 'notes', categoryName: 'Ghi chú (Notes)', method: 'POST', path: '/api/v1/profiles/notes/{id}',
+    title: 'Cập nhật hoặc xóa ghi chú', description: 'Gửi notes hoặc note dạng chuỗi. Truyền chuỗi rỗng để xóa. Hỗ trợ POST/PUT và đường dẫn tương thích /api/v1/profiles/update-note/{id}. Ghi chú cũng có trong kết quả danh sách/chi tiết profile.',
+    params: [{ name: 'id', type: 'string', in: 'path', required: true, default: 'profile-id', desc: 'ID profile' }],
+    requestBody: { notes: 'Khách hàng A · Đã kiểm tra' },
+    responseBody: { success: true, data: { id: 'profile-id', note: 'Khách hàng A · Đã kiểm tra', notes: 'Khách hàng A · Đã kiểm tra' }, message: 'Update note successfully' }
+  },
   // ==========================================
   // 1. QUẢN LÝ PROFILES (PROFILES)
   // ==========================================
@@ -1610,8 +1623,8 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
           <button class="btn-action-small" onclick="copyBaseUrl()" title="Sao chép Base URL">📋 Sao chép</button>
         </div>
 
-        <a href="https://svbrowser.site" target="_blank" rel="noopener noreferrer" class="btn-action-small" style="color: var(--accent); font-weight: 600;" title="Trang chủ & Tài liệu online">
-          🌐 svbrowser.site ↗
+        <a href="https://svbrowser.site/docs" target="_blank" rel="noopener noreferrer" class="btn-action-small" style="color: var(--accent); font-weight: 600;" title="Trang chủ & Tài liệu online">
+          Tài liệu SV Browser ↗
         </a>
 
         <button class="btn-action-small" onclick="toggleAllCards()" id="btn-toggle-all">Mở tất cả ⌵</button>
@@ -1639,6 +1652,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
   <div class="category-nav">
     <button class="cat-btn active" data-cat="all" onclick="filterByCategory('all', this)">⚡ Tất cả danh mục</button>
     <button class="cat-btn" data-cat="profiles" onclick="filterByCategory('profiles', this)">📁 Quản lý Profile (14)</button>
+    <button class="cat-btn" data-cat="notes" onclick="filterByCategory('notes', this)">📝 Ghi chú Notes (2)</button>
     <button class="cat-btn" data-cat="proxies" onclick="filterByCategory('proxies', this)">🌐 Quản lý Proxy (6)</button>
     <button class="cat-btn" data-cat="groups" onclick="filterByCategory('groups', this)">📂 Quản lý Nhóm (4)</button>
     <button class="cat-btn" data-cat="tags" onclick="filterByCategory('tags', this)">🏷️ Thẻ Tags (2)</button>

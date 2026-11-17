@@ -158,6 +158,7 @@ async function run() {
   // 2. Danh sách các file backend Node.js cần mã hóa
   const nodeFiles = [
     'main.js',
+    'activityStore.js',
     'macBrowser.js',
     'macUpdates.js',
     'macIcons.js',

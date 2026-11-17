@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('api', {
   getLicenseHistory: () => ipcRenderer.invoke('license:get-history'),
 
   // Profile management
+  getProfileHistory: (filters) => ipcRenderer.invoke('profiles:get-history', filters),
   getProfiles: () => ipcRenderer.invoke('profiles:get-all'),
   createProfile: (data) => ipcRenderer.invoke('profiles:create', data),
   batchCreateProfiles: (options) => ipcRenderer.invoke('profiles:batch-create', options),

@@ -856,6 +856,12 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     const index = this.profiles.findIndex(p => p.id === id);
     if (index !== -1) {
       const updateData = { ...data };
+      if (Object.hasOwn(updateData, 'note') || Object.hasOwn(updateData, 'notes')) {
+        const value = updateData.note ?? updateData.notes ?? '';
+        if (typeof value !== 'string') throw Error('Ghi chú phải là chuỗi.');
+        updateData.note = value;
+        updateData.notes = value;
+      }
       if (updateData.note !== undefined && updateData.notes === undefined) {
         updateData.notes = updateData.note;
       } else if (updateData.notes !== undefined && updateData.note === undefined) {

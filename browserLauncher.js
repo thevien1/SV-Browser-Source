@@ -1003,7 +1003,7 @@ try {
         this.emit('profile-closed', { profileId, error: err.message });
       });
 
-      this.emit('profile-opened', { profileId, pid: child.pid, debugPort, badgeNumber: badgeNum, isHeadless: !!isHeadless });
+      this.emit('profile-opened', { profileId, pid: child.pid, debugPort, badgeNumber: badgeNum, isHeadless: !!isHeadless, source: options?.source || 'app', profileName: profile.name || profileId });
       return {
         success: true,
         pid: child.pid,
