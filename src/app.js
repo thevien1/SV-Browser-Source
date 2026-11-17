@@ -1,3 +1,4 @@
+import { closeSelect } from './components/PrettySelect.js';
 /**
  * GPMLogin Global - Main Application Controller
  * Kiến trúc module hóa sạch sẽ theo từng component:
@@ -362,6 +363,7 @@ class App {
   }
 
   async switchTab(tab) {
+    closeSelect();
     this.activityView.hide();
     // Chặn chuyển tab nếu chưa kích hoạt bản quyền hợp lệ
     if (!this.licenseStatus?.isActivated || this.licenseStatus?.isExpired) {

@@ -1,3 +1,5 @@
+import { enhanceSelects, closeSelect } from './PrettySelect.js';
+import { uiIcon } from './UIIcons.js';
 import { renderFlagHtml } from '../data/countries.js';
 import { getBrowserIconHtml } from '../data/browserIcons.js';
 
@@ -27,6 +29,7 @@ export class ProfilesViewComponent {
 
   render() {
     if (!this.container) return;
+    closeSelect();
 
     this.container.innerHTML = `
       <!-- License Warning Banner (Hiện khi chưa kích hoạt hoặc đã hết hạn) -->
@@ -732,6 +735,7 @@ export class ProfilesViewComponent {
     `;
 
     this.bindEvents();
+    enhanceSelects(this.container);
   }
 
   bindEvents() {
@@ -821,7 +825,8 @@ export class ProfilesViewComponent {
       const selectStatus = this.container.querySelector('#filter-proxy-status');
       if (selectStatus) {
         selectStatus.focus();
-        if (typeof selectStatus.showPicker === 'function') {
+        if (selectStatus.prettySelect) selectStatus.prettySelect.open();
+        else if (typeof selectStatus.showPicker === 'function') {
           try { selectStatus.showPicker(); } catch (_) {}
         }
       }
@@ -832,7 +837,8 @@ export class ProfilesViewComponent {
       const selectTag = this.container.querySelector('#filter-tag');
       if (selectTag) {
         selectTag.focus();
-        if (typeof selectTag.showPicker === 'function') {
+        if (selectTag.prettySelect) selectTag.prettySelect.open();
+        else if (typeof selectTag.showPicker === 'function') {
           try { selectTag.showPicker(); } catch (_) {}
         }
       }
@@ -2287,6 +2293,7 @@ export class ProfilesViewComponent {
   }
 
   showContextMenu(targetBtn, profileId) {
+    closeSelect();
     const existing = document.getElementById('active-profile-context-menu');
     if (existing) {
       const prevId = existing.getAttribute('data-profile-id');
@@ -2304,52 +2311,52 @@ export class ProfilesViewComponent {
 
     menu.innerHTML = `
       <button class="context-menu-item" data-action="check-proxy">
-        <span class="menu-icon">🔗</span> Kiểm tra proxy
+        <span class="menu-icon">${uiIcon('link', 17)}</span> Kiểm tra proxy
       </button>
       <button class="context-menu-item" data-action="note">
-        <span class="menu-icon">📝</span> Ghi chú
+        <span class="menu-icon">${uiIcon('note', 17)}</span> Ghi chú
       </button>
       <button class="context-menu-item" data-action="tags">
-        <span class="menu-icon">🏷️</span> Gán / Sửa Tags
+        <span class="menu-icon">${uiIcon('tag', 17)}</span> Gán / Sửa Tags
       </button>
       <button class="context-menu-item" data-action="edit">
-        <span class="menu-icon">✏️</span> Sửa
+        <span class="menu-icon">${uiIcon('edit', 17)}</span> Sửa
       </button>
       <button class="context-menu-item" data-action="clone">
-        <span class="menu-icon">📑</span> Nhân bản
+        <span class="menu-icon">${uiIcon('clone', 17)}</span> Nhân bản
       </button>
       <button class="context-menu-item" data-action="color">
-        <span class="menu-icon">🎨</span> Thay đổi màu sắc
+        <span class="menu-icon">${uiIcon('color', 17)}</span> Thay đổi màu sắc
       </button>
       <button class="context-menu-item" data-action="cookie">
-        <span class="menu-icon">🍪</span> Import cookie
+        <span class="menu-icon">${uiIcon('cookie', 17)}</span> Import cookie
       </button>
       <button class="context-menu-item" data-action="open-folder">
-        <span class="menu-icon">📁</span> Mở thư mục profile
+        <span class="menu-icon">${uiIcon('groups', 17)}</span> Mở thư mục profile
       </button>
       <button class="context-menu-item" data-action="free-disk-space">
-        <span class="menu-icon">🧹</span> Giải phóng dung lượng
+        <span class="menu-icon">${uiIcon('clean', 17)}</span> Giải phóng dung lượng
       </button>
       <div class="context-menu-divider"></div>
       <button class="context-menu-item" data-action="open-incognito">
-        <span class="menu-icon">🕶️</span> Mở ẩn danh (Incognito)
+        <span class="menu-icon">${uiIcon('incognito', 17)}</span> Mở ẩn danh (Incognito)
       </button>
       <button class="context-menu-item" data-action="remote-port">
-        <span class="menu-icon">&gt;_</span> Chạy với remote port
+        <span class="menu-icon">${uiIcon('terminal', 17)}</span> Chạy với remote port
       </button>
       <button class="context-menu-item" data-action="copy-id">
-        <span class="menu-icon">📋</span> Copy ID
+        <span class="menu-icon">${uiIcon('clone', 17)}</span> Copy ID
       </button>
       <div class="context-menu-divider"></div>
       <button class="context-menu-item" data-action="move-to-top">
-        <span class="menu-icon">⬆️</span> Chuyển lên đầu danh sách
+        <span class="menu-icon">${uiIcon('up', 17)}</span> Chuyển lên đầu danh sách
       </button>
       <button class="context-menu-item" data-action="move-to-bottom">
-        <span class="menu-icon">⬇️</span> Chuyển xuống cuối danh sách
+        <span class="menu-icon">${uiIcon('down', 17)}</span> Chuyển xuống cuối danh sách
       </button>
       <div class="context-menu-divider"></div>
       <button class="context-menu-item text-red" data-action="delete">
-        <span class="menu-icon">🗑️</span> Xóa profile
+        <span class="menu-icon">${uiIcon('trash', 17)}</span> Xóa profile
       </button>
     `;
 
@@ -2556,26 +2563,26 @@ export class ProfilesViewComponent {
 
     let top;
     // Nếu phía dưới không đủ khoảng trống cho menu và phía trên có nhiều chỗ hơn -> mở lên trên
-    if (spaceBelow < menuHeight + 8 && spaceAbove > spaceBelow) {
+    if (spaceBelow < menuHeight + 10 && spaceAbove > spaceBelow) {
       top = rect.top - menuHeight - 4;
     } else {
       top = rect.bottom + 4;
     }
 
     // Đảm bảo menu luôn nằm trọn trong viewport
-    if (top < 8) {
-      top = 8;
-    } else if (top + menuHeight > viewportHeight - 8) {
-      top = Math.max(8, viewportHeight - menuHeight - 8);
+    if (top < 10) {
+      top = 10;
+    } else if (top + menuHeight > viewportHeight - 10) {
+      top = Math.max(10, viewportHeight - menuHeight - 10);
     }
 
     // Căn ngang theo mép phải của nút 3 chấm
     let left = rect.right - menuWidth;
-    if (left + menuWidth > viewportWidth - 8) {
-      left = viewportWidth - menuWidth - 8;
+    if (left + menuWidth > viewportWidth - 10) {
+      left = viewportWidth - menuWidth - 10;
     }
-    if (left < 8) {
-      left = 8;
+    if (left < 10) {
+      left = 10;
     }
 
     menu.style.top = `${top}px`;
@@ -2812,6 +2819,7 @@ export class ProfilesViewComponent {
   }
 
   renderTableRows() {
+    enhanceSelects(this.container);
     const tbody = this.container.querySelector('#profiles-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
