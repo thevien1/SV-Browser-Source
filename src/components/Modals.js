@@ -1357,6 +1357,10 @@ export class ModalsComponent {
         }
       }
 
+      if (batchSelect && this.container.querySelector('#batch-browser-type')?.value === 'mullvad') {
+        batchSelect.innerHTML = '<option value="default">Mullvad Browser (Bản đã cài trên máy)</option>';
+      }
+
       if (editSelect) {
         editSelect.innerHTML = '';
         if (cores && cores.length > 0) {

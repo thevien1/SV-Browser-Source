@@ -2,6 +2,14 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const assert=require('node:assert/strict');
+const childProcess=require('node:child_process');
+const nativeSpawn=childProcess.spawn;
+childProcess.spawn=(file,args,options)=>{
+ const child=nativeSpawn(file,args,{...options,stdio:['ignore','ignore','pipe']});
+ child.stderr.on('data',data=>process.stderr.write(data));
+ child.on('exit',(code,signal)=>console.log('Mullvad process exited:',code,signal));
+ return child;
+};
 const BrowserLauncher=require('../browserLauncher');
 (async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'sv-mullvad-smoke-'));
@@ -13,8 +21,10 @@ const BrowserLauncher=require('../browserLauncher');
   const result=await launcher.launchProfile({id,name:'Mullvad isolated smoke',browserType:'mullvad',version:'default',headless:true},1);
   assert.equal(result.success,true);assert.equal(result.websocket_debugging_url,'');assert.equal(result.driver_path,'');
   const info=launcher.getRunningInfo(id);assert.ok(info);
-  for(let i=0;i<40&&!fs.existsSync(path.join(info.profileDir,'prefs.js'));i++)await new Promise(r=>setTimeout(r,500));
-  assert.ok(fs.existsSync(path.join(info.profileDir,'prefs.js')),'Native Mullvad must initialize its isolated profile');
+  const initialized=()=>fs.readdirSync(info.profileDir).some(name=>['prefs.js','parent.lock','.parentlock'].includes(name));
+  for(let i=0;i<60&&!initialized();i++)await new Promise(r=>setTimeout(r,500));
+  console.log('Profile files:',fs.readdirSync(info.profileDir).join(', '));
+  assert.ok(initialized(),'Native Mullvad must initialize its isolated profile');
   assert.ok(launcher.isProfileRunning(id),'Native browser should remain running');
   const prefs=fs.readFileSync(path.join(info.profileDir,'user.js'),'utf8');
   assert.ok(!prefs.includes('xpinstall.signatures.required'));

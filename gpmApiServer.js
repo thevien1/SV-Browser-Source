@@ -230,15 +230,15 @@ class GpmApiServer {
 
           const result = await this.browserLauncher.launchProfile(profile, null, { ...launchOptions, source: 'api' });
           if (result && result.success) {
-            const port = result.remote_debugging_port || result.port || result.debugPort;
+            const port = result.remote_debugging_port ?? result.port ?? result.debugPort;
             return sendJson(200, {
               success: true,
               data: {
                 profile_id: result.profile_id || profile.id,
-                driver_path: result.driver_path || (this.browserLauncher && this.browserLauncher.getChromedriverPath ? this.browserLauncher.getChromedriverPath() : path.join(__dirname, 'chromedriver.exe')),
+                driver_path: result.driver_path ?? (this.browserLauncher && this.browserLauncher.getChromedriverPath ? this.browserLauncher.getChromedriverPath() : path.join(__dirname, 'chromedriver.exe')),
                 remote_debugging_port: port,
-                remote_debugging_address: result.remote_debugging_address || `127.0.0.1:${port}`,
-                websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
+                remote_debugging_address: result.remote_debugging_address ?? `127.0.0.1:${port}`,
+                websocket_debugging_url: result.websocket_debugging_url ?? `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
                 is_incognito: !!result.is_incognito,
                 is_headless: !!result.is_headless,
@@ -353,15 +353,15 @@ class GpmApiServer {
 
           const result = await this.browserLauncher.launchProfile(profile, null, { ...launchOptions, source: 'api' });
           if (result && result.success) {
-            const port = result.remote_debugging_port || result.port || result.debugPort;
+            const port = result.remote_debugging_port ?? result.port ?? result.debugPort;
             return sendJson(200, {
               success: true,
               data: {
                 profile_id: result.profile_id || profile.id,
-                driver_path: result.driver_path || (this.browserLauncher && this.browserLauncher.getChromedriverPath ? this.browserLauncher.getChromedriverPath() : path.join(__dirname, 'chromedriver.exe')),
+                driver_path: result.driver_path ?? (this.browserLauncher && this.browserLauncher.getChromedriverPath ? this.browserLauncher.getChromedriverPath() : path.join(__dirname, 'chromedriver.exe')),
                 remote_debugging_port: port,
-                remote_debugging_address: result.remote_debugging_address || `127.0.0.1:${port}`,
-                websocket_debugging_url: result.websocket_debugging_url || `ws://127.0.0.1:${port}/devtools/browser`,
+                remote_debugging_address: result.remote_debugging_address ?? `127.0.0.1:${port}`,
+                websocket_debugging_url: result.websocket_debugging_url ?? `ws://127.0.0.1:${port}/devtools/browser`,
                 browser_location: result.browser_location || result.exePath || '',
                 is_incognito: true,
                 is_headless: !!result.is_headless,

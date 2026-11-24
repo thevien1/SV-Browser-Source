@@ -35,7 +35,8 @@ jobs:
           trap 'hdiutil detach "$MULLVAD_TEMP/mount" -quiet || true; rm -rf "$MULLVAD_TEMP"' EXIT
           curl --fail --location --retry 3 --output "$MULLVAD_TEMP/browser.dmg" https://github.com/mullvad/mullvad-browser/releases/download/16.0.3/mullvad-browser-macos-16.0.3.dmg
           hdiutil attach -readonly -nobrowse -mountpoint "$MULLVAD_TEMP/mount" "$MULLVAD_TEMP/browser.dmg"
-          MULLVAD_APP="$MULLVAD_TEMP/mount/Mullvad Browser.app"
+          ditto "$MULLVAD_TEMP/mount/Mullvad Browser.app" "$MULLVAD_TEMP/Mullvad Browser.app"
+          MULLVAD_APP="$MULLVAD_TEMP/Mullvad Browser.app"
           codesign --verify --deep --strict "$MULLVAD_APP"
           SV_MULLVAD_TEST_EXE="$MULLVAD_APP/Contents/MacOS/mullvadbrowser" node scripts/smoke-mullvad.cjs 2>&1 | tee -a build.log
       - run: node scripts/make-mac-icons.cjs
