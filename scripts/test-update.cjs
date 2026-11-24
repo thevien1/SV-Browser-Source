@@ -26,12 +26,12 @@ test('cores survive removal of the old installation and persistent files are not
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
-function fixture(preserve = async () => {}, platform = 'win32', macSigned = false) {
+function fixture(preserve = async () => {}, platform = 'win32', macSigned = false, nativeMode = '') {
   const updater = new EventEmitter();
   const handlers = {};
   let checks = 0, downloads = 0, installs = 0, opened = 0;
-  updater.currentVersion = { compare: () => -1 };
-  updater.checkForUpdates = async () => { checks++; return { updateInfo: { version: '1.0.99' } }; };
+  updater.currentVersion = { compare: () => nativeMode === 'latest' ? 1 : -1 };
+  updater.checkForUpdates = async () => { checks++; if(nativeMode === 'error') throw Error('native feed offline'); return { updateInfo: { version: '1.0.99' } }; };
   updater.downloadUpdate = async () => { downloads++; updater.emit('update-downloaded', { version: '1.0.99' }); };
   updater.quitAndInstall = (silent, restart) => { assert.ok(silent && restart); installs++; };
   const electron = {
@@ -83,4 +83,12 @@ test('signed Mac builds install; unsigned Mac builds detect updates and offer DM
   assert.equal(unsigned.opened(), 1);
   assert.equal(unsigned.counts().installs, 0);
   assert.equal(unsigned.counts().checks, 0);
+});
+
+for (const mode of ['latest', 'error']) test(`signed Mac falls back to manual DMG when native feed returns ${mode}`, async()=>{
+  const f=fixture(async()=>{},'darwin',true,mode);
+  const result=await f.controller.check();
+  assert.equal(result.hasUpdate,true);assert.equal(result.manualUpdate,true);
+  assert.equal((await f.handlers['app:install-update']()).manual,true);
+  assert.equal(f.opened(),1);assert.equal(f.counts().downloads,0);assert.equal(f.counts().installs,0);
 });
