@@ -512,6 +512,7 @@ export class ModalsComponent {
                   <select class="form-control" id="batch-browser-type" style="height: 38px; padding-left: 36px; cursor: pointer;">
                     <option value="chrome" selected>Chrome</option>
                     <option value="firefox">Firefox</option>
+                    <option value="mullvad">Mullvad Browser</option>
                     <option value="edge">Edge</option>
                     <option value="brave">Brave</option>
                   </select>
@@ -1305,6 +1306,11 @@ export class ModalsComponent {
         ffOpt.textContent = `Firefox (Mozilla Firefox - ${hasFirefox ? 'Đã cài đặt ✓' : 'Chưa cài đặt ✕'})`;
         targetSel.appendChild(ffOpt);
 
+        const mullvadOpt = document.createElement('option');
+        mullvadOpt.value = 'mullvad|default';
+        mullvadOpt.textContent = `Mullvad Browser (${detected?.mullvad ? 'Đã cài đặt ✓' : 'Chưa cài đặt ✕'})`;
+        targetSel.appendChild(mullvadOpt);
+
         // Thêm Brave
         const hasBrave = !!(detected && detected.brave);
         const braveOpt = document.createElement('option');
@@ -1428,6 +1434,19 @@ export class ModalsComponent {
       </div>
     `;
 
+    if (selType === 'mullvad') {
+      const download = document.createElement('button');
+      download.type = 'button'; download.className = 'btn btn-outline';
+      download.textContent = 'Tải / Cài Mullvad Browser';
+      download.style.cssText = 'margin-top:8px;font-size:12px';
+      download.onclick = event => {
+        event.stopPropagation();
+        const mac = /Mac/i.test(navigator.platform);
+        const file = mac ? 'mullvad-browser-macos-16.0.3.dmg' : 'mullvad-browser-windows-x86_64-16.0.3.exe';
+        window.api?.openExternal('https://github.com/mullvad/mullvad-browser/releases/download/16.0.3/' + file);
+      };
+      wrapper.append(download);
+    }
     const trigger = wrapper.querySelector('.custom-browser-dropdown-trigger');
     if (trigger) {
       trigger.addEventListener('click', (e) => {
@@ -1575,7 +1594,9 @@ export class ModalsComponent {
 
       const bVer = this.container.querySelector('#batch-browser-version');
       if (!bVer) return;
-      if (bType === 'firefox') {
+      if (bType === 'mullvad') {
+        bVer.innerHTML = '<option value="default">Mullvad Browser (Bản đã cài trên máy)</option>';
+      } else if (bType === 'firefox') {
         bVer.innerHTML = '<option value="default" selected>Firefox Default (Hệ thống)</option><option value="135.0">Firefox 135.0</option><option value="125.0">Firefox 125.0</option>';
       } else if (bType === 'edge') {
         bVer.innerHTML = '<option value="default" selected>Edge Default (Hệ thống)</option><option value="124.0">Edge 124.0</option>';

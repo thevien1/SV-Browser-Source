@@ -107,11 +107,12 @@ class BrowserLauncher extends EventEmitter {
   /**
    * Truy vấn ProcessId thực tế của Firefox đang chạy với profileDir
    */
-  getFirefoxPidForProfile(profileDir) {
+  getFirefoxPidForProfile(profileDir, executable = 'firefox.exe') {
     try {
       const { execSync } = require('child_process');
       const cleanPath = profileDir.replace(/'/g, "''");
-      const psCode = `Get-CimInstance Win32_Process -Filter "Name = 'firefox.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${cleanPath}') -and $_.CommandLine -notlike '*-contentproc*' } | Select-Object -ExpandProperty ProcessId`;
+      if (!['firefox.exe', 'mullvadbrowser.exe'].includes(executable)) return null;
+      const psCode = `Get-CimInstance Win32_Process -Filter "Name = '${executable}'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains('${cleanPath}') -and $_.CommandLine -notlike '*-contentproc*' } | Select-Object -ExpandProperty ProcessId`;
       const b64 = Buffer.from(psCode, 'utf16le').toString('base64');
       const out = execSync(`powershell -NoProfile -EncodedCommand ${b64}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
       const pid = parseInt(out.split(/\\r?\\n/)[0], 10);
@@ -287,6 +288,13 @@ class BrowserLauncher extends EventEmitter {
         path.join(localAppData, 'Programs', 'Opera', 'opera.exe'),
         path.join(programFiles, 'Opera', 'launcher.exe')
       ],
+      mullvad: [
+        ...candidateDriversDirs.flatMap(d => [path.join(d, 'MullvadBrowser', 'Browser', 'mullvadbrowser.exe'), path.join(d, 'MullvadBrowser', 'mullvadbrowser.exe')]),
+        path.join(localAppData, 'Mullvad', 'MullvadBrowser', 'Release', 'mullvadbrowser.exe'),
+        path.join(programFiles, 'Mullvad Browser', 'Browser', 'mullvadbrowser.exe'),
+        path.join(programFiles, 'Mullvad Browser', 'mullvadbrowser.exe'),
+        path.join(os.homedir(), 'Desktop', 'Mullvad Browser', 'Browser', 'mullvadbrowser.exe')
+      ],
       firefox: [
         ...portableFirefoxPaths,
         path.join(programFiles, 'Mozilla Firefox', 'firefox.exe'),
@@ -341,6 +349,9 @@ class BrowserLauncher extends EventEmitter {
       return { path: browsers[type], type, version: 'system' };
     }
 
+    if (type === 'mullvad') {
+      throw new Error('Chưa tìm thấy Mullvad Browser. Cài bản Windows (.exe) hoặc kéo Mullvad Browser.app từ DMG vào Applications trên macOS, rồi mở lại phần chọn trình duyệt.');
+    }
     // Nếu người dùng chọn đích danh Firefox hoặc Brave mà máy chưa cài
     if (type === 'firefox') {
       throw new Error('Máy tính chưa có trình duyệt Mozilla Firefox! Bạn vui lòng cài đặt Firefox (hoặc copy thư mục Firefox vào thư mục drivers/) để mở profile này.');
@@ -417,10 +428,10 @@ class BrowserLauncher extends EventEmitter {
         is_incognito: cur.isIncognito || false,
         is_headless: cur.isHeadless || false,
         remote_debugging_port: cur.debugPort,
-        remote_debugging_address: `127.0.0.1:${cur.debugPort}`,
-        websocket_debugging_url: cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
+        remote_debugging_address: cur.browserType === 'mullvad' ? '' : `127.0.0.1:${cur.debugPort}`,
+        websocket_debugging_url: cur.browserType === 'mullvad' ? '' : cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
         browser_location: cur.exePath || '',
-        driver_path: cur.driver_path || this.getChromedriverPath(),
+        driver_path: cur.browserType === 'mullvad' ? '' : cur.driver_path || this.getChromedriverPath(),
         addition_info: {
           process_id: cur.pid,
           profile_name: profile.name || '',
@@ -507,10 +518,10 @@ class BrowserLauncher extends EventEmitter {
       || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port || profileIndex.remote_debugging_port))
       || (profile && (profile.remote_debugging_port || profile.port || profile.debugPort))
       || null;
-    const debugPort = customPort ? parseInt(customPort, 10) : this.nextDebugPort++;
+    const debugPort = type === 'mullvad' ? 0 : customPort ? parseInt(customPort, 10) : this.nextDebugPort++;
     let args = [];
 
-    if (type === 'firefox') {
+    if (type === 'firefox' || type === 'mullvad') {
       args = [
         '-profile', profileDir,
         '-no-remote'
@@ -549,6 +560,8 @@ class BrowserLauncher extends EventEmitter {
           'user_pref("extensions.experiments.enabled", true);'
         ];
 
+        if (type === 'mullvad') ffPrefs.splice(0, ffPrefs.length, '// Mullvad: giữ mặc định riêng tư và kiểm tra chữ ký tiện ích.');
+
         if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
           const proxyStr = profile.proxy.trim();
           let host = '', port = 80;
@@ -580,7 +593,7 @@ class BrowserLauncher extends EventEmitter {
         fs.writeFileSync(userJsPath, ffPrefs.join('\n') + '\n', 'utf8');
 
         // Nạp extensions cho Firefox vào thư mục <profileDir>/extensions
-        if (this.extensionStore) {
+        if (type !== 'mullvad' && this.extensionStore) {
           try {
             const enabledExtPaths = this.extensionStore.getEnabledExtensionPaths();
             if (enabledExtPaths && enabledExtPaths.length > 0) {
@@ -914,15 +927,15 @@ try {
       child.unref();
 
       // Lấy WebSocket URL chuẩn cho Puppeteer / Playwright (chỉ với Chromium)
-      let wsUrl = `ws://127.0.0.1:${debugPort}/devtools/browser`;
-      if (type !== 'firefox') {
+      let wsUrl = type === 'mullvad' ? '' : `ws://127.0.0.1:${debugPort}/devtools/browser`;
+      if (type !== 'firefox' && type !== 'mullvad') {
         try {
           wsUrl = await this.getWebSocketDebuggerUrl(debugPort);
         } catch (e) {}
       }
 
       // Kiểm tra nếu tiến trình đã tự đóng / crash ngay sau khi gọi (đối với Chromium)
-      if (type !== 'firefox' && (child.exitCode !== null || child.signalCode !== null)) {
+      if (type !== 'firefox' && type !== 'mullvad' && (child.exitCode !== null || child.signalCode !== null)) {
         this.runningProfiles.delete(profileId);
         return {
           success: false,
@@ -930,7 +943,7 @@ try {
         };
       }
 
-      const driverPath = this.getChromedriverPath();
+      const driverPath = type === 'mullvad' ? '' : this.getChromedriverPath();
       const execTime = Date.now() - startTime;
 
       const profileInfo = {
@@ -946,7 +959,7 @@ try {
         browserType: type,
         version: version || '151.0.7922.76',
         debugPort,
-        remote_debugging_address: `127.0.0.1:${debugPort}`,
+        remote_debugging_address: type === 'mullvad' ? '' : `127.0.0.1:${debugPort}`,
         websocket_debugging_url: wsUrl,
         browser_location: exePath,
         driver_path: driverPath,
@@ -955,11 +968,11 @@ try {
 
       this.runningProfiles.set(profileId, profileInfo);
 
-      if (type === 'firefox') {
+      if ((type === 'firefox' || type === 'mullvad') && process.platform === 'win32') {
         // Với Firefox trên Windows: bootstrap process thoát ngay sau khi GUI process mở
         // Tìm PID thực tế của Firefox GUI
         setTimeout(() => {
-          const realPid = this.getFirefoxPidForProfile(profileDir);
+          const realPid = this.getFirefoxPidForProfile(profileDir, type === 'mullvad' ? 'mullvadbrowser.exe' : 'firefox.exe');
           if (realPid && profileInfo) {
             profileInfo.realPid = realPid;
             profileInfo.pid = realPid;
@@ -1013,7 +1026,7 @@ try {
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         remote_debugging_port: debugPort,
-        remote_debugging_address: `127.0.0.1:${debugPort}`,
+        remote_debugging_address: type === 'mullvad' ? '' : `127.0.0.1:${debugPort}`,
         websocket_debugging_url: wsUrl,
         browser_location: exePath,
         driver_path: driverPath,
@@ -1050,8 +1063,8 @@ try {
         if (pid) {
           exec(`taskkill /PID ${pid} /T /F`, () => {});
         }
-        if (running.browserType === 'firefox' && running.profileDir) {
-          const ffPid = this.getFirefoxPidForProfile(running.profileDir);
+        if (['firefox', 'mullvad'].includes(running.browserType) && process.platform === 'win32' && running.profileDir) {
+          const ffPid = this.getFirefoxPidForProfile(running.profileDir, running.browserType === 'mullvad' ? 'mullvadbrowser.exe' : 'firefox.exe');
           if (ffPid && ffPid !== pid) {
             exec(`taskkill /PID ${ffPid} /T /F`, () => {});
           }
@@ -1075,7 +1088,7 @@ try {
   isProfileRunning(profileId) {
     const running = this.runningProfiles.get(profileId);
     if (!running) return false;
-    if (running.browserType === 'firefox' && running.profileDir) {
+    if (['firefox', 'mullvad'].includes(running.browserType) && process.platform === 'win32' && running.profileDir) {
       return this.isFirefoxProfileLocked(running.profileDir);
     }
     return true;

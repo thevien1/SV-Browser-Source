@@ -22,11 +22,11 @@ function findChrome(folder) {
 }
 
 function detectBrowsers() {
-  const names = { chrome: 'Google Chrome', chromium: 'Chromium', brave: 'Brave Browser', edge: 'Microsoft Edge', firefox: 'Firefox', opera: 'Opera' };
+  const names = { chrome: 'Google Chrome', chromium: 'Chromium', brave: 'Brave Browser', edge: 'Microsoft Edge', firefox: 'Firefox', mullvad: 'Mullvad Browser', opera: 'Opera' };
   const found = {};
   for (const [type, name] of Object.entries(names)) {
     for (const root of ['/Applications', path.join(os.homedir(), 'Applications')]) {
-      const executable = path.join(root, `${name}.app`, 'Contents', 'MacOS', type === 'firefox' ? 'firefox' : name);
+      const executable = path.join(root, `${name}.app`, 'Contents', 'MacOS', type === 'firefox' ? 'firefox' : type === 'mullvad' ? 'mullvadbrowser' : name);
       if (fs.existsSync(executable)) { found[type] = executable; break; }
     }
   }

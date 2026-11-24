@@ -45,7 +45,7 @@ class GpmApiServer {
     }
     if (typeof val === 'string') {
       const s = val.toLowerCase().trim();
-      if (['chrome', 'firefox', 'edge', 'opera', 'brave'].includes(s)) return s;
+      if (['chrome', 'firefox', 'edge', 'opera', 'brave', 'mullvad'].includes(s)) return s;
       const num = parseInt(s, 10);
       if (!isNaN(num)) return this.normalizeBrowserType(num);
     }

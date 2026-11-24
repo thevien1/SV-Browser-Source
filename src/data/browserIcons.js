@@ -12,7 +12,10 @@ export function getBrowserIconHtml(browserType, size = 20) {
   let uri = browserIconsDataUri.chrome;
   let title = 'Google Chrome / Chromium';
 
-  if (type.includes('firefox')) {
+  if (type.includes('mullvad')) {
+    uri = './assets/browsers/mullvad.png';
+    title = 'Mullvad Browser';
+  } else if (type.includes('firefox')) {
     uri = browserIconsDataUri.firefox;
     title = 'Mozilla Firefox';
   } else if (type.includes('edge')) {
