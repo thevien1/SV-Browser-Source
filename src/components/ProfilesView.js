@@ -1813,7 +1813,7 @@ export class ProfilesViewComponent {
       const targetProfiles = this.getSelectedProfilesInOrder();
       if (targetProfiles.length === 0) return;
 
-      if (this._isCheckingProxies) {
+      if (this._isCheckingProxies || this._bulkCleanupRunning) {
         if (window.showGlobalToast) window.showGlobalToast('Đang có tiến trình kiểm tra proxy, vui lòng đợi...');
         return;
       }
@@ -1823,6 +1823,7 @@ export class ProfilesViewComponent {
         // Kiểm tra lần lượt từng profile giống hệt hình ảnh mẫu
         for (const p of targetProfiles) {
           // 1. Chỉ hiển thị "Đang kiểm tra" cho RIÊNG dòng đang được test
+          this.cleanupStatuses?.delete(p.id);
           this.updateProfileRowStatus(p.id, 'checking');
 
           try {
@@ -1851,7 +1852,8 @@ export class ProfilesViewComponent {
     this.container.querySelector('#btn-tool-free-disk')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       this.closeAllBulkDropdowns();
-      const targetIds = Array.from(this.selectedIds);
+      const targets = this.getSelectedProfilesInOrder();
+      const targetIds = targets.map(p => p.id);
       if (targetIds.length === 0) {
         alert('Vui lòng chọn ít nhất một profile để giải phóng dung lượng.');
         return;
@@ -1872,66 +1874,19 @@ export class ProfilesViewComponent {
 
       if (!confirm(confirmMsg)) return;
 
-      const btn = e.currentTarget;
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = `<span class="tools-item-icon">⏳</span> Đang dọn dẹp...`;
-      btn.disabled = true;
-
-      try {
-        if (window.showGlobalToast) {
-          window.showGlobalToast(`🧹 Đang giải phóng dung lượng cho ${targetIds.length} profile...`);
-        }
-        if (window.api && window.api.freeBulkDiskSpace) {
-          const res = await window.api.freeBulkDiskSpace(targetIds);
-          if (res && res.success) {
-            let freedMsg = `🎉 Đã giải phóng thành công ${res.totalFreedMB} MB trên ${res.count} profile!\n\n✅ Toàn bộ Cookie, Phiên đăng nhập & Tiện ích mở rộng đã được bảo toàn nguyên vẹn.`;
-            if (res.skippedRunning > 0) {
-              freedMsg += `\n(Đã bỏ qua ${res.skippedRunning} profile đang mở để đảm bảo an toàn)`;
-            }
-            if (window.showGlobalToast) {
-              window.showGlobalToast(`🎉 Đã giải phóng ${res.totalFreedMB} MB (Bảo toàn Cookie & Tiện ích)`);
-            }
-            alert(freedMsg);
-          } else {
-            alert('Không thể giải phóng dung lượng: ' + ((res && res.message) || 'Lỗi không xác định'));
-          }
-        }
-      } catch (err) {
-        alert('Lỗi giải phóng dung lượng: ' + err.message);
-      } finally {
-        btn.innerHTML = originalHtml;
-        btn.disabled = false;
-      }
+      await this.runBulkCleanup(targets, 'disk');
     });
 
-    // Tool: Xóa cache (Bảo toàn Cookie & Đăng nhập)
+    // Same ordered queue and row feedback for cache cleanup.
     this.container.querySelector('#btn-tool-clear-cache')?.addEventListener('click', async (e) => {
       e.stopPropagation();
       this.closeAllBulkDropdowns();
-      const targetIds = Array.from(this.selectedIds);
-      if (targetIds.length === 0) {
+      const targets = this.getSelectedProfilesInOrder();
+      if (!targets.length) {
         alert('Vui lòng chọn ít nhất một profile để xóa cache.');
         return;
       }
-
-      if (window.showGlobalToast) {
-        window.showGlobalToast(`🧹 Đang xóa cache cho ${targetIds.length} profile...`);
-      }
-
-      let totalFreed = 0;
-      for (const id of targetIds) {
-        if (window.api && (window.api.freeDiskSpace || window.api.clearCache)) {
-          const fn = window.api.freeDiskSpace || window.api.clearCache;
-          const res = await fn(id);
-          if (res && res.freedBytes) totalFreed += res.freedBytes;
-        }
-      }
-      const freedMB = (totalFreed / (1024 * 1024)).toFixed(2);
-      const msg = totalFreed > 0
-        ? `Đã xóa cache thành công cho ${targetIds.length} profile! (Đã giải phóng ${freedMB} MB, bảo toàn Cookie & Đăng nhập)`
-        : `Đã xóa cache thành công cho ${targetIds.length} profile! (Bảo toàn Cookie & Đăng nhập)`;
-      if (window.showGlobalToast) window.showGlobalToast(msg);
-      alert(msg);
+      await this.runBulkCleanup(targets, 'cache');
     });
 
     // Bulk actions
@@ -3285,7 +3240,74 @@ export class ProfilesViewComponent {
     menu.style.display = isVisible ? 'none' : 'block';
   }
 
+  async runBulkCleanup(targets, kind) {
+    if (this._bulkCleanupRunning || this._isCheckingProxies) {
+      window.showGlobalToast?.('Đang có tiến trình xử lý profile, vui lòng đợi...');
+      return;
+    }
+    this._bulkCleanupRunning = true;
+    const label = kind === 'cache' ? 'Xóa cache' : 'Giải phóng dung lượng';
+    const summary = { success: 0, failed: 0, skipped: 0, freedBytes: 0 };
+    const buttons = ['btn-tool-free-disk', 'btn-tool-clear-cache', 'btn-tool-check-proxy']
+      .map(id => this.container?.querySelector('#' + id)).filter(Boolean);
+    const disabled = buttons.map(btn => btn.disabled);
+    buttons.forEach(btn => { btn.disabled = true; });
+    this.cleanupStatuses ||= new Map();
+    // Clear previous results for this batch without changing actual profile/proxy state.
+    for (const target of targets) { this.cleanupStatuses.delete(target.id); this.updateProfileRowStatus(target.id); }
+    try {
+      for (const [index, target] of targets.entries()) {
+        const current = this.profiles.find(p => p.id === target.id);
+        const progress = `${index + 1}/${targets.length}`;
+        const setStatus = (text, state, detail = text) => {
+          this.cleanupStatuses.set(target.id, { text, state, detail });
+          this.updateProfileRowStatus(target.id);
+        };
+        if (current?.status === 'running') {
+          summary.skipped++;
+          setStatus('Bỏ qua: đang mở', 'skipped');
+          continue;
+        }
+        setStatus(kind === 'cache' ? 'Đang xóa cache' : 'Đang giải phóng', 'working');
+        window.showGlobalToast?.(`${label}: ${progress} — ${target.name || target.id}`);
+        try {
+          // Let the row paint before the next synchronous filesystem IPC operation.
+          await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          const fn = kind === 'cache' ? window.api?.clearCache : window.api?.freeDiskSpace;
+          if (!fn) throw new Error('Không có chức năng dọn dẹp trong phiên bản này');
+          const result = await fn(target.id);
+          if (!result?.success) throw new Error(result?.message || 'Không thể dọn dẹp profile');
+          summary.success++;
+          const bytes = Math.max(0, Number(result.freedBytes) || 0);
+          summary.freedBytes += bytes;
+          setStatus(`Đã dọn ${(bytes / 1048576).toFixed(2)} MB`, 'success');
+        } catch (error) {
+          // Backend rechecks running state too, including profiles opened during the queue.
+          if (this.profiles.find(p => p.id === target.id)?.status === 'running') {
+            summary.skipped++;
+            setStatus('Bỏ qua: đang mở', 'skipped');
+          } else {
+            summary.failed++;
+            setStatus('Dọn dẹp thất bại', 'failed', error.message);
+          }
+        }
+      }
+      const message = `${label} hoàn tất: ${summary.success} thành công, ${summary.skipped} bỏ qua đang mở, ${summary.failed} thất bại. Đã giải phóng ${(summary.freedBytes / 1048576).toFixed(2)} MB.`;
+      window.showGlobalToast?.(message);
+      alert(message);
+      return summary;
+    } finally {
+      this._bulkCleanupRunning = false;
+      buttons.forEach((btn, index) => { btn.disabled = disabled[index]; });
+    }
+  }
+
   getStatusHtml(p, isRunning) {
+    const cleanup = this.cleanupStatuses?.get(p.id);
+    if (cleanup) {
+      const dot = { working: 'checking', success: 'ready', failed: 'dead', skipped: 'running' }[cleanup.state];
+      return `<div class="status-pill" title="${this.escape(cleanup.detail)}"><div class="status-dot ${dot}"></div><span>${this.escape(cleanup.text)}</span></div>`;
+    }
     if (isRunning) {
       const portText = p.debugPort ? ` <span style="font-family: monospace; font-size: 11px; color: #0284c7; font-weight: 600; cursor: pointer;" title="Remote Debugging Port - click để copy" onclick="navigator.clipboard.writeText('${p.debugPort}')">[Port: ${p.debugPort}]</span>` : '';
       return `
@@ -3334,7 +3356,10 @@ export class ProfilesViewComponent {
   updateProfileRowStatus(profileId, status, country, ip) {
     const p = this.profiles.find(x => x.id === profileId);
     if (!p) return;
-    if (status !== undefined) p.status = status;
+    if (status !== undefined) {
+      this.cleanupStatuses?.delete(profileId);
+      p.status = status;
+    }
     if (country) p.proxyCountry = country;
     if (ip) p.ip = ip;
 
@@ -3374,6 +3399,7 @@ export class ProfilesViewComponent {
   }
 
   updateProfileStatus(profileId, isRunning) {
+    this.cleanupStatuses?.delete(profileId);
     const p = this.profiles.find(item => item.id === profileId);
     if (p) {
       p.status = isRunning ? 'running' : 'ready';
