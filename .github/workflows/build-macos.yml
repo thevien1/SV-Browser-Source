@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcrun swiftc scripts/mac-window-state.swift -o assets/mac-window-state
+          xcrun swiftc -target "$(uname -m)-apple-macos11.0" scripts/mac-window-state.swift -o assets/mac-window-state
           node scripts/smoke-mac-mullvad-lifecycle.cjs 2>&1 | tee -a build.log
           MULLVAD_TEMP=$(mktemp -d)
           mkdir "$MULLVAD_TEMP/mount"
