@@ -16,6 +16,7 @@ class Delegate: NSObject, NSApplicationDelegate {
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
+let app = NSApplication.shared
 let delegate = Delegate()
 NSApp.setActivationPolicy(.regular)
 NSApp.delegate = delegate
