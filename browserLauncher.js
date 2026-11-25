@@ -968,7 +968,17 @@ try {
 
       this.runningProfiles.set(profileId, profileInfo);
 
-      if ((type === 'firefox' || type === 'mullvad') && process.platform === 'win32') {
+      if (type === 'mullvad' && process.platform === 'darwin') {
+        profileInfo.macLifecycle = require('./macMullvadLifecycle').watchMacMullvad(profileInfo, () => {
+          if (this.runningProfiles.get(profileId) !== profileInfo) return;
+          this.runningProfiles.delete(profileId);
+          if (profileInfo.isEphemeral && fs.existsSync(profileDir)) {
+            try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch {}
+          }
+          this.emit('profile-closed', { profileId });
+        });
+        child.on('exit', () => { void profileInfo.macLifecycle.poll(); });
+      } else if ((type === 'firefox' || type === 'mullvad') && process.platform === 'win32') {
         // Với Firefox trên Windows: bootstrap process thoát ngay sau khi GUI process mở
         // Tìm PID thực tế của Firefox GUI
         setTimeout(() => {
@@ -1008,6 +1018,7 @@ try {
       }
 
       child.on('error', (err) => {
+        profileInfo.macLifecycle?.dispose();
         console.error(`Lỗi chạy profile ${profileId}:`, err);
         this.runningProfiles.delete(profileId);
         if (profile.isEphemeral && profileDir && fs.existsSync(profileDir)) {
@@ -1051,6 +1062,11 @@ try {
     const running = this.runningProfiles.get(profileId);
     if (!running) {
       return { success: true, message: 'Profile không đang chạy' };
+    }
+
+    if (running.macLifecycle) {
+      try { running.macLifecycle.close(); return { success: true, closing: true }; }
+      catch (error) { return { success: false, message: error.message }; }
     }
 
     if (running.ffMonitorTimer) {

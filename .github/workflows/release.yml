@@ -33,7 +33,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then exit 1; fi
-      - run: node --test scripts/test-update.cjs scripts/test-macos.cjs scripts/test-core-catalog.cjs scripts/test-mac-updates.cjs scripts/test-license.cjs scripts/test-activity.cjs scripts/test-notes-api.cjs scripts/test-bulk-cleanup.cjs scripts/test-mullvad.cjs
+      - run: node --test scripts/test-update.cjs scripts/test-macos.cjs scripts/test-core-catalog.cjs scripts/test-mac-updates.cjs scripts/test-license.cjs scripts/test-activity.cjs scripts/test-notes-api.cjs scripts/test-bulk-cleanup.cjs scripts/test-mullvad.cjs scripts/test-mac-mullvad-lifecycle.cjs
       - if: matrix.platform == 'mac'
         run: node scripts/make-mac-icons.cjs
       - if: matrix.platform == 'mac'

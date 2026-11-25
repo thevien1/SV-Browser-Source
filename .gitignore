@@ -37,3 +37,5 @@ Desktop.ini
 .DS_Store
 dist-mac/
 assets/*.icns
+
+assets/mac-window-state

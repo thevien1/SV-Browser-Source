@@ -123,6 +123,8 @@ async function run() {
   fs.writeFileSync(pkgPath, JSON.stringify(rootPkg, null, 2), 'utf8');
   console.log(`[Phiên bản mới]: Tự động tăng phiên bản: v${oldVer} -> v${appVersion}\n`);
 
+  if (macBuild) require('child_process').execFileSync('/usr/bin/xcrun', ['swiftc', path.join(rootDir, 'scripts', 'mac-window-state.swift'), '-o', path.join(rootDir, 'assets', 'mac-window-state')]);
+
   // 1. Dọn dẹp thư mục staging & các file build cũ trong dist
   console.log('[Bước 1/4] Chuẩn bị thư mục staging & xóa sạch bản build cũ trong dist...');
   cleanDir(stagingDir);
@@ -160,6 +162,7 @@ async function run() {
     'main.js',
     'activityStore.js',
     'macBrowser.js',
+    'macMullvadLifecycle.js',
     'macUpdates.js',
     'macIcons.js',
     'coreCatalog.js',

@@ -32,6 +32,10 @@ const BrowserLauncher=require('../browserLauncher');
   console.log('PASS: native Mullvad launches isolated profile; no Chrome CDP or security preference overrides');
  }finally{
   await launcher.closeProfile(id);
+  if(process.platform==='darwin') {
+   for(let i=0;i<48&&launcher.getRunningInfo(id);i++)await new Promise(r=>setTimeout(r,250));
+   assert.equal(launcher.getRunningInfo(id),null,'Closing Mullvad must terminate the owned Mac process group');
+  }
   for(let i=0;i<20;i++) {try{fs.rmSync(root,{recursive:true,force:true});break;}catch{await new Promise(r=>setTimeout(r,500));}}
  }
 })().catch(e=>{console.error(e);process.exitCode=1});
