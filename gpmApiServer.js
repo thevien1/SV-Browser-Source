@@ -97,6 +97,11 @@ class GpmApiServer {
       };
 
       try {
+        if (pathname === '/purpose') {
+          if (req.method !== 'GET') return sendJson(405, {success:false,message:'Trang Purpose sử dụng GET'});
+          res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
+          return res.end(getApiDocsHtml(req.headers.host || '127.0.0.1:8725', {purposeMode:true}));
+        }
         // 1. Root / Ping / Docs Endpoint
         if (pathname === '/' || pathname === '/api' || pathname === '/api/v1' || pathname === '/api/v2' || pathname === '/api/v3' || pathname === '/docs' || pathname === '/api-docs') {
           const acceptHeader = (req.headers.accept || '').toLowerCase();

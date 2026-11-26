@@ -109,22 +109,15 @@ const ENDPOINTS_DATA = [
     method: 'POST',
     path: '/api/v1/profiles/create',
     title: 'Tạo Profile mới (Fingerprint, Proxy, Canvas, WebGL)',
-    description: 'Tạo một profile trình duyệt hoàn toàn mới với các thông số vân tay chống phát hiện (Fingerprint) hoặc chỉ định proxy và cấu hình mong muốn. Có thể dùng POST /api/v1/profiles.',
+    description: 'Tạo hồ sơ với tên, nhóm, browser_type/browser_version, os, raw_proxy, note, tags và fingerprint. Có thể dùng POST /api/v1/profiles. Để cấu hình chi tiết Hardware/Software, dùng endpoint update sau khi tạo.',
     params: [],
     requestBody: {
       name: "Profile Nuôi Facebook 01",
       group_name: "Default group",
       raw_proxy: "136.162.249.147:3128:username:password",
-      proxy_type: "http",
       browser_type: "chrome",
       browser_version: "132",
-      os: "win",
-      canvas: "noise",
-      audio: "noise",
-      webgl: "noise",
-      webgl_vendor: "Google Inc. (NVIDIA)",
-      webgl_renderer: "ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)",
-      start_url: "https://www.google.com",
+      os: "windows",
       note: "Nick chính",
       tags: ["facebook", "ads"]
     },
@@ -157,7 +150,11 @@ const ENDPOINTS_DATA = [
       raw_proxy: "136.162.249.147:3128:new_user:new_pass",
       note: "Đã cập nhật proxy xoay mới",
       tags: ["verified", "vip"],
-      browser_type: "chrome"
+      browser_type: "chrome",
+      proxyType: "HTTP",
+      startUrl: "",
+      hardware: {cpu:"8",ram:"8GB",canvas:"Noise",webglImg:"Off",webglMeta:"Off"},
+      software: {os:"Windows",userAgent:"Auto",language:"vi-VN,vi",timezone:"Asia/Bangkok",screen:"-1x-1",webrtc:"BaseOnIp",geo:"Prompt"}
     },
     responseBody: {
       success: true,
@@ -185,21 +182,23 @@ const ENDPOINTS_DATA = [
     params: [
       { name: 'id', type: 'string', in: 'path', required: true, default: '8eda4c94-689b-45f3-9bfa-4b5c3b86c537', desc: 'UUID của profile cần khởi chạy' },
       { name: 'proxy', type: 'string', in: 'query/body', required: false, default: '', desc: 'Proxy động ghi đè lúc chạy (dạng host:port hoặc host:port:user:pass)' },
-      { name: 'win_size', type: 'string', in: 'query/body', required: false, default: '1280,720', desc: 'Kích thước cửa sổ (Ví dụ: 1280,720 hoặc 960,1080)' },
-      { name: 'win_pos', type: 'string', in: 'query/body', required: false, default: '0,0', desc: 'Tọa độ cửa sổ (Ví dụ: 0,0 hoặc 960,0)' },
-      { name: 'win_scale', type: 'number', in: 'query/body', required: false, default: '0.8', desc: 'Tỉ lệ zoom cửa sổ (Ví dụ: 0.8 hoặc 1.0)' },
+      {name:'proxy_type',type:'string',in:'query/body',required:false,default:'',desc:'Loại proxy động: HTTP, HTTPS, Socks4, Socks5; truyền cùng proxy nếu muốn đổi loại kết nối'},
+      {name:'remote_debugging_port',type:'number',in:'query/body',required:false,default:'',desc:'Cổng điều khiển tùy chọn; để trống để tự cấp cổng còn trống'},
+      { name: 'window_size', type: 'string', in: 'query/body', required: false, default: '1280,720', desc: 'Kích thước cửa sổ (Ví dụ: 1280,720 hoặc 960,1080)' },
+      { name: 'window_pos', type: 'string', in: 'query/body', required: false, default: '0,0', desc: 'Tọa độ cửa sổ (Ví dụ: 0,0 hoặc 960,0)' },
+      { name: 'window_scale', type: 'number', in: 'query/body', required: false, default: '0.8', desc: 'Tỉ lệ zoom cửa sổ (Ví dụ: 0.8 hoặc 1.0)' },
       { name: 'skip_proxy_check', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Bỏ qua bước test proxy trước khi mở (true / false)' },
-      { name: 'headless', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Khởi chạy ở chế độ ẩn ngầm (true: chạy headless không hiện cửa sổ, siêu tiết kiệm RAM/CPU / false: mở giao diện)' },
-      { name: 'add_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome (Ví dụ: --disable-notifications)' }
+      { name: 'headless', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Khởi chạy ở chế độ ẩn ngầm (true: chạy headless không hiện cửa sổ, chạy nền / false: mở giao diện)' },
+      { name: 'addition_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome (Ví dụ: --disable-notifications)' }
     ],
     requestBody: {
       proxy: "136.162.249.147:3128:user:pass",
       headless: false,
-      win_size: "1280,720",
-      win_pos: "100,50",
-      win_scale: 0.8,
+      window_size: "1280,720",
+      window_pos: "100,50",
+      window_scale: 0.8,
       skip_proxy_check: false,
-      add_args: "--disable-notifications"
+      addition_args: "--disable-notifications"
     },
     responseBody: {
       success: true,
@@ -246,18 +245,18 @@ const ENDPOINTS_DATA = [
     categoryName: 'Quản lý Profile',
     method: 'GET',
     path: '/api/v1/profiles/start-headless/{id}',
-    title: 'Khởi chạy Profile ở chế độ ẩn (Headless - Chạy ngầm không hiện cửa sổ, siêu tiết kiệm RAM/CPU)',
-    description: 'Mở Chrome / Chromium / Firefox ở chế độ chạy ngầm hoàn toàn (--headless=new, tắt GPU, tiết kiệm RAM/CPU tối đa), không hiện cửa sổ Chrome lên màn hình nhưng vẫn mở đầy đủ cổng remote debugging port và WebSocket URL để các công cụ tự động hóa (Puppeteer, Playwright, Selenium, GPM Automate) kết nối điều khiển.',
+    title: 'Khởi chạy Profile ở chế độ ẩn (Headless - Chạy ngầm không hiện cửa sổ, chạy nền)',
+    description: 'Mở profile ở chế độ chạy nền, không hiện cửa sổ. Trả thông tin điều khiển theo khả năng của engine; Chromium có remote debugging và WebSocket để kết nối automation. Mullvad không hỗ trợ luồng headless/CDP này.',
     params: [
       { name: 'id', type: 'string', in: 'path', required: true, default: '8eda4c94-689b-45f3-9bfa-4b5c3b86c537', desc: 'UUID của profile cần khởi chạy ngầm' },
       { name: 'proxy', type: 'string', in: 'query/body', required: false, default: '', desc: 'Proxy động ghi đè lúc chạy (host:port hoặc host:port:user:pass)' },
       { name: 'skip_proxy_check', type: 'boolean', in: 'query/body', required: false, default: 'false', desc: 'Bỏ qua bước test proxy trước khi mở (true / false)' },
-      { name: 'add_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome' }
+      { name: 'addition_args', type: 'string', in: 'query/body', required: false, default: '', desc: 'Tham số dòng lệnh bổ sung truyền vào Chrome' }
     ],
     requestBody: {
       proxy: "",
       skip_proxy_check: false,
-      add_args: ""
+      addition_args: ""
     },
     responseBody: {
       success: true,
@@ -373,8 +372,8 @@ const ENDPOINTS_DATA = [
     categoryName: 'Quản lý Profile',
     method: 'GET',
     path: '/api/v1/profiles/free-disk/{id}',
-    title: 'Giải phóng dung lượng 1 Profile (Bảo toàn 100% Cookie & Tiện ích)',
-    description: 'Dọn dẹp triệt để bộ nhớ đệm rác (HTTP Cache, Code Cache, Shader Cache, Crash Dumps, Logs) giúp giảm 50% - 65% dung lượng ổ đĩa. Bảo toàn tuyệt đối 100% Cookie, Mật khẩu, Tài khoản đã đăng nhập và Tiện ích mở rộng. Hỗ trợ cả POST /api/v1/profiles/free-disk/{id} và /api/v1/profiles/clear-cache/{id}.',
+    title: 'Giải phóng cache và tệp tạm của một profile',
+    description: 'Dọn cache và tệp tạm của profile đã đóng. Không chủ động xóa cookie, mật khẩu hoặc tiện ích. Dung lượng giảm tùy dữ liệu thực tế. Hỗ trợ POST /api/v1/profiles/free-disk/{id} và alias /api/v1/profiles/clear-cache/{id}.',
     params: [
       { name: 'id', type: 'string', in: 'path', required: true, default: '8eda4c94-689b-45f3-9bfa-4b5c3b86c537', desc: 'UUID của profile cần dọn dẹp' }
     ],
@@ -401,7 +400,7 @@ const ENDPOINTS_DATA = [
     method: 'POST',
     path: '/api/v1/profiles/free-disk',
     title: 'Giải phóng dung lượng hàng loạt (Bulk Free Disk Space)',
-    description: 'Dọn dẹp giải phóng dung lượng đồng thời cho nhiều profile theo danh sách UUID. Tự động bỏ qua các profile đang mở để đảm bảo an toàn tuyệt đối.',
+    description: 'Giải phóng dung lượng cho danh sách profile, trả kết quả từng profile và bỏ qua profile đang chạy.',
     params: [],
     requestBody: {
       ids: [
@@ -430,7 +429,7 @@ const ENDPOINTS_DATA = [
     method: 'GET',
     path: '/api/v1/profiles/active',
     title: 'Lấy danh sách Profile đang chạy (Active / Opened)',
-    description: 'Truy vấn danh sách tất cả các profile hiện đang mở trên màn hình, kèm theo thông tin cổng DevTools Debugging Port của từng profile.',
+    description: 'Truy vấn các profile đang chạy, gồm phiên có cửa sổ và chạy nền; thông tin cổng điều khiển tùy engine.',
     params: [],
     requestBody: null,
     responseBody: {
@@ -663,6 +662,12 @@ const ENDPOINTS_DATA = [
     }
   },
   {
+    id: 'groups-get-one', category: 'groups', categoryName: 'Quản lý Nhóm', method: 'GET', path: '/api/v1/groups/{id}',
+    title: 'Lấy chi tiết một nhóm', description: 'Đọc thông tin và số profile thuộc một nhóm.',
+    params: [{name:'id',type:'string',in:'path',required:true,default:'group-id',desc:'ID nhóm từ danh sách nhóm'}], requestBody:null,
+    responseBody:{success:true,data:{id:'group-id',name:'Dự án A',order:0,total_profile:3},message:'OK'}
+  },
+  {
     id: 'groups-create',
     category: 'groups',
     categoryName: 'Quản lý Nhóm',
@@ -806,22 +811,16 @@ const ENDPOINTS_DATA = [
     id: 'extensions-toggle',
     category: 'extensions',
     categoryName: 'Tiện ích mở rộng',
-    method: 'POST',
-    path: '/api/v1/extensions/update-state',
+    method: 'GET',
+    path: '/api/v1/extensions/update-state/{id}',
     title: 'Bật / Tắt Tiện ích mở rộng toàn cục',
     description: 'Bật hoặc tắt extension toàn cục khi khởi chạy các profile.',
-    params: [],
-    requestBody: {
-      id: "Bookmarks_Quick_Search",
-      enabled: true
-    },
+    params: [{name:'id',type:'string',in:'path',required:true,default:'Bookmarks_Quick_Search',desc:'ID hoặc folder_name từ danh sách extension'},{name:'active',type:'boolean',in:'query',required:true,default:'true',desc:'true để bật; false để tắt'}],
+    requestBody: null,
     responseBody: {
       success: true,
-      data: {
-        id: "Bookmarks_Quick_Search",
-        enabled: true
-      },
-      message: "Cập nhật trạng thái extension thành công",
+      data: null,
+      message: "OK",
       sender: "SV Browser v5.0.8-stable"
     }
   },
@@ -880,7 +879,43 @@ const ENDPOINTS_DATA = [
   }
 ];
 
-function getApiDocsHtml(host = '127.0.0.1:8725') {
+const PURPOSES = {
+ 'notes-read':['Đọc ghi chú để bot biết trạng thái xử lý của profile trước khi chạy tác vụ.','Lấy ID từ danh sách profile; gọi GET notes/{id}; đọc data.note hoặc data.notes.','Chỉ đọc dữ liệu; không xóa hoặc cập nhật ghi chú. ID không tồn tại trả 404.'],
+ 'notes-update':['Lưu kết quả công việc hoặc xóa ghi chú cũ của một profile.','Gửi POST với JSON {"notes":"Đã xử lý"}; muốn xóa thì gửi {"notes":""}.','Có thể dùng note thay notes. Thiếu trường ghi chú hoặc truyền giá trị không phải chuỗi sẽ bị từ chối.'],
+ 'profiles-list':['Tìm profile và lấy ID thật để dùng cho các lệnh mở, sửa, đóng hoặc đọc ghi chú.','Dùng page/page_size để phân trang; search để tìm tên; group_id/tag_id để lọc; sort để sắp xếp.','Đọc data.data và thông tin phân trang. Lệnh này không khởi chạy trình duyệt.'],
+ 'profiles-get-one':['Xem cấu hình đã lưu và thông tin kết nối hiện tại của một profile.','Thay {id} bằng ID lấy từ danh sách; kiểm tra data.browser, raw_proxy, note và trạng thái.','Cổng điều khiển chỉ hữu ích khi profile đang chạy; đọc chi tiết không tự mở profile.'],
+ 'profiles-create':['Tạo hồ sơ trình duyệt mới với dữ liệu và cấu hình riêng cho một tài khoản hoặc tác vụ.','Gửi tên, nhóm, loại trình duyệt, proxy và các trường cấu hình được mô tả trong bảng/body mẫu; lưu ID trả về.','Tạo profile không đồng nghĩa với mở trình duyệt. Noise/Masked trên Chromium là lớp JavaScript ở trang/iframe; Firefox/Mullvad có giới hạn hỗ trợ riêng.'],
+ 'profiles-update':['Thay đổi cấu hình của profile đã có mà không cần tạo profile khác.','Gửi các trường cần sửa tới update/{id}; dùng chuỗi rỗng khi muốn xóa một giá trị hỗ trợ xóa.','Sau khi sửa cấu hình trình duyệt, đóng rồi mở lại profile đang chạy để áp dụng. Không dùng dữ liệu của profile khác để thay toàn bộ hồ sơ.'],
+ 'profiles-start':['Mở profile có cửa sổ và lấy địa chỉ điều khiển cho công cụ automation.','Lấy ID → gọi start/{id} → kiểm tra success → dùng data.websocket_debugging_url hoặc remote_debugging_address để kết nối.','URL khởi động trống mở Tab mới. Proxy động trong lần start chỉ ghi đè cho phiên chạy; muốn lưu lâu dài dùng update. Mullvad không cung cấp cổng Chromium CDP/WebDriver.'],
+ 'profiles-start-incognito':['Mở phiên duyệt riêng tư khi không muốn lưu lịch sử duyệt thông thường của phiên.','Có thể truyền ID profile đã có hoặc tạo phiên tạm theo tham số API; kiểm tra kết quả trước khi kết nối automation.','Ẩn danh không thay thế proxy, không che IP với website và không đảm bảo mọi hoạt động đều không để lại dấu vết. Khả năng điều khiển tùy engine.'],
+ 'profiles-start-headless':['Chạy tác vụ automation trong nền mà không hiện cửa sổ trình duyệt.','Dùng ID profile; gọi start-headless/{id}; kết nối bằng thông tin điều khiển được trả về; gọi close sau khi xong.','Tương thích tính năng tùy engine và website. Không mặc định tắt GPU, không cam kết mức giảm RAM/CPU. Mullvad không hỗ trợ luồng headless/CDP này.'],
+ 'profiles-close':['Kết thúc phiên của một profile và giải phóng tiến trình/cổng điều khiển thuộc phiên đó.','Gọi close/{id} hoặc stop/{id}; kiểm tra success; nếu cần chạy lại thì gọi start.','Kết nối automation tới phiên cũ sẽ bị ngắt. Không xóa hồ sơ đã lưu.'],
+ 'profiles-delete':['Loại bỏ profile không còn sử dụng hoặc chuyển vào thùng rác để xử lý sau.','Dùng DELETE delete/{id}?mode=soft để chuyển vào thùng rác; mode=hard là xóa vĩnh viễn.','Mặc định server dùng hard nếu bỏ mode. API có alias GET delete/{id}; không mở link xóa để thử kết nối.'],
+ 'profiles-update-note':['Cập nhật riêng ghi chú sau mỗi bước automation mà không gửi lại cấu hình profile.','Gửi POST update-note/{id} với note hoặc notes dạng chuỗi; có thể dùng endpoint notes/{id}.','Chuỗi rỗng xóa ghi chú; bỏ trường ghi chú không có nghĩa là xóa.'],
+ 'profiles-update-tags':['Gắn nhãn cho profile để tìm kiếm, phân loại hoặc đánh dấu tiến độ xử lý.','Gửi danh sách tags theo body mẫu; tải lại chi tiết/danh sách để kiểm tra kết quả.','Danh sách gửi lên thay thế danh sách thẻ của profile; hãy giữ các thẻ cũ nếu vẫn cần dùng.'],
+ 'profiles-free-disk-one':['Giảm dung lượng cache và các tệp tạm của một profile.','Đóng profile → gọi free-disk/{id} → đọc kết quả và số byte giải phóng; clear-cache/{id} là alias được hỗ trợ.','Profile đang chạy sẽ bị từ chối dọn. Không cam kết phần trăm dung lượng giảm; chức năng chỉ nhắm các thư mục cache/tạm, không chủ động xóa cookie hay mật khẩu.'],
+ 'profiles-free-disk-bulk':['Dọn cache cho nhiều profile trong một yêu cầu.','Gửi POST với JSON {"ids":["profile-id-1","profile-id-2"]}; đọc kết quả của từng profile.','Profile đang chạy được bỏ qua. success ở cấp yêu cầu không có nghĩa tất cả profile đều đã dọn thành công.'],
+ 'profiles-active':['Tìm các profile đang chạy để tránh mở trùng và lấy thông tin phiên automation.','Gọi active; duyệt danh sách kết quả và chọn profile theo ID.','Gồm cả phiên chạy nền nếu engine hỗ trợ; không chỉ là các cửa sổ nhìn thấy trên màn hình.'],
+ 'proxies-list':['Xem kho proxy và lấy ID để đọc chi tiết, sửa hoặc kiểm tra kết nối.','Gọi danh sách proxy; dùng ID của proxy cho các endpoint cùng nhóm.','Trạng thái kiểm tra đã lưu có thể cũ; dùng check khi cần kiểm tra hiện tại.'],
+ 'proxies-get-one':['Đọc địa chỉ, loại kết nối và thông tin đã lưu của một proxy.','Thay {id} bằng ID proxy, không phải ID profile.','Đọc chi tiết không tự kiểm tra lại mạng; không chia sẻ phản hồi có tài khoản/mật khẩu proxy.'],
+ 'proxies-create':['Thêm một proxy vào kho để quản lý và sử dụng trong cấu hình profile.','Gửi các trường hoặc chuỗi proxy đúng body mẫu; chọn loại kết nối phù hợp HTTP/HTTPS/SOCKS.','Thêm vào kho không tự đổi proxy của mọi profile. Thông tin đăng nhập phải được nhập đúng định dạng.'],
+ 'proxies-update':['Sửa thông tin proxy đã lưu khi đổi máy chủ, cổng hoặc tài khoản.','Dùng ID proxy và gửi các trường cần cập nhật theo body mẫu.','Kiểm tra lại kết nối sau khi sửa. Profile lưu chuỗi proxy riêng cần được cập nhật nếu muốn dùng địa chỉ mới.'],
+ 'proxies-delete':['Xóa bản ghi proxy không còn sử dụng khỏi kho quản lý.','Gửi DELETE tới delete/{id}; kiểm tra kết quả và tải lại danh sách.','Xóa bản ghi không thay thế việc sửa proxy đang lưu riêng trong các profile.'],
+ 'proxies-check':['Kiểm tra proxy có kết nối được và xem IP/địa lý của lần kiểm tra hiện tại.','Gọi check/{id}; đọc kết quả live, IP và thông báo lỗi nếu có.','Kết quả phụ thuộc mạng tại thời điểm gọi; không đảm bảo website đích sẽ chấp nhận IP đó.'],
+ 'groups-list':['Xem các nhóm và số profile để chia công việc theo nhóm.','Lấy ID/tên nhóm từ danh sách trước khi tạo hoặc chuyển profile.','Nhóm là cách tổ chức profile, không phải phiên trình duyệt.'],
+ 'groups-get-one':['Đọc chi tiết một nhóm cùng số profile thuộc nhóm.','Gọi groups/{id} bằng ID nhóm lấy từ danh sách.','Nhóm không tồn tại trả 404.'],
+ 'groups-create':['Tạo nhóm mới cho dự án, khách hàng hoặc loại tài khoản.','Gửi tên nhóm theo body mẫu; dùng thông tin nhóm trả về khi tạo/sửa profile.','Tạo nhóm không tự tạo profile.'],
+ 'groups-update':['Đổi tên nhóm để phản ánh lại cách tổ chức hồ sơ.','Dùng ID nhóm và gửi tên mới; có thể dùng alias PUT groups/{id}.','Kiểm tra lại danh sách nhóm/profile sau khi đổi tên.'],
+ 'groups-delete':['Bỏ nhóm không còn cần mà vẫn giữ các profile thuộc nhóm.','Gửi DELETE delete/{id}; các profile trong nhóm được chuyển về nhóm mặc định.','Đây là xóa nhóm, khác với xóa profile.'],
+ 'tags-list':['Xem các nhãn phân loại hiện có để sử dụng nhất quán.','Gọi tags và chọn thẻ cần dùng khi cập nhật tags của profile.','Không tự gắn thẻ cho profile khi chỉ đọc danh sách.'],
+ 'tags-create':['Tạo nhãn mới phục vụ phân loại hoặc theo dõi tiến độ.','Gửi tên thẻ theo body mẫu, sau đó dùng endpoint update-tags để gán cho profile.','Tạo thẻ không tự tạo hay mở profile.'],
+ 'extensions-list':['Xem các extension toàn cục mà ứng dụng đang quản lý.','Gọi extensions; lấy id hoặc folder_name và đọc is_active.','Danh sách toàn cục không khẳng định mọi extension đã được nạp trong từng phiên trình duyệt đang chạy.'],
+ 'extensions-toggle':['Bật/tắt extension toàn cục cho những lần khởi chạy tiếp theo.','Gọi GET extensions/update-state/{id}?active=true để bật, active=false để tắt; ID lấy từ extensions.','Đây là GET có thay đổi dữ liệu. Mở lại profile để kiểm tra hiệu lực; hỗ trợ extension phụ thuộc loại trình duyệt.'],
+ 'browsers-versions':['Tìm core/trình duyệt có thể dùng trước khi tạo hoặc mở profile.','Gọi browsers/versions, chọn loại và phiên bản có trên máy hiện tại.','Không phải endpoint tải/cài core. Không chọn bản Windows cho Mac hoặc ngược lại.'],
+ 'system-ping':['Kiểm tra dịch vụ API local có đang trả lời mà không mở profile.','Gọi GET /?format=json và kiểm tra success; dùng /docs để xem tài liệu HTML.','Ping thành công không đảm bảo license, proxy hay engine đều sẵn sàng cho việc mở profile.']
+};
+
+function getApiDocsHtml(host = '127.0.0.1:8725', {purposeMode=false} = {}) {
   const baseUrl = `http://${host}`;
   const totalEndpoints = ENDPOINTS_DATA.length;
 
@@ -889,7 +924,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SV Browser API - Tài liệu hướng dẫn lập trình & Tương tác</title>
+  <title>SV Browser API - ${purposeMode?'Purpose & Hướng dẫn chức năng':'Tài liệu hướng dẫn lập trình & Tương tác'}</title>
   <style>
     :root, [data-theme="dark"] {
       --bg-main: #0b0f19;
@@ -1542,6 +1577,14 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     [data-theme="light"] .btn-copy:hover { background: #e0f2fe; color: #0c4a6e; }
     [data-theme="light"] .btn-copy.copied { background: #dcfce7; color: #166534; border-color: #86efac; }
     .btn-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .purpose-panel { padding:18px; margin-bottom:20px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-card); line-height:1.7; }
+    .purpose-panel h2 { font-size:18px; margin-bottom:8px; }
+    .purpose-panel dl { display:grid; grid-template-columns:110px 1fr; gap:8px 16px; font-size:13px; }
+    .purpose-panel dt { font-weight:700; color:var(--text-main); }
+    .purpose-panel dd { margin:0; color:var(--text-muted); }
+    .purpose-panel a { color:var(--accent); }
+    .endpoint-card { scroll-margin-top:150px; }
+    @media(max-width:600px){.purpose-panel dl{grid-template-columns:1fr;gap:4px}.purpose-panel dd{margin-bottom:10px}}
 
     pre.code-block {
       padding: 12px 16px;
@@ -1634,7 +1677,8 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
           Tài liệu SV Browser ↗
         </a>
 
-        <button class="btn-action-small" onclick="toggleAllCards()" id="btn-toggle-all">Mở tất cả ⌵</button>
+        <a href="${purposeMode?'/docs':'/purpose'}" class="btn-action-small">${purposeMode?'← Tài liệu API':'Purpose · Hướng dẫn chức năng'}</a>
+        <button class="btn-action-small" onclick="toggleAllCards()" id="btn-toggle-all">${purposeMode?'Thu gọn tất cả ⌃':'Mở tất cả ⌵'}</button>
       </div>
     </div>
   </header>
@@ -1661,7 +1705,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     <button class="cat-btn" data-cat="profiles" onclick="filterByCategory('profiles', this)">📁 Quản lý Profile (14)</button>
     <button class="cat-btn" data-cat="notes" onclick="filterByCategory('notes', this)">📝 Ghi chú Notes (2)</button>
     <button class="cat-btn" data-cat="proxies" onclick="filterByCategory('proxies', this)">🌐 Quản lý Proxy (6)</button>
-    <button class="cat-btn" data-cat="groups" onclick="filterByCategory('groups', this)">📂 Quản lý Nhóm (4)</button>
+    <button class="cat-btn" data-cat="groups" onclick="filterByCategory('groups', this)">📂 Quản lý Nhóm (${ENDPOINTS_DATA.filter(ep=>ep.category==='groups').length})</button>
     <button class="cat-btn" data-cat="tags" onclick="filterByCategory('tags', this)">🏷️ Thẻ Tags (2)</button>
     <button class="cat-btn" data-cat="extensions" onclick="filterByCategory('extensions', this)">🧩 Tiện ích Extensions (2)</button>
     <button class="cat-btn" data-cat="browsers" onclick="filterByCategory('browsers', this)">🖥️ Trình duyệt & Ping (2)</button>
@@ -1669,13 +1713,14 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
 
   <!-- Main Content -->
   <main class="main-content">
+    ${purposeMode?`<section class="purpose-panel"><h2>Purpose — Mục đích và cách dùng từng chức năng</h2><p>Hướng dẫn cho ${totalEndpoints} chức năng: dùng khi nào, gửi dữ liệu gì, đọc kết quả nào và những điều cần lưu ý. Bên dưới mỗi chức năng có tham số, JSON phản hồi và lệnh cURL để sao chép.</p><p>Quy trình thường dùng: <a href="#card-profiles-list">Tìm ID profile</a> → <a href="#card-profiles-get-one">Xem cấu hình</a> → <a href="#card-profiles-start">Mở profile</a> → kết nối automation → <a href="#card-profiles-close">Đóng profile</a> → <a href="#card-notes-update">Lưu ghi chú</a>.</p><p>Thay ID mẫu bằng ID thật. URL GET là ví dụ để sao chép; trang không tự gọi các API này. Một số GET như start, close, free-disk và update-state có thay đổi trạng thái. Đọc success/message trước khi dùng data. Lỗi thường gặp: 400 tham số sai, 403 bản quyền, 404 ID/đường dẫn không tồn tại, 500 lỗi xử lý.</p><p><a href="/docs">Tài liệu API local</a> · <a href="https://svbrowser.site/docs" target="_blank" rel="noopener noreferrer">Tài liệu SV Browser</a></p></section>`:''}
     <div class="stats-summary">
       <span id="filtered-count">Hiển thị ${totalEndpoints} / ${totalEndpoints} endpoints</span>
       <span>Chuẩn tương thích hoàn toàn GPMLogin Global API & SV Browser v5.0.8</span>
     </div>
 
     <div id="endpoints-container">
-      ${ENDPOINTS_DATA.map((ep, idx) => renderEndpointCard(ep, idx, baseUrl)).join('\n')}
+      ${ENDPOINTS_DATA.map((ep, idx) => renderEndpointCard(ep, idx, baseUrl, purposeMode)).join('\n')}
     </div>
   </main>
 
@@ -1697,7 +1742,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       card.classList.toggle('open');
     }
 
-    let allOpened = false;
+    let allOpened = ${purposeMode};
     function toggleAllCards() {
       allOpened = !allOpened;
       document.querySelectorAll('.endpoint-card').forEach(card => {
@@ -1802,15 +1847,24 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       const savedTheme = localStorage.getItem('sv_api_theme_v2') || 'light';
       switchTheme(savedTheme);
     } catch (e) {}
+    function openLinkedCard(){
+      try{
+        const card=document.getElementById(decodeURIComponent(location.hash.slice(1)));
+        if(card?.classList.contains('endpoint-card')){card.classList.add('open');card.scrollIntoView({block:'start'});}
+      }catch(e){}
+    }
+    window.addEventListener('hashchange',openLinkedCard);
+    openLinkedCard();
   </script>
 </body>
 </html>`;
 }
 
-function renderEndpointCard(ep, idx, baseUrl) {
+function renderEndpointCard(ep, idx, baseUrl, purposeMode=false) {
   const methodClass = `badge-${ep.method}`;
   const borderClass = `border-${ep.method}`;
-  const isOpen = idx === 0 ? 'open' : '';
+  const isOpen = purposeMode || idx === 0 ? 'open' : '';
+  const purpose = PURPOSES[ep.id];
 
   // Render path with highlighted parameters {id}
   const formattedPath = ep.path.replace(/\{([^}]+)\}/g, '<span class="param">{$1}</span>');
@@ -1818,7 +1872,7 @@ function renderEndpointCard(ep, idx, baseUrl) {
   // Generate Curl command sample
   const curlCmd = generateCurl(ep, baseUrl);
 
-  const searchableText = `${ep.method} ${ep.path} ${ep.title} ${ep.description} ${ep.categoryName}`.toLowerCase();
+  const searchableText = `${ep.method} ${ep.path} ${ep.title} ${ep.description} ${ep.categoryName} ${purpose.join(' ')}`.toLowerCase();
 
   return `
     <div class="endpoint-card ${borderClass} ${isOpen}" id="card-${ep.id}" data-method="${ep.method}" data-category="${ep.category}" data-search="${escapeHtml(searchableText)}">
@@ -1833,6 +1887,11 @@ function renderEndpointCard(ep, idx, baseUrl) {
 
       <div class="endpoint-body">
         <p class="desc-text">${escapeHtml(ep.description)}</p>
+        <section class="purpose-panel" aria-label="Purpose ${escapeHtml(ep.title)}">
+          <dl><dt>Purpose</dt><dd>${escapeHtml(purpose[0])}</dd><dt>Cách dùng</dt><dd>${escapeHtml(purpose[1])}</dd><dt>Lưu ý</dt><dd>${escapeHtml(purpose[2])}</dd></dl>
+          <p style="margin-top:12px;font-size:12px"><a href="${purposeMode?'/docs':'/purpose'}#card-${escapeHtml(ep.id)}">${purposeMode?'Xem trong tài liệu API':'Liên kết Purpose cho chức năng này'}</a></p>
+        </section>
+        ${ep.method==='GET'?`<div class="code-box-wrapper"><div class="code-box"><div class="code-header"><span class="code-label">URL MẪU · GET · THAY ID TRƯỚC KHI DÙNG</span><button type="button" class="btn-copy" onclick="copySnippet(this)">📋 Sao chép URL GET</button></div><pre class="code-block"><code>${escapeHtml(sampleUrl(ep,baseUrl))}</code></pre></div></div>`:''}
 
         <!-- Parameters Table -->
         ${ep.params && ep.params.length > 0 ? `
@@ -1866,7 +1925,7 @@ function renderEndpointCard(ep, idx, baseUrl) {
           <div class="code-box-wrapper">
             <div class="code-box">
               <div class="code-header">
-                <span class="code-label">📤 REQUEST BODY (JSON)</span>
+              <span class="code-label">📤 REQUEST BODY (JSON${ep.method==='GET'?' · DÙNG VỚI ALIAS POST':''})</span>
                 <button type="button" class="btn-copy" onclick="copySnippet(this)">📋 Sao chép JSON</button>
               </div>
               <pre class="code-block"><code>${escapeHtml(JSON.stringify(ep.requestBody, null, 2))}</code></pre>
@@ -1903,9 +1962,16 @@ function renderEndpointCard(ep, idx, baseUrl) {
   `;
 }
 
+function sampleUrl(ep,baseUrl){
+  const id=ep.params?.find(p=>p.in==='path'&&p.name==='id')?.default || '8eda4c94-689b-45f3-9bfa-4b5c3b86c537';
+  const url=new URL(baseUrl+ep.path.replace('{id}',encodeURIComponent(id)));
+  for(const param of ep.params||[])if(param.in.includes('query')&&param.default!==undefined&&param.default!=='')url.searchParams.set(param.name,String(param.default));
+  if(ep.id==='system-ping')url.searchParams.set('format','json');
+  return url.href;
+}
+
 function generateCurl(ep, baseUrl) {
-  let samplePath = ep.path.replace('{id}', '8eda4c94-689b-45f3-9bfa-4b5c3b86c537');
-  const fullUrl = `${baseUrl}${samplePath}`;
+  const fullUrl = sampleUrl(ep,baseUrl);
 
   if (ep.method === 'GET') {
     return `curl -X GET "${fullUrl}"`;
@@ -1932,5 +1998,7 @@ function escapeHtml(str) {
 
 module.exports = {
   getApiDocsHtml,
-  ENDPOINTS_DATA
+  ENDPOINTS_DATA,
+  PURPOSES,
+  sampleUrl
 };
