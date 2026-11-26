@@ -43,15 +43,30 @@ test('Purpose documents every function with copyable GET URLs and correct extens
   const api=new GpmApiServer({dataDir:dir,getProfile:id=>({id,name:'Fixture',proxy:'No Proxy'})},{launchProfile:async(profile,index,options)=>{launches.push(options);return {success:true,remote_debugging_port:1234};}},8725,false,null,{getAll:()=>[{id:'fixture-extension',folderName:'fixture-extension',enabled:false}],toggleExtension:(id,active)=>{assert.equal(id,'fixture-extension');assert.equal(active,true);toggles++;}});
   api.port=0;api.start();await once(api.server,'listening');const base=`http://127.0.0.1:${api.server.address().port}`;
   t.after(async()=>{await new Promise(resolve=>api.server.close(resolve));fs.rmSync(dir,{recursive:true,force:true});});
-  const response=await fetch(base+'/purpose');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);const html=await response.text();
+  const response=await fetch(base+'/api-purpose');assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/text\/html/);const html=await response.text();
   assert.match(html,/Purpose — Mục đích/);assert.equal(toggles,0);assert.equal(launches.length,0);
   for(const ep of ENDPOINTS_DATA){assert.equal(PURPOSES[ep.id]?.length,3,ep.id);assert.ok(html.includes(`id="card-${ep.id}"`));assert.ok(html.includes(`/docs#card-${ep.id}`));}
   assert.equal((html.match(/Sao chép URL GET/g)||[]).length,ENDPOINTS_DATA.filter(ep=>ep.method==='GET').length);
-  const docs=await (await fetch(base+'/docs')).text();assert.ok(docs.includes('href="/purpose"'));assert.ok(docs.includes('/purpose#card-profiles-start'));
+  const docs=await (await fetch(base+'/docs')).text();assert.ok(docs.includes('href="/purpose"'));assert.ok(docs.includes('/api-purpose#card-profiles-start'));
   const extension=ENDPOINTS_DATA.find(ep=>ep.id==='extensions-toggle');assert.equal(extension.method,'GET');assert.equal(extension.requestBody,null);
   const url=sampleUrl(extension,base).replace('Bookmarks_Quick_Search','fixture-extension');assert.equal((await fetch(url)).status,200);assert.equal(toggles,1);
   assert.equal(new URL(sampleUrl(ENDPOINTS_DATA.find(ep=>ep.id==='system-ping'),base)).searchParams.get('format'),'json');
   const startUrl=new URL(sampleUrl(ENDPOINTS_DATA.find(ep=>ep.id==='profiles-start'),base));startUrl.searchParams.set('skip_proxy_check','true');
   assert.equal((await fetch(startUrl)).status,200);assert.equal(launches.length,1);assert.equal(launches[0].window_size,'1280,720');assert.equal(launches[0].window_pos,'0,0');assert.equal(launches[0].window_scale,0.8);
   assert.equal((await fetch(base+'/purpose',{method:'POST'})).status,405);
+  const guideResponse=await fetch(base+'/purpose');assert.equal(guideResponse.status,200);const guide=await guideResponse.text();
+  const {GUIDE_SECTIONS,CONSOLE_CHECK}=require('../appGuideTemplate');
+  for(const section of GUIDE_SECTIONS){assert.ok(guide.includes(`id="${section.id}"`),section.id);for(const item of section.items)assert.ok(guide.includes(item[0]),item[0]);}
+  for(const term of ['allow pasting','Sao chép mã kiểm tra','Canvas: Noise / Off / Block','Video inputs','Đồng bộ thao tác','Sắp xếp cửa sổ trình duyệt','Chưa triển khai'])assert.ok(guide.includes(term),term);
+  assert.ok(CONSOLE_CHECK.includes("navigator.mediaDevices.enumerateDevices()"));
+  new (require('node:vm').Script)(guide.match(/<script>([\s\S]*?)<\/script>/)[1]);
+});
+
+test('desktop Documentation exposes a Purpose button and uses the configured API port',async()=>{
+ const vm=require('node:vm'),source=fs.readFileSync(path.join(__dirname,'../src/components/PlaceholderView.js'),'utf8').replace(/^import .*$/m,'').replace('export class PlaceholderViewComponent','class PlaceholderViewComponent');
+ const buttons=new Map(),opened=[];const container={style:{},innerHTML:'',querySelector:id=>{if(!buttons.has(id))buttons.set(id,{});return buttons.get(id);}};
+ const context={document:{},window:{api:{getSettings:async()=>({apiPort:9876}),openExternal:url=>opened.push(url)}},uiIcon:()=>''};vm.createContext(context);vm.runInContext(source+';globalThis.View=PlaceholderViewComponent',context);
+ const view=new context.View({container});await view.showDeveloperDocsView();assert.ok(container.innerHTML.includes('Hướng dẫn chức năng / Purpose'));assert.ok(container.innerHTML.includes('http://localhost:9876/purpose'));
+ buttons.get('#docs-purpose').onclick();buttons.get('#docs-local').onclick();buttons.get('#docs-online').onclick();
+ assert.deepEqual(opened,['http://localhost:9876/purpose','http://localhost:9876/docs','https://svbrowser.site/docs']);
 });

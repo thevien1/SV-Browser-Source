@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const ProxyChecker = require('./proxyChecker');
 const { getApiDocsHtml } = require('./apiDocsTemplate');
+const { getAppGuideHtml } = require('./appGuideTemplate');
 
 /**
  * SV Browser REST API Server & API Gateway
@@ -99,6 +100,10 @@ class GpmApiServer {
       try {
         if (pathname === '/purpose') {
           if (req.method !== 'GET') return sendJson(405, {success:false,message:'Trang Purpose sử dụng GET'});
+          res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
+          return res.end(getAppGuideHtml());
+        }
+        if (pathname === '/api-purpose' && req.method === 'GET') {
           res.writeHead(200, {'Content-Type':'text/html; charset=utf-8'});
           return res.end(getApiDocsHtml(req.headers.host || '127.0.0.1:8725', {purposeMode:true}));
         }

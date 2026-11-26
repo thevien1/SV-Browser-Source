@@ -180,6 +180,7 @@ async function run() {
     'extensionStore.js',
     'gpmApiServer.js',
     'apiDocsTemplate.js',
+    'appGuideTemplate.js',
     'driverDownloader.js',
     'driverIconManager.js',
     'taskbarManager.js',

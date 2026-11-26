@@ -1889,7 +1889,7 @@ function renderEndpointCard(ep, idx, baseUrl, purposeMode=false) {
         <p class="desc-text">${escapeHtml(ep.description)}</p>
         <section class="purpose-panel" aria-label="Purpose ${escapeHtml(ep.title)}">
           <dl><dt>Purpose</dt><dd>${escapeHtml(purpose[0])}</dd><dt>Cách dùng</dt><dd>${escapeHtml(purpose[1])}</dd><dt>Lưu ý</dt><dd>${escapeHtml(purpose[2])}</dd></dl>
-          <p style="margin-top:12px;font-size:12px"><a href="${purposeMode?'/docs':'/purpose'}#card-${escapeHtml(ep.id)}">${purposeMode?'Xem trong tài liệu API':'Liên kết Purpose cho chức năng này'}</a></p>
+          <p style="margin-top:12px;font-size:12px"><a href="${purposeMode?'/docs':'/api-purpose'}#card-${escapeHtml(ep.id)}">${purposeMode?'Xem trong tài liệu API':'Giải thích API này'}</a> · <a href="/purpose">Hướng dẫn chức năng phần mềm</a></p>
         </section>
         ${ep.method==='GET'?`<div class="code-box-wrapper"><div class="code-box"><div class="code-header"><span class="code-label">URL MẪU · GET · THAY ID TRƯỚC KHI DÙNG</span><button type="button" class="btn-copy" onclick="copySnippet(this)">📋 Sao chép URL GET</button></div><pre class="code-block"><code>${escapeHtml(sampleUrl(ep,baseUrl))}</code></pre></div></div>`:''}
 
