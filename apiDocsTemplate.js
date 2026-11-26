@@ -885,7 +885,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
   const totalEndpoints = ENDPOINTS_DATA.length;
 
   return `<!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -933,8 +933,8 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       --text-muted: #64748b;
       --accent: #0284c7;
       --accent-hover: #0369a1;
-      --code-bg: #0f172a;
-      --code-header-bg: #1e293b;
+      --code-bg: #ffffff;
+      --code-header-bg: #f1f5f9;
       --header-bg: rgba(255, 255, 255, 0.95);
       --body-bg-tint: rgba(241, 245, 249, 0.85);
 
@@ -1514,7 +1514,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     }
     .btn-copy {
       background: var(--bg-sub);
-      color: #e2e8f0;
+      color: var(--text-main);
       border: 1px solid var(--border-light);
       padding: 4px 10px;
       border-radius: 5px;
@@ -1535,6 +1535,13 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
       border-color: #059669;
       color: #34d399;
     }
+    [data-theme="light"] .code-label { color: #475569; }
+    [data-theme="light"] .param-name { color: #0369a1; }
+    [data-theme="light"] pre.code-block { color: #0f172a; }
+    [data-theme="light"] .btn-copy { background: #fff; color: #075985; border-color: #94a3b8; }
+    [data-theme="light"] .btn-copy:hover { background: #e0f2fe; color: #0c4a6e; }
+    [data-theme="light"] .btn-copy.copied { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .btn-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
     pre.code-block {
       padding: 12px 16px;
@@ -1602,8 +1609,8 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
         <div class="theme-control-container">
           <span class="theme-title">🎨 Đổi màu:</span>
           <select id="theme-select" class="theme-select-input" onchange="switchTheme(this.value)" title="Chọn giao diện màu">
-            <option value="dark">🌙 Tối (Mặc định)</option>
-            <option value="light">☀️ Sáng (Light)</option>
+            <option value="dark">🌙 Tối</option>
+            <option value="light" selected>☀️ Sáng (Mặc định)</option>
             <option value="ocean">🌊 Xanh Biển</option>
             <option value="dracula">🔮 Tím Cyber</option>
             <option value="emerald">🌲 Xanh Ngọc</option>
@@ -1707,12 +1714,12 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
         const originalText = btn.innerHTML;
         btn.innerHTML = '✓ Đã chép!';
         btn.classList.add('copied');
-        showToast('Đã sao chép JSON vào clipboard!');
+        showToast('Đã sao chép nội dung vào clipboard!');
         setTimeout(() => {
           btn.innerHTML = originalText;
           btn.classList.remove('copied');
         }, 2000);
-      });
+      }).catch(() => showToast('Không sao chép được. Hãy cho phép truy cập clipboard và thử lại.'));
     }
 
     function copyBaseUrl() {
@@ -1774,9 +1781,10 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
     }
 
     function switchTheme(themeName) {
+      if (!['light', 'dark', 'ocean', 'dracula', 'emerald'].includes(themeName)) themeName = 'light';
       document.documentElement.setAttribute('data-theme', themeName);
       try {
-        localStorage.setItem('sv_api_theme', themeName);
+        localStorage.setItem('sv_api_theme_v2', themeName);
       } catch (e) {}
 
       const sel = document.getElementById('theme-select');
@@ -1791,7 +1799,7 @@ function getApiDocsHtml(host = '127.0.0.1:8725') {
 
     // Khởi tạo theme ban đầu từ localStorage
     try {
-      const savedTheme = localStorage.getItem('sv_api_theme') || 'dark';
+      const savedTheme = localStorage.getItem('sv_api_theme_v2') || 'light';
       switchTheme(savedTheme);
     } catch (e) {}
   </script>
@@ -1843,7 +1851,7 @@ function renderEndpointCard(ep, idx, baseUrl) {
               ${ep.params.map(p => `
                 <tr>
                   <td><span class="param-name">${escapeHtml(p.name)}</span></td>
-                  <td><span style="color: #cbd5e1;">${escapeHtml(p.in)}</span></td>
+                  <td><span style="color: var(--text-muted);">${escapeHtml(p.in)}</span></td>
                   <td><span class="param-type">${escapeHtml(p.type)}</span></td>
                   <td>${p.required ? '<span class="param-required">BẮT BUỘC</span>' : '<span class="param-optional">Tùy chọn</span>'}</td>
                   <td>${escapeHtml(p.desc)}${p.default ? ` <em>(Mặc định: <code>${escapeHtml(p.default)}</code>)</em>` : ''}</td>

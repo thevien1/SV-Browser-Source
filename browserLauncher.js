@@ -513,7 +513,7 @@ class BrowserLauncher extends EventEmitter {
       fs.writeFileSync(prefFile, JSON.stringify(prefObj, null, 2), 'utf8');
     } catch (e) {}
 
-    // Port remote debugging: lấy customPort nếu có, ngược lại lấy nextDebugPort
+    // Check explicit ports; let the OS choose a free port for normal launches.
     if(this.profileStore)profile=require('./profileConfig').applyBrowserDefaults(profile,this.profileStore.getSettings());
     require('./profileConfig').validateProfile(profile);
     const originalProfile = profile;
@@ -526,7 +526,21 @@ class BrowserLauncher extends EventEmitter {
       || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port || profileIndex.remote_debugging_port))
       || (profile && (profile.remote_debugging_port || profile.port || profile.debugPort))
       || null;
-    const debugPort = type === 'mullvad' ? 0 : customPort ? parseInt(customPort, 10) : this.nextDebugPort++;
+    let debugPort = 0;
+    if (type !== 'mullvad') {
+      try {
+        const requested = customPort ? Number(customPort) : 0;
+        if (!Number.isInteger(requested) || requested < 0 || requested > 65535) throw Error('Cổng remote debugging không hợp lệ');
+        debugPort = await new Promise((resolve,reject) => {
+          const server = require('net').createServer();
+          server.once('error',reject);
+          server.listen(requested,'127.0.0.1',()=>{const port=server.address().port;server.close(error=>error?reject(error):resolve(port));});
+        });
+      } catch (error) {
+        await proxyBridge?.close();
+        return {success:false,message:`Không cấp được cổng điều khiển: ${error.message}`};
+      }
+    }
     let args = [];
 
     if (type === 'firefox' || type === 'mullvad') {

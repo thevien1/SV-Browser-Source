@@ -47,12 +47,20 @@ async function configureChromium(url, profile, options={}){
     }
     await cdp.send('Emulation.setUserAgentOverride',{userAgent:ua,...(language?{acceptLanguage:language}:{}),...(platform?{platform}: {}),...(userAgentMetadata?{userAgentMetadata}:{})},sessionId);
    }
-   if(language){await cdp.send('Emulation.setLocaleOverride',{locale:language.split(',')[0]},sessionId);await cdp.send('Network.enable',{},sessionId);await cdp.send('Network.setExtraHTTPHeaders',{headers:{'Accept-Language':language}},sessionId);}
+   if(language){
+    const locale=language.split(',')[0];
+    try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);}catch(error){
+     // New Tab can attach multiple targets in the same renderer, which shares its locale override.
+     const current=await cdp.send('Runtime.evaluate',{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
+     if(!/Another locale override is already in effect/.test(error.message)||Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(locale)[0])throw error;
+    }
+    await cdp.send('Network.enable',{},sessionId);await cdp.send('Network.setExtraHTTPHeaders',{headers:{'Accept-Language':language}},sessionId);
+   }
    if(page){
     if(geo&&sw.geo==='Allow')await cdp.send('Emulation.setGeolocationOverride',{latitude:geo.latitude,longitude:geo.longitude,accuracy:100},sessionId);
     if(timezone)await cdp.send('Emulation.setTimezoneOverride',{timezoneId:timezone},sessionId);
     if(Number(hw.cpu)>0)await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:Number(hw.cpu)},sessionId);
-    const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen)await cdp.send('Emulation.setDeviceMetricsOverride',{width:+screen[1],height:+screen[2],screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
+    const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen)await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
     await cdp.send('Page.enable',{},sessionId);
     await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
     const applied=await cdp.send('Runtime.evaluate',{expression:script},sessionId);
@@ -74,12 +82,14 @@ async function configureChromium(url, profile, options={}){
  await Promise.all(Array.from(sessions.values()).map(s=>s.task));if(failure){cdp.close();throw failure;}
  const pages=Array.from(sessions.values()).filter(s=>s.targetInfo.type==='page');
  if(!pages.length){cdp.close();throw Error('Không tìm thấy trang để áp dụng cấu hình profile');}
- const urls=profile.startUrl?.trim()? [profile.startUrl.trim()] : (options.startupUrls||[]);
+ const actualUA=await cdp.send('Runtime.evaluate',{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
+ const configuredUrls=profile.startUrl?.trim()? [profile.startUrl.trim()] : (options.startupUrls||[]);
+ // Keep the blank bootstrap private to setup; an empty startup URL opens the browser's New Tab.
+ const urls=configuredUrls.length?configuredUrls:['chrome://newtab/'];
  for(let i=0;i<urls.length;i++){
   if(i===0)await cdp.send('Page.navigate',{url:urls[i]},pages[0].sessionId);
   else await cdp.send('Target.createTarget',{url:urls[i]});
  }
- const actualUA=await cdp.send('Runtime.evaluate',{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
  return {cdp,ua:actualUA.result.value,timezone,settingsApplied:true};
  } catch(error){cdp.close();throw error;}
 }
