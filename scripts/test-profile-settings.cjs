@@ -1,6 +1,40 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),http=require('node:http'),net=require('node:net');
 const {parseProxy,resolveProxy,openBridge}=require('../proxyConnection');
 const {parseCookies,userAgent,validateProfile,autoUserAgent}=require('../profileConfig');
+
+function editFixture(store,profile) {
+ const fs=require('node:fs'),vm=require('node:vm');
+ const source=fs.readFileSync(require.resolve('../src/components/Modals.js'),'utf8').replace(/^import .*$/m,'').replace('export class ModalsComponent','class ModalsComponent');
+ const fields=new Map(),alerts=[];let closed=false,refreshed=false;
+ const field=id=>{if(!fields.has(id))fields.set(id,{value:'',tagName:'SELECT',options:[],style:{},append(option){this.options.push(option);}});return fields.get(id);};
+ const context={window:{api:{updateProfile:async(id,data)=>store.updateProfile(id,data)}},document:{createElement:()=>({})},alert:message=>alerts.push(message),getBrowserIconHtml:()=>''};
+ vm.createContext(context);vm.runInContext(source+';globalThis.Modals=ModalsComponent',context);
+ const modal=new context.Modals({container:{querySelector:field,querySelectorAll:()=>[]},onProfileCreated:async()=>{refreshed=true;}});
+ for(const name of ['syncCustomBrowserDropdown','updateBrowserCapabilities','updateEditSummary','openModal'])modal[name]=()=>{};
+ modal.closeModal=()=>{closed=true;};
+ modal.openEditProfile(profile);
+ return {modal,field,alerts,get closed(){return closed;},get refreshed(){return refreshed;}};
+}
+
+test('edit form round trip saves hardware/software/cookies and reopens saved values without replacing an unlisted core',async()=>{
+ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),Store=require('../profileStore');
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'sv-edit-roundtrip-'));
+ const store=Object.create(Store.prototype);Object.assign(store,{dataDir:root,localStorageDefault:root,settings:{localStoragePath:root},profiles:[],groups:['Default group'],tags:[],profilesFilePath:path.join(root,'profiles.json'),tagsFilePath:path.join(root,'tags.json')});
+ try{
+  const profile=store.createProfile({name:'Before',browserType:'chrome',version:'157.9.8.7',proxyType:'None',software:{os:'Android',timezone:'Asia/Bangkok'}});
+  const edit=editFixture(store,profile);assert.equal(edit.field('#edit-quick-browser-core').value,'chrome|157.9.8.7');
+  for(const [id,value] of Object.entries({'edit-profile-name':'After','edit-hw-canvas':'Block','edit-hw-webgl-img':'Off','edit-hw-cpu':'4','edit-hw-ram':'16GB','edit-sw-user-agent':'Exact custom UA','edit-sw-screen':'1920x1080','edit-cookies-input':'[{"name":"sid","value":"saved","domain":".example.test"}]'}))edit.field('#'+id).value=value;
+  await edit.modal.handleUpdateProfile();assert.deepEqual(edit.alerts,[]);assert.ok(edit.closed&&edit.refreshed);
+  const saved=JSON.parse(fs.readFileSync(store.profilesFilePath,'utf8'))[0];assert.equal(saved.name,'After');assert.equal(saved.version,'157.9.8.7');assert.equal(saved.hardware.canvas,'Block');assert.equal(saved.hardware.webglImg,'Off');assert.equal(saved.hardware.cpu,'4');assert.equal(saved.hardware.ram,'16GB');assert.equal(saved.software.os,'Android');assert.equal(saved.software.userAgent,'Exact custom UA');assert.equal(saved.software.screen,'1920x1080');assert.equal(JSON.parse(saved.cookies)[0].value,'saved');
+  const reopened=editFixture(store,saved);assert.equal(reopened.field('#edit-hw-canvas').value,'Block');assert.equal(reopened.field('#edit-hw-webgl-img').value,'Off');assert.equal(reopened.field('#edit-sw-user-agent').value,'Exact custom UA');
+  saved.software.os='Mac (ARM)';assert.equal(editFixture(store,saved).modal.editSelectedOs,'Mac (ARM)');
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
+test('edit form keeps changes open and reports a missing profile instead of silently succeeding',async()=>{
+ const edit=editFixture({updateProfile:()=>null},{id:'missing',name:'Missing',browserType:'chrome',version:'157',proxyType:'None'});
+ await edit.modal.handleUpdateProfile();assert.equal(edit.closed,false);assert.equal(edit.refreshed,false);assert.equal(edit.alerts.length,1);assert.match(edit.alerts[0],/Không tìm thấy profile/);assert.equal(edit.field('#btn-submit-update-profile').disabled,false);
+});
 test('proxy schemes/auth/IPv6 are preserved; invalid ports are rejected',()=>{
  for(const scheme of ['http','https','socks4','socks5'])assert.equal(parseProxy(`${scheme}://u:p@127.0.0.1:1080`).type,scheme);
  assert.equal(parseProxy('host.test:9000:user:pa:ss','Socks5').pass,'pa:ss');assert.equal(parseProxy('http://user:p%40ss@host.test:8080').pass,'p@ss');assert.equal(parseProxy('[::1]:1080','Socks5').port,1080);

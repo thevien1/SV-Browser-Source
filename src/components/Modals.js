@@ -2436,7 +2436,13 @@ export class ModalsComponent {
     if (coreEl) {
       const exists = Array.from(coreEl.options).some(opt => opt.value === browserCore);
       if (exists) coreEl.value = browserCore;
-      else if (coreEl.options.length > 0) coreEl.selectedIndex = 0;
+      else {
+        const option = document.createElement('option');
+        option.value = browserCore;
+        option.textContent = `${profile.browserType || 'chrome'} - ${profile.version || '151.0.7922.76'}`;
+        coreEl.append(option);
+        coreEl.value = browserCore;
+      }
       this.syncCustomBrowserDropdown('#edit-quick-browser-core');
     }
 
@@ -2515,7 +2521,8 @@ export class ModalsComponent {
 
     // Software
     const sw = profile.software || {};
-    this.editSelectedOs = ({windows:'Windows',mac:'Mac',macos:'Mac',linux:'Linux',android:'Android'}[String(sw.os||profile.os||'Windows').toLowerCase()]) || 'Windows';
+    const storedOs = String(sw.os || profile.os || 'Windows').toLowerCase();
+    this.editSelectedOs = ({windows:'Windows',mac:'Mac (Intel)',macos:'Mac (Intel)','mac (intel)':'Mac (Intel)','mac (arm)':'Mac (ARM)',linux:'Linux',android:'Android'}[storedOs]) || 'Windows';
     this.container.querySelectorAll('.edit-os-btn').forEach(btn => {
       if (btn.getAttribute('data-os') === this.editSelectedOs) btn.classList.add('active');
       else btn.classList.remove('active');
@@ -2694,6 +2701,7 @@ export class ModalsComponent {
 
   async handleUpdateProfile() {
     if (!this.editingProfile) return;
+    if (this._savingProfile) return;
 
     const name = this.container.querySelector('#edit-profile-name')?.value.trim() || this.editingProfile.name;
     const group = this.container.querySelector('#edit-profile-group')?.value || 'Default group';
@@ -2742,7 +2750,10 @@ export class ModalsComponent {
 
     if (window.api && window.api.updateProfile) {
       try {
-        await window.api.updateProfile(this.editingProfile.id, {
+        this._savingProfile = true;
+        const button = this.container.querySelector('#btn-submit-update-profile');
+        if (button) button.disabled = true;
+        const saved = await window.api.updateProfile(this.editingProfile.id, {
           name,
           group,
           browserType: browserType || 'chrome',
@@ -2762,11 +2773,22 @@ export class ModalsComponent {
           software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language} : software
         });
 
+        if (!saved || saved.success === false || saved.id !== this.editingProfile.id) {
+          throw new Error(saved?.message || 'Không tìm thấy profile để cập nhật. Hãy tải lại danh sách và thử lại.');
+        }
+        Object.assign(this.editingProfile, saved);
+        await this.onProfileCreated();
         this.closeModal('modal-edit-profile');
-        this.onProfileCreated();
+        window.showGlobalToast?.('Đã lưu profile. Nếu trình duyệt đang mở, đóng và mở lại profile để áp dụng cấu hình mới.');
       } catch (err) {
         alert('Lỗi cập nhật profile: ' + err.message);
+      } finally {
+        this._savingProfile = false;
+        const button = this.container.querySelector('#btn-submit-update-profile');
+        if (button) button.disabled = false;
       }
+    } else {
+      alert('Không kết nối được chức năng cập nhật profile. Hãy khởi động lại ứng dụng.');
     }
   }
 

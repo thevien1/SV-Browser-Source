@@ -3391,8 +3391,8 @@ export class ProfilesViewComponent {
         });
         proxyCell.querySelector('.btn-edit-proxy')?.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (this.modals) this.modals.openEditProfileModal(p);
-          else if (window.modalsComp) window.modalsComp.openEditProfileModal(p);
+          if (this.modals) this.modals.openEditProfile(p);
+          else if (window.modalsComp) window.modalsComp.openEditProfile(p);
         });
       }
     }

@@ -12,7 +12,8 @@ class CDP {
 async function configureChromium(url, profile, options={}){
  const cdp=await CDP.connect(url);
  try {
- const sw=profile.software||{},hw=profile.hardware||{};
+ const sw={...profile.software},hw=profile.hardware||{};
+ if (/^mac(?:os| \((?:intel|arm)\))?$/i.test(sw.os||'')) sw.os='Mac';
  const browser=await cdp.send('Browser.getVersion');
  let ua=userAgent(profile)||browser.userAgent;
  const language=sw.language==='Real'?undefined:sw.language&&sw.language!=='Auto'?sw.language:options.detectedLang;
