@@ -9,6 +9,15 @@ class CDP {
  send(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++this.next;const timer=setTimeout(()=>{this.pending.delete(id);reject(Error(`CDP timeout: ${method}`));},10000);this.pending.set(id,{resolve,reject,timer});this.ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});}
  close(){this.ws.close();}
 }
+async function evaluateWhenReady(cdp,params,sessionId,{timeout=5000,delay=50}={}){
+ const until=Date.now()+timeout;
+ for(;;){
+  try{return await cdp.send('Runtime.evaluate',params,sessionId);}catch(error){
+   if(!/Cannot find default execution context|Execution context was destroyed|Cannot find context with specified id/i.test(error.message)||Date.now()>=until)throw error;
+   await new Promise(resolve=>setTimeout(resolve,delay));
+  }
+ }
+}
 async function configureChromium(url, profile, options={}){
  const cdp=await CDP.connect(url);
  try {
@@ -31,19 +40,29 @@ async function configureChromium(url, profile, options={}){
  const cookies=parseCookies(profile.cookies);if(cookies.length)await cdp.send('Storage.setCookies',{cookies});
  if(['Allow','Block','Prompt'].includes(sw.geo))await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:{Allow:'granted',Block:'denied',Prompt:'prompt'}[sw.geo]});
  if(hw.font==='Masked')await cdp.send('Browser.setPermission',{permission:{name:'local-fonts'},setting:'denied'});
- const sessions=new Map();let failure;
+ const sessions=new Map();let failure,nativeUA,nativeMetadata;
  const setup=async(sessionId,targetInfo)=>{
   const page=['page','iframe'].includes(targetInfo.type);
   try{
    if (!page) return;
-   const native=await cdp.send('Runtime.evaluate',{expression:'navigator.userAgent',returnByValue:true},sessionId);
+   await cdp.send('Page.enable',{},sessionId);
+   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
+   await cdp.send('Runtime.enable',{},sessionId);
+   // A newly attached page may be paused before it has a default JS context.
+   // Register document-start protection before allowing that context to start.
+   let native;
+   if(!nativeUA){
+    await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
+    native=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},sessionId);
+    nativeUA=native.result.value;
+   }else native={result:{value:nativeUA}};
    ua=userAgent(profile)||autoUserAgent(native.result.value,sw.os);
    if(userAgent(profile)||ua!==native.result.value){
     let userAgentMetadata;
     if(!userAgent(profile)) {
-      const data=await cdp.send('Runtime.evaluate',{expression:"navigator.userAgentData?.getHighEntropyValues(['architecture','bitness','fullVersionList','platformVersion','model','wow64'])",awaitPromise:true,returnByValue:true},sessionId);
+      if(nativeMetadata===undefined){const data=await evaluateWhenReady(cdp,{expression:"navigator.userAgentData?.getHighEntropyValues(['architecture','bitness','fullVersionList','platformVersion','model','wow64'])",awaitPromise:true,returnByValue:true},sessionId);nativeMetadata=data.result.value||null;}
       const version=ua.match(/(?:HeadlessChrome|Chrome)\/([\d.]+)/)?.[1] || '1.0.0.0';
-      userAgentMetadata={...(data.result.value||{brands:[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64'}),platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'?'arm':'x86'};
+      userAgentMetadata={...(nativeMetadata||{brands:[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64'}),platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'?'arm':'x86'};
     }
     await cdp.send('Emulation.setUserAgentOverride',{userAgent:ua,...(language?{acceptLanguage:language}:{}),...(platform?{platform}: {}),...(userAgentMetadata?{userAgentMetadata}:{})},sessionId);
    }
@@ -51,7 +70,7 @@ async function configureChromium(url, profile, options={}){
     const locale=language.split(',')[0];
     try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);}catch(error){
      // New Tab can attach multiple targets in the same renderer, which shares its locale override.
-     const current=await cdp.send('Runtime.evaluate',{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
+     const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
      if(!/Another locale override is already in effect/.test(error.message)||Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(locale)[0])throw error;
     }
     await cdp.send('Network.enable',{},sessionId);await cdp.send('Network.setExtraHTTPHeaders',{headers:{'Accept-Language':language}},sessionId);
@@ -61,9 +80,8 @@ async function configureChromium(url, profile, options={}){
     if(timezone)await cdp.send('Emulation.setTimezoneOverride',{timezoneId:timezone},sessionId);
     if(Number(hw.cpu)>0)await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:Number(hw.cpu)},sessionId);
     const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen)await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
-    await cdp.send('Page.enable',{},sessionId);
-    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
-    const applied=await cdp.send('Runtime.evaluate',{expression:script},sessionId);
+    await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
+    const applied=await evaluateWhenReady(cdp,{expression:script},sessionId);
     if(applied.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
    }
@@ -82,7 +100,7 @@ async function configureChromium(url, profile, options={}){
  await Promise.all(Array.from(sessions.values()).map(s=>s.task));if(failure){cdp.close();throw failure;}
  const pages=Array.from(sessions.values()).filter(s=>s.targetInfo.type==='page');
  if(!pages.length){cdp.close();throw Error('Không tìm thấy trang để áp dụng cấu hình profile');}
- const actualUA=await cdp.send('Runtime.evaluate',{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
+ const actualUA=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
  const configuredUrls=profile.startUrl?.trim()? [profile.startUrl.trim()] : (options.startupUrls||[]);
  // Keep the blank bootstrap private to setup; an empty startup URL opens the browser's New Tab.
  const urls=configuredUrls.length?configuredUrls:['chrome://newtab/'];
@@ -93,4 +111,4 @@ async function configureChromium(url, profile, options={}){
  return {cdp,ua:actualUA.result.value,timezone,settingsApplied:true};
  } catch(error){cdp.close();throw error;}
 }
-module.exports={CDP,configureChromium};
+module.exports={CDP,configureChromium,evaluateWhenReady};

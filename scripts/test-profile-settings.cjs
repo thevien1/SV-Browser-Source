@@ -2,6 +2,13 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),http=requ
 const {parseProxy,resolveProxy,openBridge}=require('../proxyConnection');
 const {parseCookies,userAgent,validateProfile,autoUserAgent}=require('../profileConfig');
 
+test('runtime waits for a default execution context and never retries unrelated protocol errors',async()=>{
+ const {evaluateWhenReady}=require('../profileRuntime');let calls=0;
+ const result=await evaluateWhenReady({send:async()=>{if(++calls<3)throw Error('Cannot find default execution context');return {result:{value:'ready'}};}},{expression:'navigator.userAgent'},'test',{delay:1});assert.equal(result.result.value,'ready');assert.equal(calls,3);
+ calls=0;await assert.rejects(evaluateWhenReady({send:async()=>{calls++;throw Error('Target closed');}},{},'test',{delay:1}),/Target closed/);assert.equal(calls,1);
+ await assert.rejects(evaluateWhenReady({send:async()=>{throw Error('Cannot find default execution context');}},{},'test',{delay:1,timeout:5}),/execution context/);
+});
+
 function editFixture(store,profile) {
  const fs=require('node:fs'),vm=require('node:vm');
  const source=fs.readFileSync(require.resolve('../src/components/Modals.js'),'utf8').replace(/^import .*$/m,'').replace('export class ModalsComponent','class ModalsComponent');

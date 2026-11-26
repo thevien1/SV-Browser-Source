@@ -50,10 +50,12 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
   assert.deepEqual(reports[6].screen,expected);assert.equal(reports[6].lang,'ko-KR');assert.notEqual(reports[6].pixel[0],10);
   globalSettings.canvasMode='block';const globalBlock={...real,id:'global-block'};const eighth=await launcher.launchProfile(globalBlock,8);assert.equal(eighth.success,true,eighth.message);
   for(let i=0;i<100&&reports.length<8;i++)await new Promise(r=>setTimeout(r,100));assert.match(reports[7].error,/blocked/);
-  const empty={id:'empty-start-url',browserType:'chrome',headless:true,startUrl:'',software:{timezone:'Asia/Bangkok'}};
+  const empty={id:'empty-start-url',browserType:'chrome',headless:true,startUrl:'',hardware:{canvas:'Off'},software:{timezone:'Asia/Bangkok',language:'ja-JP,ja',userAgent:'New Target Test/1.0'}};
   const ninth=await launcher.launchProfile(empty,9);assert.equal(ninth.success,true,ninth.message);
   let tabs=[];for(let i=0;i<50;i++){const targets=await launcher.getRunningInfo(empty.id).runtime.cdp.send('Target.getTargets');tabs=targets.targetInfos.filter(t=>t.type==='page');if(tabs.some(t=>/^chrome:\/\/(newtab|new-tab-page)\//.test(t.url)))break;await new Promise(r=>setTimeout(r,100));}
   assert.equal(tabs.length,1);assert.match(tabs[0].url,/^chrome:\/\/(newtab|new-tab-page)\//);assert.ok(!tabs.some(t=>t.url==='about:blank'));
+  await launcher.getRunningInfo(empty.id).runtime.cdp.send('Target.createTarget',{url:profile.startUrl+'?profile=new-target'});
+  for(let i=0;i<100&&reports.length<9;i++)await new Promise(r=>setTimeout(r,100));assert.ok(reports[8],'New page configuration report missing');assert.equal(reports[8].ua,'New Target Test/1.0');assert.equal(reports[8].lang,'ja-JP');assert.equal(requests.find(r=>r._path.includes('new-target'))['user-agent'],'New Target Test/1.0');
   console.log('PASS: first request cookies/UA, custom UA exact, Auto native UA, hardware/software observed, Off native, profiles isolated, Android UA/hints, Auto IP timezone, Allow geolocation, Netscape HttpOnly, Canvas Block, empty startup opens New Tab');
  }finally{launcher.closeAllProfiles();await new Promise(r=>setTimeout(r,1200));server.closeAllConnections();await new Promise(r=>server.close(r));fs.rmSync(root,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1});
