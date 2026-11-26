@@ -12,7 +12,7 @@ class CDP {
 async function evaluateWhenReady(cdp,params,sessionId,{timeout=5000,delay=50}={}){
  const until=Date.now()+timeout;
  for(;;){
-  try{return await cdp.send('Runtime.evaluate',params,sessionId);}catch(error){
+  try{return await cdp.send('Runtime.evaluate',{timeout:3000,...params},sessionId);}catch(error){
    if(!/Cannot find default execution context|Execution context was destroyed|Cannot find context with specified id/i.test(error.message)||Date.now()>=until)throw error;
    await new Promise(resolve=>setTimeout(resolve,delay));
   }
@@ -43,6 +43,7 @@ async function configureChromium(url, profile, options={}){
  const sessions=new Map();let failure,nativeUA,nativeMetadata;
  const setup=async(sessionId,targetInfo)=>{
   const page=['page','iframe'].includes(targetInfo.type);
+  let localeConflict;
   try{
    if (!page) return;
    await cdp.send('Page.enable',{},sessionId);
@@ -60,9 +61,11 @@ async function configureChromium(url, profile, options={}){
    if(userAgent(profile)||ua!==native.result.value){
     let userAgentMetadata;
     if(!userAgent(profile)) {
-      if(nativeMetadata===undefined){const data=await evaluateWhenReady(cdp,{expression:"navigator.userAgentData?.getHighEntropyValues(['architecture','bitness','fullVersionList','platformVersion','model','wow64'])",awaitPromise:true,returnByValue:true},sessionId);nativeMetadata=data.result.value||null;}
+      // Use synchronous UA data. Waiting for a high-entropy Promise can hang on
+      // a target that is paused or changing documents during browser startup.
+      if(nativeMetadata===undefined){const data=await evaluateWhenReady(cdp,{expression:'navigator.userAgentData?.toJSON()',returnByValue:true},sessionId);nativeMetadata=data.result.value||null;}
       const version=ua.match(/(?:HeadlessChrome|Chrome)\/([\d.]+)/)?.[1] || '1.0.0.0';
-      userAgentMetadata={...(nativeMetadata||{brands:[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64'}),platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'?'arm':'x86'};
+      userAgentMetadata={...nativeMetadata,brands:nativeMetadata?.brands||[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64',platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'?'arm':'x86'};
     }
     await cdp.send('Emulation.setUserAgentOverride',{userAgent:ua,...(language?{acceptLanguage:language}:{}),...(platform?{platform}: {}),...(userAgentMetadata?{userAgentMetadata}:{})},sessionId);
    }
@@ -70,8 +73,8 @@ async function configureChromium(url, profile, options={}){
     const locale=language.split(',')[0];
     try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);}catch(error){
      // New Tab can attach multiple targets in the same renderer, which shares its locale override.
-     const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
-     if(!/Another locale override is already in effect/.test(error.message)||Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(locale)[0])throw error;
+     if(!/Another locale override is already in effect/.test(error.message))throw error;
+     localeConflict=error;
     }
     await cdp.send('Network.enable',{},sessionId);await cdp.send('Network.setExtraHTTPHeaders',{headers:{'Accept-Language':language}},sessionId);
    }
@@ -81,6 +84,10 @@ async function configureChromium(url, profile, options={}){
     if(Number(hw.cpu)>0)await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:Number(hw.cpu)},sessionId);
     const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen)await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
     await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
+    if(localeConflict){
+     const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
+     if(Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(language.split(',')[0])[0])throw localeConflict;
+    }
     const applied=await evaluateWhenReady(cdp,{expression:script},sessionId);
     if(applied.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
