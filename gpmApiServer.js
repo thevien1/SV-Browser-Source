@@ -197,7 +197,7 @@ class GpmApiServer {
           // Kiểm tra kết nối proxy & kiểm tra IP trước khi mở Chrome (trừ khi có cờ skip_proxy_check=true)
           if (!launchOptions.skip_proxy_check) {
             if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
-              const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+              const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType, profile.proxyChangeUrl);
               if (!proxyCheck.live) {
                 return sendJson(500, {
                   success: false,
@@ -206,6 +206,7 @@ class GpmApiServer {
                 });
               }
               // Cập nhật thông tin IP & Quốc gia (đã kiểm tra qua ipinfo.io/json) vào profile trước khi mở Chrome
+              launchOptions.resolvedProxy=proxyCheck[require('./proxyConnection').RESOLVED_PROXY];launchOptions.detectedTimezone=proxyCheck.timezone;launchOptions.detectedGeo=proxyCheck.geo;launchOptions.detectedIp=proxyCheck.ip;
               if (proxyCheck.ip) profile.ip = proxyCheck.ip;
               if (proxyCheck.country) profile.proxyCountry = proxyCheck.country;
               profile.status = 'Live';
@@ -331,7 +332,7 @@ class GpmApiServer {
 
           // Kiểm tra kết nối proxy nếu profile có sử dụng proxy
           if (!launchOptions.skip_proxy_check && profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
-            const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+            const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType, profile.proxyChangeUrl);
             if (!proxyCheck.live) {
               return sendJson(500, {
                 success: false,
@@ -339,7 +340,8 @@ class GpmApiServer {
                 sender: 'SV Browser v5.0.8-stable'
               });
             }
-            if (proxyCheck.ip) profile.ip = proxyCheck.ip;
+            launchOptions.resolvedProxy=proxyCheck[require('./proxyConnection').RESOLVED_PROXY];launchOptions.detectedTimezone=proxyCheck.timezone;launchOptions.detectedGeo=proxyCheck.geo;launchOptions.detectedIp=proxyCheck.ip;
+              if (proxyCheck.ip) profile.ip = proxyCheck.ip;
             if (proxyCheck.country) profile.proxyCountry = proxyCheck.country;
             profile.status = 'Live';
             if (!profile.isEphemeral && this.profileStore.getProfile(profile.id)) {
@@ -1066,7 +1068,7 @@ class GpmApiServer {
           if (!proxyItem || !proxyItem.raw_proxy) {
             return sendJson(404, { success: false, data: null, message: 'Proxy không tồn tại', sender: 'SV Browser v5.0.8-stable' });
           }
-          const checkRes = await ProxyChecker.testProxy(proxyItem.raw_proxy);
+          const checkRes = await ProxyChecker.testProxy(proxyItem.raw_proxy,proxyItem.proxyType||proxyItem.type);
           return sendJson(200, {
             success: true,
             data: {

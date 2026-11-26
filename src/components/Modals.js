@@ -166,6 +166,8 @@ export class ModalsComponent {
                   <select class="form-control" id="quick-proxy-type" style="height: 38px; cursor: pointer;">
                     <option value="None" selected>None</option>
                     <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS (TLS tới proxy)</option>
+                      <option value="Socks4">SOCKS4</option>
                     <option value="Socks5">Socks5</option>
                     <option value="Tinsoft">Tinsoft</option>
                     <option value="TMProxy">TMProxy</option>
@@ -206,6 +208,8 @@ export class ModalsComponent {
                     <select class="form-control" id="conn-proxy-type" style="height: 38px;">
                       <option value="None" selected>None (Không dùng Proxy)</option>
                       <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS (TLS tới proxy)</option>
+                      <option value="Socks4">SOCKS4</option>
                       <option value="Socks5">Socks5</option>
                       <option value="TMProxy">TMProxy</option>
                       <option value="Tinsoft">Tinsoft</option>
@@ -275,7 +279,7 @@ export class ModalsComponent {
                       <option value="Masked" selected>Masked (Ẩn thông số card màn hình)</option>
                       <option value="Custom">Custom</option>
                       <option value="Off">Off</option>
-                    </select>
+                    </select><div id="hw-webgl-custom" style="display:none;margin-top:8px"><input id="hw-webgl-vendor" class="form-control" placeholder="WebGL vendor"><input id="hw-webgl-renderer" class="form-control" style="margin-top:6px" placeholder="WebGL renderer"></div>
                   </div>
                   <div>
                     <label class="field-label">Audio</label>
@@ -287,7 +291,7 @@ export class ModalsComponent {
                   <div>
                     <label class="field-label">Font</label>
                     <select class="form-control" id="hw-font">
-                      <option value="Masked" selected>Masked</option>
+                      <option value="Masked" selected>Masked (giới hạn API liệt kê)</option>
                       <option value="System">System</option>
                     </select>
                   </div>
@@ -350,7 +354,7 @@ export class ModalsComponent {
                   <div style="display: flex; gap: 12px;">
                     <div style="flex: 1;">
                       <label class="field-label">Ngôn ngữ (Language)</label>
-                      <select class="form-control" id="sw-language">
+                      <select class="form-control" id="sw-language"><option value="Real">Real (ngôn ngữ trình duyệt)</option>
                         <option value="Auto" selected>Auto</option>
                         <option value="vi-VN,vi">Tiếng Việt (vi-VN)</option>
                         <option value="en-US,en">English (en-US)</option>
@@ -376,7 +380,7 @@ export class ModalsComponent {
                         <option value="BaseOnIp" selected>BaseOnIp (Chuẩn)</option>
                         <option value="Real">Real</option>
                         <option value="Disable">Disable</option>
-                        <option value="Noise">Noise</option>
+                        <option value="Noise" disabled>Noise (chưa hỗ trợ)</option>
                       </select>
                     </div>
                     <div style="flex: 1;">
@@ -735,6 +739,7 @@ export class ModalsComponent {
             <button class="modal-edit-tab-btn" data-tab="edit-connection">Kết nối</button>
             <button class="modal-edit-tab-btn" data-tab="edit-hardware">Hardware</button>
             <button class="modal-edit-tab-btn" data-tab="edit-software">Software</button>
+            <button class="modal-edit-tab-btn" data-tab="edit-cookies">Cookies</button>
           </div>
 
           <!-- Modal Body Split: 2 Columns -->
@@ -785,6 +790,8 @@ export class ModalsComponent {
                   <select class="form-control" id="edit-quick-proxy-type" style="height: 38px; cursor: pointer;">
                     <option value="None" selected>None</option>
                     <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS (TLS tới proxy)</option>
+                      <option value="Socks4">SOCKS4</option>
                     <option value="Socks5">Socks5</option>
                     <option value="Tinsoft">Tinsoft</option>
                     <option value="TMProxy">TMProxy</option>
@@ -820,6 +827,8 @@ export class ModalsComponent {
                     <select class="form-control" id="edit-conn-proxy-type" style="height: 38px;">
                       <option value="None" selected>None (Không dùng Proxy)</option>
                       <option value="HTTP">HTTP</option>
+                      <option value="HTTPS">HTTPS (TLS tới proxy)</option>
+                      <option value="Socks4">SOCKS4</option>
                       <option value="Socks5">Socks5</option>
                       <option value="TMProxy">TMProxy</option>
                       <option value="Tinsoft">Tinsoft</option>
@@ -845,6 +854,7 @@ export class ModalsComponent {
                       <input type="password" class="form-control" id="edit-conn-proxy-pass" placeholder="Password...">
                     </div>
                   </div>
+                  <div><label class="field-label">URL lấy proxy (nhà cung cấp)</label><input class="form-control" id="edit-conn-proxy-change-url" type="text"></div>
                   <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px;">
                     <button type="button" class="btn btn-primary" id="btn-edit-conn-check-proxy" style="height: 36px; padding: 0 16px; background: #0284c7; font-size: 13px;">
                       Kiểm tra kết nối Proxy
@@ -882,9 +892,9 @@ export class ModalsComponent {
                   <div>
                     <label class="field-label">WebGL Metadata</label>
                     <select class="form-control" id="edit-hw-webgl-meta">
-                      <option value="Masked" selected>Masked</option>
+                      <option value="Masked" selected>Masked (giới hạn API liệt kê)</option>
                       <option value="Off">Off</option>
-                    </select>
+                    <option value="Custom">Custom</option></select><div id="edit-hw-webgl-custom" style="display:none;margin-top:8px"><input id="edit-hw-webgl-vendor" class="form-control" placeholder="WebGL vendor"><input id="edit-hw-webgl-renderer" class="form-control" style="margin-top:6px" placeholder="WebGL renderer"></div>
                   </div>
                   <div>
                     <label class="field-label">Audio</label>
@@ -896,7 +906,7 @@ export class ModalsComponent {
                   <div>
                     <label class="field-label">Font</label>
                     <select class="form-control" id="edit-hw-font">
-                      <option value="Masked" selected>Masked</option>
+                      <option value="Masked" selected>Masked (giới hạn API liệt kê)</option>
                       <option value="Off">Off</option>
                     </select>
                   </div>
@@ -951,7 +961,7 @@ export class ModalsComponent {
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                       <label class="field-label">Ngôn ngữ</label>
-                      <select class="form-control" id="edit-sw-language">
+                      <select class="form-control" id="edit-sw-language"><option value="Real">Real (ngôn ngữ trình duyệt)</option>
                         <option value="Auto" selected>Auto (Theo IP Proxy)</option>
                         <option value="vi-VN">vi-VN (Tiếng Việt)</option>
                         <option value="en-US">en-US (English - US)</option>
@@ -994,6 +1004,10 @@ export class ModalsComponent {
                     </select>
                   </div>
                 </div>
+              </div>
+              <div class="edit-tab-pane" id="pane-edit-cookies" style="display:none">
+                <label class="field-label">Cookies khởi động (JSON hoặc Netscape)</label>
+                <textarea class="form-control" id="edit-cookies-input" style="height:240px;font-family:monospace"></textarea>
               </div>
             </div>
 
@@ -1284,6 +1298,9 @@ export class ModalsComponent {
     `;
 
     this.bindEvents();
+    this.bindConnectionFields('');
+    this.bindConnectionFields('edit-');
+    this.bindHardwareFields('');this.bindHardwareFields('edit-');
     this.loadAvailableCores();
     this.updateSummary();
   }
@@ -1377,6 +1394,7 @@ export class ModalsComponent {
       }
 
       this.syncCustomBrowserDropdown('#batch-browser-type');
+    this.updateBrowserCapabilities?.();
     } catch (e) {
       console.error('Lỗi load available cores:', e);
     }
@@ -1470,6 +1488,7 @@ export class ModalsComponent {
         select.dispatchEvent(new Event('change', { bubbles: true }));
         wrapper.classList.remove('open');
         this.syncCustomBrowserDropdown(selectSelector);
+        this.updateBrowserCapabilities();
       });
     });
   }
@@ -1926,7 +1945,7 @@ export class ModalsComponent {
     setText('#sum-browser', `Chrome - ${major}`);
     setText('#sum-os', this.selectedOs || 'Windows');
     setText('#sum-taskbar', taskbar || '');
-    setText('#sum-ua', 'Auto');
+    setText('#sum-ua', this.container.querySelector('#sw-user-agent')?.value.trim() || 'Auto');
     setText('#sum-proxy', proxyType === 'None' ? 'None' : (proxyAddr || proxyType));
     setText('#sum-lang', lang);
     setText('#sum-tz', tz.includes('/') ? tz.split('/')[1] : tz);
@@ -1950,7 +1969,7 @@ export class ModalsComponent {
     const proxyAddr = this.container.querySelector('#quick-proxy-address')?.value.trim();
     const resEl = this.container.querySelector('#check-proxy-result');
 
-    if (proxyType === 'None' || !proxyAddr) {
+    if (proxyType === 'None') {
       if (resEl) {
         resEl.style.color = '#10b981';
         resEl.textContent = '✓ Không dùng Proxy (Direct Connection)';
@@ -1964,7 +1983,7 @@ export class ModalsComponent {
     }
 
     try {
-      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyAddr, proxyType) : null;
+      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyAddr, proxyType, this.container.querySelector('#conn-proxy-change-url')?.value.trim()) : null;
       if (check && check.live) {
         if (resEl) {
           resEl.style.color = '#10b981';
@@ -1984,6 +2003,74 @@ export class ModalsComponent {
     }
   }
 
+  bindHardwareFields(prefix) {
+    const select=this.container.querySelector('#'+prefix+'hw-webgl-meta');
+    const group=this.container.querySelector('#'+prefix+'hw-webgl-custom');
+    const sync=()=>{if(group)group.style.display=select?.value==='Custom'?'block':'none';};
+    select?.addEventListener('change',sync);sync();
+    this[prefix?'syncEditHardware':'syncHardware']=sync;
+  }
+
+  updateBrowserCapabilities() {
+    for(const prefix of ['', 'edit-']) {
+      const browser=this.container.querySelector('#'+prefix+'quick-browser-core')?.value.split('|')[0];
+      const gecko=['firefox','mullvad'].includes(browser);
+      const hardware=this.container.querySelector('#pane-'+prefix+'hardware');
+      const software=this.container.querySelector('#pane-'+prefix+'software');
+      for(const control of hardware?.querySelectorAll('input,select')||[])control.disabled=gecko;
+      for(const id of ['timezone','webrtc','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control)control.disabled=gecko;}
+      for(const control of software?.querySelectorAll('.os-btn,.edit-os-btn')||[])control.disabled=gecko;
+      const cookie=this.container.querySelector(prefix?'#edit-cookies-input':'#tab-cookies-input');if(cookie){cookie.disabled=false;if(!cookie.parentElement.querySelector('.cookie-support-note'))cookie.insertAdjacentHTML('afterend','<p class="cookie-support-note" style="font-size:12px;color:#64748b">JSON/Netscape được nạp vào Chromium trước URL khởi động. Firefox/Mullvad chưa hỗ trợ cookie khởi động.</p>');}
+      if(hardware&&!hardware.querySelector('.runtime-note'))hardware.insertAdjacentHTML('afterbegin','<p class="runtime-note" style="grid-column:1/-1;font-size:12px;color:#64748b">Chromium: Noise/Masked áp dụng qua JavaScript trên trang/iframe, không thay thế fingerprint native trong mọi worker. Số thiết bị là mô phỏng danh sách, không tạo camera/micro thật. Firefox/Mullvad giữ mặc định riêng tư; phần Hardware và Cookies chưa hỗ trợ.</p>');
+    }
+  }
+
+  bindConnectionFields(prefix) {
+    const get = id => this.container.querySelector('#' + prefix + id);
+    const quick = get('quick-proxy-address'), type = get('quick-proxy-type');
+    const connType = get('conn-proxy-type');
+    const typeUi = () => {
+      const kind=type?.value||'None',provider=['TMProxy','Tinsoft'].includes(kind);
+      const host=get('conn-proxy-host');const label=host?.parentElement.querySelector('label');
+      if(label)label.textContent=provider?'API key hoặc URL API':'Host / IP';
+      for(const name of ['port','user','pass']){const field=get('conn-proxy-'+name);if(field)field.disabled=kind==='None'||provider||(kind==='Socks4'&&name==='pass');}
+      if(host)host.disabled=kind==='None';
+      const userLabel=get('conn-proxy-user')?.parentElement.querySelector('label');if(userLabel)userLabel.textContent=kind==='Socks4'?'User ID (SOCKS4 không có password)':'Username (Tùy chọn)';
+      if(quick)quick.placeholder=provider?'API key hoặc URL API':'Host:Port hoặc User:Pass@Host:Port';
+    };
+    const toConnection = () => {
+      if (!quick || !type || !connType) return;
+      connType.value = type.value;typeUi();
+      let host = '', port = '', user = '', pass = '';
+      const raw = quick.value.trim();
+      try {
+        if (raw) {
+          if (['TMProxy','Tinsoft'].includes(type.value) && !raw.includes(':')) host = raw;
+          else if (raw.includes('://') || raw.includes('@')) {
+            const url = new URL(raw.includes('://') ? raw : 'http://' + raw);
+            host=url.hostname;port=url.port;user=decodeURIComponent(url.username);pass=decodeURIComponent(url.password);
+          } else { const parts=raw.split(':');[host,port,user]=parts;pass=parts.slice(3).join(':'); }
+        }
+      } catch {}
+      for(const [field,value] of Object.entries({host,port,user,pass})) { const el=get('conn-proxy-'+field);if(el)el.value=value||''; }
+    };
+    const toQuick = () => {
+      if (!quick || !type || !connType) return;
+      type.value=connType.value;typeUi();
+      const host=get('conn-proxy-host')?.value.trim()||'';
+      const port=get('conn-proxy-port')?.value.trim()||'';
+      const user=get('conn-proxy-user')?.value||'',pass=get('conn-proxy-pass')?.value||'';
+      const provider=['TMProxy','Tinsoft'].includes(type.value);
+      quick.value=provider?host:host?(user?`${encodeURIComponent(user)}:${encodeURIComponent(pass)}@`:'')+host+':'+(port||(type.value.startsWith('Socks')?'1080':type.value==='HTTPS'?'443':'80')):'';
+      const box=get('quick-proxy-input-container');if(box)box.style.display=type.value==='None'?'none':'block';
+      prefix?this.updateEditSummary():this.updateSummary();
+    };
+    type?.addEventListener('change',toConnection);quick?.addEventListener('input',toConnection);
+    connType?.addEventListener('change',toQuick);
+    for(const field of ['host','port','user','pass'])get('conn-proxy-'+field)?.addEventListener('input',toQuick);
+    this[prefix?'syncEditConnection':'syncConnection']=toConnection;
+  }
+
   async testProxyConn() {
     const host = this.container.querySelector('#conn-proxy-host')?.value.trim();
     const port = this.container.querySelector('#conn-proxy-port')?.value.trim();
@@ -1992,8 +2079,9 @@ export class ModalsComponent {
     const pType = this.container.querySelector('#conn-proxy-type')?.value || 'HTTP';
     const resEl = this.container.querySelector('#conn-proxy-result');
 
+    if (pType === 'None') { if(resEl){resEl.style.color='#10b981';resEl.textContent='✓ Không dùng Proxy (Direct Connection)';} return; }
     if (!host) {
-      alert('Vui lòng nhập Host / IP của Proxy!');
+      alert('Vui lòng nhập Host / IP hoặc API key của Proxy!');
       return;
     }
 
@@ -2002,9 +2090,9 @@ export class ModalsComponent {
       resEl.textContent = 'Đang kiểm tra...';
     }
 
-    const proxyStr = (user && pass) ? `${host}:${port || 80}:${user}:${pass}` : `${host}:${port || 80}`;
+    const proxyStr = this.container.querySelector('#quick-proxy-address')?.value.trim() || '';
     try {
-      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyStr, pType) : null;
+      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyStr, pType, this.container.querySelector('#conn-proxy-change-url')?.value.trim()) : null;
       if (check && check.live) {
         if (resEl) {
           resEl.style.color = '#10b981';
@@ -2036,6 +2124,7 @@ export class ModalsComponent {
     const bypassStaticFiles = this.container.querySelector('#quick-static-files')?.value.trim() || '';
 
     const proxyType = this.container.querySelector('#quick-proxy-type')?.value || 'None';
+    const proxyChangeUrl = this.container.querySelector('#conn-proxy-change-url')?.value.trim() || '';
     let proxy = 'No Proxy';
     if (proxyType !== 'None') {
       const raw = this.container.querySelector('#quick-proxy-address')?.value.trim();
@@ -2050,6 +2139,7 @@ export class ModalsComponent {
       clientrect: this.container.querySelector('#hw-clientrect')?.value || 'Noise',
       webglImg: this.container.querySelector('#hw-webgl-img')?.value || 'Noise',
       webglMeta: this.container.querySelector('#hw-webgl-meta')?.value || 'Masked',
+      webglVendor:this.container.querySelector('#hw-webgl-vendor')?.value.trim()||'',webglRenderer:this.container.querySelector('#hw-webgl-renderer')?.value.trim()||'',
       audio: this.container.querySelector('#hw-audio')?.value || 'Noise',
       font: this.container.querySelector('#hw-font')?.value || 'Masked',
       cpu: this.container.querySelector('#hw-cpu')?.value || '8',
@@ -2080,12 +2170,13 @@ export class ModalsComponent {
           bypassStaticFiles,
           proxy,
           proxyType,
+          proxyChangeUrl,
           os: this.selectedOs || 'Windows',
           cookies,
           notes,
           note: notes,
-          hardware,
-          software
+          hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
+          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language} : software
         });
 
         this.closeModal('modal-add-profile');
@@ -2235,7 +2326,21 @@ export class ModalsComponent {
     }
   }
 
-  openModal(id, defaultCount = 1) {
+  async openModal(id, defaultCount = 1) {
+    const request=this._modalRequest=(this._modalRequest||0)+1;
+    if(id==='modal-add-profile'&&window.api?.getProfileDefaults){
+      try{
+        const defaults=await window.api.getProfileDefaults();
+        if(request!==this._modalRequest)return;
+        const mapping={canvas:'hw-canvas',clientrect:'hw-clientrect',webglImg:'hw-webgl-img',webglMeta:'hw-webgl-meta',audio:'hw-audio',font:'hw-font',screen:'sw-screen',language:'sw-language'};
+        for(const [key,value] of Object.entries({...defaults.hardware,...defaults.software})){
+          const field=this.container.querySelector('#'+mapping[key]);if(!field)continue;
+          if(field.tagName==='SELECT'&&!Array.from(field.options).some(o=>o.value===value)){const option=document.createElement('option');option.value=value;option.textContent=value;field.append(option);}
+          field.value=value;
+        }
+        this.syncHardware?.();
+      }catch(error){alert('Không đọc được mặc định trình duyệt: '+error.message);return;}
+    }
     const modal = this.container.querySelector(`#${id}`);
     if (modal) {
       if (id === 'modal-add-profile') {
@@ -2288,6 +2393,7 @@ export class ModalsComponent {
   }
 
   closeModal(id) {
+    this._modalRequest=(this._modalRequest||0)+1;
     if (id === 'modal-license') {
       // KHÔNG THỂ ĐÓNG BẢNG NẾU CHƯA KÍCH HOẠT HỢP LỆ HOẶC ĐÃ HẾT HẠN
       if (!this.currentLicenseStatus || !this.currentLicenseStatus.isActivated || this.currentLicenseStatus.isExpired) {
@@ -2352,7 +2458,8 @@ export class ModalsComponent {
     const checkProxyRes = this.container.querySelector('#edit-check-proxy-result');
     if (checkProxyRes) checkProxyRes.textContent = '';
 
-    const pType = profile.proxyType || (profile.proxy && profile.proxy !== 'No Proxy' ? 'HTTP' : 'None');
+    const rawType=profile.proxyType || (profile.proxy && profile.proxy !== 'No Proxy' ? 'HTTP' : 'None');
+    const pType=({http:'HTTP',https:'HTTPS',socks4:'Socks4',socks5:'Socks5',none:'None',tmproxy:'TMProxy',tinsoft:'Tinsoft'}[rawType.toLowerCase()]) || rawType;
     if (proxyTypeEl) proxyTypeEl.value = pType;
     if (proxyInputContainer) {
       proxyInputContainer.style.display = (pType === 'None') ? 'none' : 'block';
@@ -2381,16 +2488,24 @@ export class ModalsComponent {
       if (connPassEl) connPassEl.value = '';
     }
 
+    this.syncEditConnection?.();
+    this.updateBrowserCapabilities();
+    const rotation=this.container.querySelector('#edit-conn-proxy-change-url');if(rotation)rotation.value=profile.proxyChangeUrl||'';
+    const editCookies=this.container.querySelector('#edit-cookies-input');if(editCookies)editCookies.value=typeof profile.cookies==='string'?profile.cookies:JSON.stringify(profile.cookies||[],null,2);
     // Hardware
     const hw = profile.hardware || {};
     const setSelect = (id, val) => {
       const el = this.container.querySelector(id);
-      if (el && val !== undefined) el.value = val;
+      if (el && val !== undefined) {
+        if(el.tagName==='SELECT'&&!Array.from(el.options).some(option=>option.value===String(val))){const option=document.createElement('option');option.value=String(val);option.textContent=String(val);el.append(option);}
+        el.value=val;
+      }
     };
     setSelect('#edit-hw-canvas', hw.canvas || 'Noise');
     setSelect('#edit-hw-clientrect', hw.clientrect || 'Noise');
     setSelect('#edit-hw-webgl-img', hw.webglImg || 'Noise');
     setSelect('#edit-hw-webgl-meta', hw.webglMeta || 'Masked');
+    setSelect('#edit-hw-webgl-vendor',hw.webglVendor||'');setSelect('#edit-hw-webgl-renderer',hw.webglRenderer||'');this.syncEditHardware?.();
     setSelect('#edit-hw-audio', hw.audio || 'Noise');
     setSelect('#edit-hw-font', hw.font || 'Masked');
     setSelect('#edit-hw-cpu', hw.cpu || '8');
@@ -2400,7 +2515,7 @@ export class ModalsComponent {
 
     // Software
     const sw = profile.software || {};
-    this.editSelectedOs = sw.os || profile.os || 'Windows';
+    this.editSelectedOs = ({windows:'Windows',mac:'Mac',macos:'Mac',linux:'Linux',android:'Android'}[String(sw.os||profile.os||'Windows').toLowerCase()]) || 'Windows';
     this.container.querySelectorAll('.edit-os-btn').forEach(btn => {
       if (btn.getAttribute('data-os') === this.editSelectedOs) btn.classList.add('active');
       else btn.classList.remove('active');
@@ -2455,7 +2570,7 @@ export class ModalsComponent {
     setText('#edit-sum-browser', `Chrome - ${major}`);
     setText('#edit-sum-os', this.editSelectedOs || 'Windows');
     setText('#edit-sum-taskbar', taskbar || '');
-    setText('#edit-sum-ua', 'Auto');
+    setText('#edit-sum-ua', this.container.querySelector('#edit-sw-user-agent')?.value.trim() || 'Auto');
     setText('#edit-sum-proxy', proxyType === 'None' ? 'None' : (proxyAddr || proxyType));
     setText('#edit-sum-static-files', staticFiles || '');
     setText('#edit-sum-lang', lang);
@@ -2499,7 +2614,7 @@ export class ModalsComponent {
     const proxyAddr = this.container.querySelector('#edit-quick-proxy-address')?.value.trim();
     const resEl = this.container.querySelector('#edit-check-proxy-result');
 
-    if (proxyType === 'None' || !proxyAddr) {
+    if (proxyType === 'None') {
       if (resEl) {
         resEl.style.color = '#10b981';
         resEl.textContent = '✓ Không dùng Proxy (Direct Connection)';
@@ -2513,7 +2628,7 @@ export class ModalsComponent {
     }
 
     try {
-      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyAddr, proxyType) : null;
+      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyAddr, proxyType, this.container.querySelector('#edit-conn-proxy-change-url')?.value.trim()) : null;
       if (check && check.live) {
         if (resEl) {
           resEl.style.color = '#10b981';
@@ -2541,10 +2656,11 @@ export class ModalsComponent {
     const pType = this.container.querySelector('#edit-conn-proxy-type')?.value || 'HTTP';
     const resEl = this.container.querySelector('#edit-conn-check-status');
 
+    if(pType==='None'){if(resEl)resEl.textContent='✓ Không dùng Proxy';return;}
     if (!host) {
       if (resEl) {
         resEl.style.color = '#ef4444';
-        resEl.textContent = '✗ Vui lòng nhập Host/IP';
+        resEl.textContent = '✗ Vui lòng nhập Host/IP hoặc API key';
       }
       return;
     }
@@ -2554,9 +2670,9 @@ export class ModalsComponent {
       resEl.textContent = 'Đang kiểm tra...';
     }
 
-    const proxyStr = (user && pass) ? `${host}:${port || 80}:${user}:${pass}` : `${host}:${port || 80}`;
+    const proxyStr = this.container.querySelector('#edit-quick-proxy-address')?.value.trim() || '';
     try {
-      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyStr, pType) : null;
+      const check = window.api?.testProxyString ? await window.api.testProxyString(proxyStr, pType, this.container.querySelector('#edit-conn-proxy-change-url')?.value.trim()) : null;
       if (check && check.live) {
         if (resEl) {
           resEl.style.color = '#10b981';
@@ -2590,6 +2706,7 @@ export class ModalsComponent {
     const bypassStaticFiles = this.container.querySelector('#edit-quick-static-files')?.value.trim() || '';
 
     const proxyType = this.container.querySelector('#edit-quick-proxy-type')?.value || 'None';
+    const proxyChangeUrl = this.container.querySelector('#edit-conn-proxy-change-url')?.value.trim() || '';
     let proxy = 'No Proxy';
     if (proxyType !== 'None') {
       const raw = this.container.querySelector('#edit-quick-proxy-address')?.value.trim();
@@ -2604,6 +2721,7 @@ export class ModalsComponent {
       clientrect: this.container.querySelector('#edit-hw-clientrect')?.value || 'Noise',
       webglImg: this.container.querySelector('#edit-hw-webgl-img')?.value || 'Noise',
       webglMeta: this.container.querySelector('#edit-hw-webgl-meta')?.value || 'Masked',
+      webglVendor:this.container.querySelector('#edit-hw-webgl-vendor')?.value.trim()||'',webglRenderer:this.container.querySelector('#edit-hw-webgl-renderer')?.value.trim()||'',
       audio: this.container.querySelector('#edit-hw-audio')?.value || 'Noise',
       font: this.container.querySelector('#edit-hw-font')?.value || 'Masked',
       cpu: this.container.querySelector('#edit-hw-cpu')?.value || '8',
@@ -2635,11 +2753,13 @@ export class ModalsComponent {
           proxy,
           raw_proxy: proxy === 'No Proxy' ? '' : proxy,
           proxyType,
+          proxyChangeUrl,
           os: this.editSelectedOs || 'Windows',
+          cookies: this.container.querySelector('#edit-cookies-input')?.value.trim() || '',
           notes,
           note: notes,
-          hardware,
-          software
+          hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
+          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language} : software
         });
 
         this.closeModal('modal-edit-profile');

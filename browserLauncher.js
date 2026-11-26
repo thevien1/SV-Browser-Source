@@ -514,6 +514,14 @@ class BrowserLauncher extends EventEmitter {
     } catch (e) {}
 
     // Port remote debugging: lấy customPort nếu có, ngược lại lấy nextDebugPort
+    if(this.profileStore)profile=require('./profileConfig').applyBrowserDefaults(profile,this.profileStore.getSettings());
+    require('./profileConfig').validateProfile(profile);
+    const originalProfile = profile;
+    const proxyConfig = options?.resolvedProxy || await require('./proxyConnection').resolveProxy(profile);
+    const proxyBridge = await require('./proxyConnection').openBridge(proxyConfig);
+    profile = { ...profile, proxy: proxyBridge ? proxyBridge.url : 'No Proxy', proxyType: proxyBridge ? 'HTTP' : 'None' };
+    let runtime;
+    let startupUrls = [];
     const customPort = (options && (options.customPort || options.port || options.remote_debugging_port))
       || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port || profileIndex.remote_debugging_port))
       || (profile && (profile.remote_debugging_port || profile.port || profile.debugPort))
@@ -590,6 +598,10 @@ class BrowserLauncher extends EventEmitter {
             }
           }
         }
+        const customUa = require('./profileConfig').userAgent(originalProfile);
+        if (customUa) ffPrefs.push(`user_pref("general.useragent.override", ${JSON.stringify(customUa)});`);
+        const ffLang = originalProfile.software?.language;
+        if (ffLang && !['Auto','Real'].includes(ffLang)) ffPrefs.push(`user_pref("intl.accept_languages", ${JSON.stringify(ffLang)});`);
         fs.writeFileSync(userJsPath, ffPrefs.join('\n') + '\n', 'utf8');
 
         // Nạp extensions cho Firefox vào thư mục <profileDir>/extensions
@@ -658,9 +670,7 @@ class BrowserLauncher extends EventEmitter {
         // Chế độ chạy ngầm / ẩn Chrome (Headless new engine hỗ trợ 100% extensions và fingerprint, tiết kiệm RAM/GPU)
         args.push(
           '--headless=new',
-          '--disable-gpu',
-          '--mute-audio',
-          '--disable-software-rasterizer'
+          '--mute-audio'
         );
       }
 
@@ -835,28 +845,10 @@ try {
         args.push(proxyArg);
       }
 
-      // 3. User-Agent
-      // Nếu là Chrome chuẩn (mặc định): TUYỆT ĐỐI KHÔNG truyền --user-agent (ChromiumCore đã có sẵn UA chuẩn)
-      // Chỉ truyền --user-agent khi người dùng chọn Edge hoặc tự nhập custom UA
-      const isEdge = (type === 'edge') || (profile.browserType === 'edge') || (profile.software && profile.software.browserType === 'edge');
-      const majorVer = version ? version.split('.')[0] : '151';
-      let customUa = (profile.userAgent || (profile.software && profile.software.userAgent) || '').trim();
-
-      if (isEdge) {
-        // Trình duyệt Edge cần cờ --user-agent có đuôi Edg/...
-        const edgeUa = (customUa && customUa !== 'Auto')
-          ? customUa
-          : `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${majorVer}.0.0.0 Safari/537.36 Edg/${majorVer}.0.0.0`;
-        args.push(`--user-agent=${edgeUa}`);
-      } else if (customUa && customUa !== 'Auto') {
-        // Người dùng tự cấu hình custom User-Agent cho Chrome
-        // Nếu lỡ có đuôi Edg/ do chọn nhầm trước đó, lọc bỏ đuôi Edg/
-        const cleanUa = customUa.replace(/\s*Edg\/[\d\.]+/i, '');
-        const defaultChromeUa = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${majorVer}.0.0.0 Safari/537.36`;
-        if (cleanUa !== defaultChromeUa) {
-          args.push(`--user-agent=${cleanUa}`);
-        }
-      }
+      // Auto preserves the installed engine's actual UA. Custom input is exact.
+      const customUa = require('./profileConfig').userAgent(originalProfile);
+      if (customUa) args.push(`--user-agent=${customUa}`);
+      if (['BaseOnIp', 'Disable'].includes(profile.software?.webrtc)) args.push('--force-webrtc-ip-handling-policy=disable_non_proxied_udp');
 
       // 4. Ngôn ngữ: Tự động theo IP vừa kiểm tra (trừ khi có thiết lập thủ công khác Auto)
       const detectedCountry = (options && options.detectedCountry) || profile.proxyCountry || '';
@@ -866,8 +858,8 @@ try {
         : ((profile.software && profile.software.language && profile.software.language !== 'Auto')
           ? profile.software.language
           : null);
-      const lang = (options && options.detectedLang) || customLang || langFromCountry || 'vi';
-      args.push(`--lang=${lang}`);
+      const lang = customLang || (options && options.detectedLang) || langFromCountry || 'vi';
+      if(profile.software?.language!=='Real')args.push(`--lang=${lang}`);
 
       // 5. Global Settings & Start URL
       const globalSettings = this.profileStore ? this.profileStore.getSettings() : {};
@@ -885,12 +877,9 @@ try {
         });
       }
 
-      if (profile.startUrl && profile.startUrl.trim() && profile.startUrl !== 'about:blank') {
-        args.push(profile.startUrl.trim());
-      } else if (globalSettings.startupUrl && globalSettings.startupUrl.trim()) {
-        const urls = globalSettings.startupUrl.trim().split(/\s+/).filter(u => u.startsWith('http://') || u.startsWith('https://'));
-        urls.forEach(u => args.push(u));
-      }
+      if (profile.startUrl?.trim()) startupUrls = [profile.startUrl.trim()];
+      else if (globalSettings.startupUrl?.trim()) startupUrls = globalSettings.startupUrl.trim().split(/\s+/).filter(u => /^https?:\/\//.test(u));
+      args.push('about:blank');
 
       // 6. Options từ API (window_size, window_pos, window_scale, addition_args)
       if (options && options.window_size) {
@@ -925,6 +914,11 @@ try {
       });
 
       child.unref();
+      let spawnError;
+      child.on('error', error => { spawnError = error; });
+      const releaseResources = () => { runtime?.cdp.close(); if (proxyBridge) void proxyBridge.close(); };
+      child.once('exit', () => {if(!(['firefox','mullvad'].includes(type)&&process.platform==='win32')&&!(type==='mullvad'&&process.platform==='darwin'))releaseResources();});
+      child.once('error', releaseResources);
 
       // Lấy WebSocket URL chuẩn cho Puppeteer / Playwright (chỉ với Chromium)
       let wsUrl = type === 'mullvad' ? '' : `ws://127.0.0.1:${debugPort}/devtools/browser`;
@@ -943,11 +937,24 @@ try {
         };
       }
 
+      if (type !== 'firefox' && type !== 'mullvad') {
+        try {
+          runtime = await require('./profileRuntime').configureChromium(wsUrl, originalProfile, { ...options, startupUrls });
+        } catch (error) {
+          try { child.kill(); } catch {}
+          if (proxyBridge) await proxyBridge.close();
+          return { success: false, message: `Không áp dụng được cấu hình profile: ${error.message}` };
+        }
+      }
+      if (spawnError) throw spawnError;
       const driverPath = type === 'mullvad' ? '' : this.getChromedriverPath();
       const execTime = Date.now() - startTime;
 
       const profileInfo = {
         process: child,
+        runtime,
+        proxyBridge,
+        releaseResources,
         pid: child.pid,
         profileId,
         profileDir,
@@ -971,6 +978,7 @@ try {
       if (type === 'mullvad' && process.platform === 'darwin') {
         profileInfo.macLifecycle = require('./macMullvadLifecycle').watchMacMullvad(profileInfo, () => {
           if (this.runningProfiles.get(profileId) !== profileInfo) return;
+          releaseResources();
           this.runningProfiles.delete(profileId);
           if (profileInfo.isEphemeral && fs.existsSync(profileDir)) {
             try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch {}
@@ -993,6 +1001,7 @@ try {
         profileInfo.ffMonitorTimer = setInterval(() => {
           if (!this.isFirefoxProfileLocked(profileDir)) {
             clearInterval(profileInfo.ffMonitorTimer);
+            releaseResources();
             this.runningProfiles.delete(profileId);
             this.emit('profile-closed', { profileId });
           }
@@ -1002,6 +1011,7 @@ try {
           setTimeout(() => {
             if (!this.isFirefoxProfileLocked(profileDir)) {
               if (profileInfo.ffMonitorTimer) clearInterval(profileInfo.ffMonitorTimer);
+              releaseResources();
               this.runningProfiles.delete(profileId);
               this.emit('profile-closed', { profileId });
             }
@@ -1053,6 +1063,8 @@ try {
       };
 
     } catch (err) {
+      runtime?.cdp.close();
+      if (proxyBridge) await proxyBridge.close();
       console.error(`Không thể spawn profile ${profileId}:`, err);
       return { success: false, message: err.message };
     }
@@ -1091,6 +1103,8 @@ try {
     } catch (e) {
       console.warn('Lỗi kill pid:', e.message);
     }
+
+    running.releaseResources?.();
 
     if (running.isEphemeral && running.profileDir && fs.existsSync(running.profileDir)) {
       try { fs.rmSync(running.profileDir, { recursive: true, force: true }); } catch (e) {}

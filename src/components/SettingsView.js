@@ -201,6 +201,7 @@ export class SettingsViewComponent {
 
           <!-- Cột Phải: 2 Cột con chuẩn 100% Hình chụp media_1789370819129.png -->
           <div class="settings-browser-right-grid">
+            <p style="grid-column:1/-1;font-size:12px;color:var(--text-muted)">Mặc định cho profile tạo mới. Real dùng giá trị gốc; Noise/Masked áp dụng trên trang/iframe của Chromium. Screen Random được giữ ổn định theo profile.</p>
             <!-- Cột con 1 -->
             <div class="settings-browser-subcol">
               <div class="settings-option-item">

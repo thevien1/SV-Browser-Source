@@ -4,54 +4,7 @@ const https = require('https');
 
 class ProxyChecker {
   static parseProxy(proxyStr, proxyType = '') {
-    if (!proxyStr || proxyStr.trim().toLowerCase() === 'no proxy') {
-      return { isDirect: true };
-    }
-    let str = proxyStr.trim();
-    let type = (proxyType && proxyType.toLowerCase().includes('socks')) ? 'socks5' : 'http';
-
-    if (str.toLowerCase().startsWith('socks5://')) {
-      type = 'socks5';
-      str = str.substring(9);
-    } else if (str.toLowerCase().startsWith('socks4://')) {
-      type = 'socks5';
-      str = str.substring(9);
-    } else if (str.toLowerCase().startsWith('http://')) {
-      type = 'http';
-      str = str.substring(7);
-    } else if (str.toLowerCase().startsWith('https://')) {
-      type = 'https';
-      str = str.substring(8);
-    }
-
-    let host = '', port = 80, user = '', pass = '';
-    if (str.includes('@')) {
-      const [auth, addr] = str.split('@');
-      if (auth.includes(':')) {
-        [user, pass] = auth.split(':');
-      } else {
-        user = auth;
-      }
-      const [h, p] = addr.split(':');
-      host = h;
-      port = parseInt(p, 10);
-    } else {
-      const parts = str.split(':');
-      if (parts.length === 4) {
-        host = parts[0];
-        port = parseInt(parts[1], 10);
-        user = parts[2];
-        pass = parts[3];
-      } else if (parts.length === 2) {
-        host = parts[0];
-        port = parseInt(parts[1], 10);
-      } else {
-        host = parts[0];
-        port = parseInt(parts[1] || 80, 10);
-      }
-    }
-
-    return { isDirect: false, type, host: (host || '').trim(), port: isNaN(port) ? 80 : port, user: (user || '').trim(), pass: (pass || '').trim() };
+    return require('./proxyConnection').parseProxy(proxyStr, proxyType);
   }
 
   static checkTcpSocket(host, port, timeoutMs = 2500) {
@@ -101,7 +54,7 @@ class ProxyChecker {
           try {
             const j = JSON.parse(data);
             if (j && j.ip) {
-              return resolve({ ip: j.ip || host, country: (j.country || 'us').toLowerCase() });
+              return resolve({ ip: j.ip || host, country: (j.country || 'us').toLowerCase(), timezone:j.timezone, geo:j.loc?{latitude:Number(j.loc.split(',')[0]),longitude:Number(j.loc.split(',')[1])}:undefined });
             }
           } catch (e) {}
           // Fallback sang ip-api
@@ -115,14 +68,14 @@ class ProxyChecker {
 
   static fallbackIpApi(host, timeoutMs = 2000) {
     return new Promise((resolve) => {
-      const req = http.get(`http://ip-api.com/json/${host}?fields=status,country,countryCode,query`, { timeout: timeoutMs }, (res) => {
+      const req = http.get(`http://ip-api.com/json/${host}?fields=status,country,countryCode,query,timezone,lat,lon`, { timeout: timeoutMs }, (res) => {
         let data = '';
         res.on('data', c => data += c);
         res.on('end', () => {
           try {
             const j = JSON.parse(data);
             if (j && j.status === 'success') {
-              return resolve({ ip: j.query || host, country: (j.countryCode || 'us').toLowerCase() });
+              return resolve({ ip: j.query || host, country: (j.countryCode || 'us').toLowerCase(),timezone:j.timezone,geo:{latitude:j.lat,longitude:j.lon} });
             }
           } catch (e) {}
           resolve({ ip: host, country: 'us' });
@@ -147,7 +100,7 @@ class ProxyChecker {
                 live: true,
                 status: 'Live',
                 ip: j.ip,
-                country: (j.country || 'vn').toLowerCase()
+                country: (j.country || 'vn').toLowerCase(),timezone:j.timezone,geo:j.loc?{latitude:Number(j.loc.split(',')[0]),longitude:Number(j.loc.split(',')[1])}:undefined
               });
             }
           } catch (e) {}
@@ -437,7 +390,7 @@ class ProxyChecker {
                   live: true,
                   status: 'Live',
                   ip: j.ip,
-                  country: geo.country || 'us'
+                  country: geo.country || 'us',timezone:geo.timezone,geo:geo.geo
                 });
               }
             }
@@ -486,47 +439,18 @@ class ProxyChecker {
     });
   }
 
-  static async testProxy(proxyStr, proxyType = '') {
-    const parsed = this.parseProxy(proxyStr, proxyType);
-    if (parsed.isDirect) {
-      return this.checkDirect();
-    }
-
-    const { type, host, port, user, pass } = parsed;
-
-    // SOCKS5
-    if (type === 'socks5') {
-      return this.testSocks5Proxy(host, port, user, pass, 3500);
-    }
-
-    // HTTP / HTTPS:
-    // Trình duyệt Chrome lướt web bắt buộc phải dùng được HTTPS Tunnel (cổng 443).
-    // Do đó ưu tiên kiểm tra HTTPS Tunnel thực tế trước!
-    const tunnelRes = await this.testHttpsTunnel(host, port, user, pass, 3500);
-    if (tunnelRes.live) {
-      return tunnelRes;
-    }
-
-    // Nếu proxy yêu cầu đăng nhập mật khẩu (407)
-    if (tunnelRes.error && tunnelRes.error.includes('407')) {
-      return tunnelRes;
-    }
-
-    // Nếu HTTPS Tunnel không thông, thử kiểm tra HTTP GET để phân biệt lỗi:
-    // Proxy chết hẳn hay Proxy bị chặn HTTPS
-    const httpRes = await this.testHttpProxy(host, port, user, pass, 2500);
-    if (httpRes.live) {
-      return {
-        live: false,
-        status: 'No connection',
-        ip: host,
-        country: httpRes.country || 'us',
-        error: 'Proxy chỉ hỗ trợ HTTP thường, chặn HTTPS (Lỗi ERR_TIMED_OUT khi mở Chrome)'
-      };
-    }
-
-    // Trả về lỗi chi tiết từ tunnelRes
-    return tunnelRes;
+  static async testProxy(proxyStr, proxyType = '', proxyChangeUrl = '') {
+    let bridge;
+    if(proxyType && !/^none$/i.test(proxyType) && (!proxyStr||/^no proxy$/i.test(proxyStr)))return {live:false,status:'No connection',error:'Chưa nhập địa chỉ hoặc API key proxy'};
+    try {
+      const parsed = await require('./proxyConnection').resolveProxy({proxy:proxyStr,proxyType,proxyChangeUrl});
+      if (parsed.isDirect) return this.checkDirect();
+      bridge = await require('./proxyConnection').openBridge(parsed);
+      const result=await this.testHttpsTunnel(bridge.host, bridge.port, '', '', 8000);
+      result[require('./proxyConnection').RESOLVED_PROXY]=parsed;
+      return result;
+    } catch (error) { return {live:false,status:'No connection',error:error.message}; }
+    finally { if(bridge) await bridge.close(); }
   }
 
   static getLangFromCountry(countryCode) {

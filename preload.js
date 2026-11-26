@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   // Profile management
   getProfileHistory: (filters) => ipcRenderer.invoke('profiles:get-history', filters),
   getProfiles: () => ipcRenderer.invoke('profiles:get-all'),
+  getProfileDefaults: () => ipcRenderer.invoke('profiles:get-defaults'),
   createProfile: (data) => ipcRenderer.invoke('profiles:create', data),
   batchCreateProfiles: (options) => ipcRenderer.invoke('profiles:batch-create', options),
   updateProfile: (id, data) => ipcRenderer.invoke('profiles:update', id, data),
@@ -34,7 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   importCookie: (id, content) => ipcRenderer.invoke('profiles:import-cookie', id, content),
   selectCookieFile: () => ipcRenderer.invoke('dialog:select-cookie-file'),
   checkProxy: (id) => ipcRenderer.invoke('profiles:check-proxy', id),
-  testProxyString: (proxyStr, proxyType) => ipcRenderer.invoke('proxy:test-string', proxyStr, proxyType),
+  testProxyString: (proxyStr, proxyType, proxyChangeUrl) => ipcRenderer.invoke('proxy:test-string', proxyStr, proxyType, proxyChangeUrl),
   exportProfiles: (profileIds, targetDir, format) => ipcRenderer.invoke('profiles:export', profileIds, targetDir, format),
   onExportProgress: (callback) => {
     const handler = (event, data) => callback(data);

@@ -498,11 +498,12 @@ ipcMain.handle('browser:launch', async (event, profileId, profileIndex, options)
 
   // 1. KIỂM TRA IP TRƯỚC KHI MỞ CHROME
   let detectedIp = profile.ip || '';
+  let detectedTimezone, detectedGeo, resolvedProxy;
   let detectedCountry = profile.proxyCountry || '';
 
   if (profile.proxy && profile.proxy.trim() && profile.proxy.toLowerCase() !== 'no proxy') {
     // Có proxy: kiểm tra proxy có hoạt động không trước khi mở
-    const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+    const proxyCheck = await ProxyChecker.testProxy(profile.proxy, profile.proxyType, profile.proxyChangeUrl);
     if (!proxyCheck.live) {
       // Proxy chết/không kết nối được -> KHÔNG mở Chrome, đổi trạng thái thành No connection
       profileStore.updateProfile(profileId, { status: 'No connection' });
@@ -512,7 +513,9 @@ ipcMain.handle('browser:launch', async (event, profileId, profileIndex, options)
         message: `Proxy ${profile.proxy} không kết nối được (No connection). Đã hủy mở trình duyệt!`
       };
     } else {
+      resolvedProxy=proxyCheck[require('./proxyConnection').RESOLVED_PROXY];
       detectedIp = proxyCheck.ip;
+      detectedTimezone=proxyCheck.timezone;detectedGeo=proxyCheck.geo;
       detectedCountry = proxyCheck.country || 'us';
       profileStore.updateProfile(profileId, {
         status: 'Live',
@@ -526,6 +529,7 @@ ipcMain.handle('browser:launch', async (event, profileId, profileIndex, options)
       const directCheck = await ProxyChecker.checkDirect();
       if (directCheck && directCheck.live) {
         detectedIp = directCheck.ip;
+        detectedTimezone=directCheck.timezone;detectedGeo=directCheck.geo;
         detectedCountry = directCheck.country || 'vn';
         profileStore.updateProfile(profileId, {
           status: 'Live',
@@ -558,7 +562,7 @@ ipcMain.handle('browser:launch', async (event, profileId, profileIndex, options)
     ...(options || {}),
     detectedLang: finalLang,
     detectedCountry,
-    detectedIp
+    detectedIp, detectedTimezone, detectedGeo, resolvedProxy
   };
 
   // Cập nhật thời gian chạy cuối
@@ -571,7 +575,7 @@ ipcMain.handle('profiles:check-proxy', async (event, profileId) => {
   const profile = profileStore.getProfile(profileId);
   if (!profile) return { success: false, message: 'Không tìm thấy profile' };
 
-  const res = await ProxyChecker.testProxy(profile.proxy, profile.proxyType);
+  const res = await ProxyChecker.testProxy(profile.proxy, profile.proxyType, profile.proxyChangeUrl);
   const updatedData = {
     status: res.status, // 'Live' hoặc 'No connection'
     proxyCountry: res.country || profile.proxyCountry || 'vn',
@@ -581,8 +585,8 @@ ipcMain.handle('profiles:check-proxy', async (event, profileId) => {
   return { success: true, result: res, profileId };
 });
 
-ipcMain.handle('proxy:test-string', async (event, proxyStr, proxyType) => {
-  return ProxyChecker.testProxy(proxyStr, proxyType);
+ipcMain.handle('proxy:test-string', async (event, proxyStr, proxyType, proxyChangeUrl) => {
+  return ProxyChecker.testProxy(proxyStr, proxyType, proxyChangeUrl);
 });
 
 // Clear Cache & Free Disk Space IPC (Bảo toàn Cookie & Đăng nhập)
@@ -625,6 +629,9 @@ ipcMain.handle('dialog:select-cookie-file', async () => {
 });
 
 ipcMain.handle('profiles:import-cookie', async (event, profileId, cookieContent) => {
+  const cookies=require('./profileConfig').parseCookies(cookieContent);
+  const running=browserLauncher.getRunningInfo(profileId);
+  if(running?.runtime)await running.runtime.cdp.send('Storage.setCookies',{cookies});
   return profileStore.importCookie(profileId, cookieContent);
 });
 
@@ -848,6 +855,8 @@ ipcMain.handle('driver:get-update-list', async (event, customServerUrl) => {
 });
 
 // Settings & Dialog IPC
+ipcMain.handle('profiles:get-defaults', () => require('./profileConfig').browserDefaults(profileStore.getSettings(), require('crypto').randomUUID()));
+
 ipcMain.handle('settings:get', async () => {
   return profileStore.getSettings();
 });

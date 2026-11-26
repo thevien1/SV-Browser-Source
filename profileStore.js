@@ -78,6 +78,7 @@ class ProfileStore {
   }
 
   updateSettings(newSettings) {
+    require('./profileConfig').validateBrowserSettings(newSettings);
     if (newSettings.localStoragePath) {
       newSettings.hasConfiguredStoragePath = true;
       try {
@@ -648,6 +649,9 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
   }
 
   createProfile(data) {
+    data={...data,id:data.id||this.generateUuid()};
+    data=require('./profileConfig').applyBrowserDefaults(data,this.settings);
+    require('./profileConfig').validateProfile(data);
     const id = data.id || this.generateUuid();
     const version = data.version || '151.0.7922.76';
     const os = data.os || 'Windows';
@@ -693,13 +697,14 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
       proxy: proxyStr,
       raw_proxy: proxyStr === 'No Proxy' ? '' : proxyStr,
       proxyType: data.proxyType || 'None',
+      proxyChangeUrl: data.proxyChangeUrl || '',
       proxyCountry: proxyCountry.toLowerCase(),
       status: 'ready',
       lastRun: 'Chưa chạy',
       tags: this.ensureTags(data.tags || data.tag || []),
       note: data.note || data.notes || '',
       notes: data.note || data.notes || '',
-      userAgent: data.userAgent && data.userAgent.trim() ? data.userAgent.trim() : defaultUa,
+      userAgent: require('./profileConfig').userAgent(data) || 'Auto',
       cookies: data.cookies || '',
       hardware: data.hardware || {},
       software: data.software || {},
@@ -755,7 +760,9 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         try { fs.mkdirSync(profileDir, { recursive: true }); } catch (e) {}
       }
 
+      const defaults=['firefox','mullvad'].includes(browserType)?{}:require('./profileConfig').browserDefaults(this.settings,id);
       const p = {
+        ...defaults,
         id,
         name: `${namePrefix} ${numStr}`,
         group: groupName,
@@ -775,7 +782,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
         tags: cleanTags.length > 0 ? [...cleanTags] : (proxy !== 'No Proxy' ? ['US'] : []),
         note: options.note || options.notes || '',
         notes: options.note || options.notes || '',
-        userAgent: defaultUa,
+        userAgent: 'Auto',
         startUrl: options.startUrl || '',
         storage_path: profileDir,
         profilePath: profileDir,
@@ -855,7 +862,10 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
   updateProfile(id, data) {
     const index = this.profiles.findIndex(p => p.id === id);
     if (index !== -1) {
+      require('./profileConfig').validateProfile({...this.profiles[index],...data});
       const updateData = { ...data };
+      if (Object.hasOwn(data,'cookies')) require('./profileConfig').parseCookies(data.cookies);
+      if (Object.hasOwn(data.software||{},'userAgent')) updateData.userAgent=require('./profileConfig').userAgent(data)||'Auto';
       if (Object.hasOwn(updateData, 'note') || Object.hasOwn(updateData, 'notes')) {
         const value = updateData.note ?? updateData.notes ?? '';
         if (typeof value !== 'string') throw Error('Ghi chú phải là chuỗi.');
@@ -907,6 +917,7 @@ Thời gian tạo: ${new Date(p.createdAt || Date.now()).toLocaleString('vi-VN')
     if (!profile) return { success: false, message: 'Không tìm thấy profile' };
 
     const cookieStr = typeof cookieContent === 'string' ? cookieContent : JSON.stringify(cookieContent);
+    require('./profileConfig').validateProfile({...profile,cookies:cookieStr});
     profile.cookies = cookieStr;
     profile.updatedAt = Date.now();
     
