@@ -75,7 +75,10 @@ async function configureChromium(url, profile, options={}){
    if (!page) {
     // New Chromium versions expose an intermediate tab target. Its page must
     // also be auto-attached before the tab is allowed to start running.
-    if(targetInfo.type==='tab')await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
+    if(targetInfo.type==='tab'){
+     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
+     await Promise.all(Array.from(sessions.values()).filter(child=>child.parentSessionId===sessionId).map(child=>child.task));
+    }
     return;
    }
    if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
@@ -135,7 +138,7 @@ async function configureChromium(url, profile, options={}){
  cdp.listeners.add(message=>{
   if(message.method==='Target.attachedToTarget'){
    const {sessionId,targetInfo}=message.params;
-   const task=setup(sessionId,targetInfo);sessions.set(targetInfo.targetId,{sessionId,targetInfo,task});
+   const task=setup(sessionId,targetInfo);sessions.set(targetInfo.targetId,{sessionId,parentSessionId:message.sessionId,targetInfo,task});
   }
  });
  await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true,filter:[{type:'tab'},{exclude:true}]});
