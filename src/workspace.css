@@ -89,3 +89,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .dark .pretty-option[aria-selected="true"], .dark .pretty-option:hover, .dark .pretty-option:focus-visible, .dark .profile-context-menu .context-menu-item:hover { background: #292b54; color: #c7d2fe; }
 .sidebar-nav { scrollbar-width: none; }
 .sidebar-nav::-webkit-scrollbar { display: none; }
+
+/* Keep Software dropdowns inside the modal layout; the popup renders above it. */
+.pretty-select[data-select-id$="sw-timezone"], .pretty-select[data-select-id$="sw-geo"] { display: flex; width: 100%; }
+
+.modal-overlay .pretty-select { display: flex; width: 100%; min-width: 0; }

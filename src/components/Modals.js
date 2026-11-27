@@ -7,6 +7,7 @@
  */
 
 import { getBrowserIconHtml } from '../data/browserIcons.js';
+import { enhanceSelects, closeSelect } from './PrettySelect.js';
 
 export class ModalsComponent {
   constructor(options = {}) {
@@ -342,7 +343,8 @@ export class ModalsComponent {
                     <label class="field-label">Hệ điều hành (OS)</label>
                     <div class="os-button-group">
                       <button type="button" class="os-btn active" data-os="Windows"><span>🪟</span> Windows</button>
-                      <button type="button" class="os-btn" data-os="Mac"><span>🍏</span> Mac</button>
+                      <button type="button" class="os-btn" data-os="Mac (Intel)"><span>🍏</span> Mac (Intel)</button>
+                      <button type="button" class="os-btn" data-os="Mac (ARM)"><span>🍏</span> Mac (ARM)</button>
                       <button type="button" class="os-btn" data-os="Linux"><span>🐧</span> Linux</button>
                       <button type="button" class="os-btn" data-os="Android"><span>🤖</span> Android</button>
                     </div>
@@ -1666,7 +1668,7 @@ export class ModalsComponent {
               cancelBtn.innerText = 'Đóng';
             }
             const modal = this.container.querySelector('#modal-license');
-            if (modal) modal.classList.remove('active');
+            if (modal) { closeSelect(); modal.classList.remove('active'); }
             if (keyInput) keyInput.value = '';
             this.onLicenseActivated();
           } else {
@@ -2020,7 +2022,7 @@ export class ModalsComponent {
       const hardware=this.container.querySelector('#pane-'+prefix+'hardware');
       const software=this.container.querySelector('#pane-'+prefix+'software');
       for(const control of hardware?.querySelectorAll('input,select')||[])control.disabled=gecko;
-      for(const id of ['timezone','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control)control.disabled=gecko;}
+      for(const id of ['timezone','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control){control.disabled=gecko;control.title=gecko?'Firefox/Mullvad chưa hỗ trợ tùy chỉnh '+id+'; giữ mặc định engine.':'';}}
       const rtc=this.container.querySelector('#'+prefix+'sw-webrtc');
       if(rtc){
         rtc.disabled=false;
@@ -2409,6 +2411,10 @@ export class ModalsComponent {
         }
       }
       modal.classList.add('active');
+      if (['modal-add-profile','modal-edit-profile','modal-batch-create'].includes(id)) {
+        this.updateBrowserCapabilities();
+        enhanceSelects(modal, 'select.form-control:not([id$="browser-core"]):not(#batch-browser-type)');
+      }
     }
   }
 
@@ -2542,7 +2548,7 @@ export class ModalsComponent {
     // Software
     const sw = profile.software || {};
     const storedOs = String(sw.os || profile.os || 'Windows').toLowerCase();
-    this.editSelectedOs = ({windows:'Windows',mac:'Mac (Intel)',macos:'Mac (Intel)','mac (intel)':'Mac (Intel)','mac (arm)':'Mac (ARM)',linux:'Linux',android:'Android'}[storedOs]) || 'Windows';
+    this.editSelectedOs = ({windows:'Windows',mac:'Mac (Intel)',macos:'Mac (Intel)','mac (intel)':'Mac (Intel)','mac (arm)':'Mac (ARM)',mac_arm:'Mac (ARM)',linux:'Linux',android:'Android'}[storedOs]) || 'Windows';
     this.container.querySelectorAll('.edit-os-btn').forEach(btn => {
       if (btn.getAttribute('data-os') === this.editSelectedOs) btn.classList.add('active');
       else btn.classList.remove('active');

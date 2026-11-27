@@ -4,8 +4,8 @@ const fold = value => value.toLocaleLowerCase().normalize('NFD').replace(/[\u030
 const arrow = '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg>';
 
 export function closeSelect() { active?.close(); }
-export function enhanceSelects(container) {
-  for (const select of container.querySelectorAll('select.select-input')) {
+export function enhanceSelects(container, selector = 'select.select-input') {
+  for (const select of container.querySelectorAll(selector)) {
     if (!select.prettySelect) select.prettySelect = new PrettySelect(select);
     else select.prettySelect.refresh();
   }
@@ -18,6 +18,7 @@ class PrettySelect {
     wrapper.className = 'pretty-select';
     wrapper.dataset.selectId = select.id;
     wrapper.style.minWidth = getComputedStyle(select).minWidth;
+    if(select.classList.contains('form-control'))wrapper.style.width = select.style.width || '100%';
     select.before(wrapper);
     wrapper.append(select);
     select.classList.add('pretty-native');
@@ -44,11 +45,11 @@ class PrettySelect {
   }
   refresh() {
     const option = this.select.selectedOptions[0] || this.select.options[0];
-    const text = (option?.textContent || 'Chọn…').replace(/^-+\s*|\s*-+$/g, '');
+    const text = (option?.textContent || 'Chọn…').replace(/^-{2,}\s*|\s*-{2,}$/g, '');
     this.button.querySelector('.pretty-value').textContent = text;
-    this.button.title = text;
+    this.button.title = this.select.title || text;
     this.button.disabled = this.select.disabled;
-    if (this.panel) this.renderOptions();
+    if (this.panel) { if(this.select.disabled)this.close(); else this.renderOptions(); }
   }
   open() {
     if (this.select.disabled) return;
@@ -118,7 +119,7 @@ class PrettySelect {
       button.disabled = option.disabled;
       button.dataset.value = option.value;
       const label = document.createElement('span');
-      label.textContent = option.textContent.replace(/^-+\s*|\s*-+$/g, '');
+      label.textContent = option.textContent.replace(/^-{2,}\s*|\s*-{2,}$/g, '');
       button.append(label);
       if (option.selected) button.insertAdjacentHTML('beforeend', '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m5 10 3 3 7-7"/></svg>');
       button.onclick = () => {

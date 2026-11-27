@@ -32,6 +32,9 @@ const BrowserLauncher = require('../browserLauncher');
     console.log('PASS: two native Mac Chrome profiles run concurrently with separate data directories and working CDP.');
     launcher.closeAllProfiles();
     await new Promise(resolve => setTimeout(resolve, 1500));
+    require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'smoke-profile-settings.cjs')],{
+      env:{...process.env,SV_CHROME_TEST_EXE:launcher.getExecutable('chrome',core.version).path},stdio:'inherit',timeout:180000
+    });
     require('node:child_process').execFileSync(process.execPath,[path.join(__dirname,'smoke-webgl-settings.cjs')],{
       env:{...process.env,SV_CHROME_TEST_EXE:launcher.getExecutable('chrome',core.version).path},stdio:'inherit',timeout:120000
     });

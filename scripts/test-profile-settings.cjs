@@ -31,7 +31,7 @@ test('runtime waits for a default execution context and never retries unrelated 
 
 function editFixture(store,profile) {
  const fs=require('node:fs'),vm=require('node:vm');
- const source=fs.readFileSync(require.resolve('../src/components/Modals.js'),'utf8').replace(/^import .*$/m,'').replace('export class ModalsComponent','class ModalsComponent');
+ const source=fs.readFileSync(require.resolve('../src/components/Modals.js'),'utf8').replace(/^import .*$/gm,'').replace('export class ModalsComponent','class ModalsComponent');
  const fields=new Map(),alerts=[];let closed=false,refreshed=false;
  const field=id=>{if(!fields.has(id))fields.set(id,{value:'',tagName:'SELECT',options:[],style:{},append(option){this.options.push(option);}});return fields.get(id);};
  const context={window:{api:{updateProfile:async(id,data)=>store.updateProfile(id,data)}},document:{createElement:()=>({})},alert:message=>alerts.push(message),getBrowserIconHtml:()=>''};
@@ -159,3 +159,16 @@ test('browser settings defaults map Real/Noise/Block, persist stable Random scre
  const own=applyBrowserDefaults({id:'id',hardware:{canvas:'Noise'},software:{screen:'1366x768',language:'ja-JP,ja'}},random);assert.equal(own.hardware.canvas,'Noise');assert.equal(own.software.screen,'1366x768');assert.equal(own.software.language,'ja-JP,ja');
  assert.throws(()=>validateBrowserSettings({canvasMode:'pretend'}),/không hợp lệ/);validateBrowserSettings(real);
 });
+
+ test('profile menus preserve negative Auto labels and show engine capability reasons',()=>{
+  const vm=require('node:vm'),fs=require('node:fs');
+  const source=fs.readFileSync(require.resolve('../src/components/PrettySelect.js'),'utf8').replaceAll('export function ','function ');
+  const context={};vm.createContext(context);vm.runInContext(source+';globalThis.Select=PrettySelect',context);
+  for(const [label,expected] of [['-1 (Auto)','-1 (Auto)'],['-1x-1 (Mặc định)','-1x-1 (Mặc định)'],['--- Chọn tag ---','Chọn tag']]){
+   const value={},button={querySelector:()=>value},select={selectedOptions:[{textContent:label}],disabled:false};
+   context.Select.prototype.refresh.call({select,button});assert.equal(value.textContent,expected);assert.equal(button.disabled,false);
+  }
+  let closed=false;const button={querySelector:()=>({})};
+  context.Select.prototype.refresh.call({select:{selectedOptions:[{textContent:'Auto'}],disabled:true,title:'Engine chưa hỗ trợ'},button,panel:{},close(){closed=true;}});
+  assert.equal(button.disabled,true);assert.equal(button.title,'Engine chưa hỗ trợ');assert.equal(closed,true);
+ });

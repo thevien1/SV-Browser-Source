@@ -32,7 +32,7 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
   const auto={...profile,id:'auto-settings',cookies:'',hardware:{canvas:'Off',clientrect:'Off',audio:'Off'},software:{userAgent:'Auto',language:'en-US,en',geo:'Prompt',webrtc:'Real'}};
   const second=await launcher.launchProfile(auto,2);assert.equal(second.success,true,second.message);
   for(let i=0;i<100&&reports.length<2;i++)await new Promise(r=>setTimeout(r,100));
-  const baseline=reports[1];assert.equal(baseline.ua,launcher.getRunningInfo(auto.id).runtime.ua);assert.match(baseline.ua,/HeadlessChrome\/157/);assert.equal(baseline.pixel[0],10);assert.equal(baseline.rectX,0);assert.ok(baseline.audio.every(n=>n===0));assert.equal(baseline.rtc,'enabled');assert.equal(baseline.cookie,'');
+  const baseline=reports[1];assert.equal(baseline.ua,launcher.getRunningInfo(auto.id).runtime.ua);assert.match(baseline.ua,/HeadlessChrome\/\d+/);assert.equal(baseline.pixel[0],10);assert.equal(baseline.rectX,0);assert.ok(baseline.audio.every(n=>n===0));assert.equal(baseline.rtc,'enabled');assert.equal(baseline.cookie,'');
   assert.equal(baseline.frameRTC,'enabled');assert.ok(!launcher.getRunningInfo(auto.id).process.spawnargs.some(arg=>arg.startsWith('--force-webrtc-ip-handling-policy')));
   if(report.gl&&baseline.gl){assert.equal(report.gl.vendor,'Google Inc.');assert.notDeepEqual(report.gl.pixel,baseline.gl.pixel);}
   const android={...auto,id:'android-auto',startUrl:profile.startUrl+'?profile=android',software:{userAgent:'Auto',os:'Android',language:'en-US,en',timezone:'Auto',geo:'Allow',webrtc:'Real'},cookies:'#HttpOnly_127.0.0.1\tFALSE\t/\tFALSE\t0\tnetscape\tfixture'};
