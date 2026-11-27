@@ -4,7 +4,7 @@ const source=name=>{const resource=path.join(process.resourcesPath||__dirname,'a
 class BiDi {
  constructor(ws){this.ws=ws;this.next=0;this.pending=new Map();this.listeners=new Set();ws.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.id){const p=this.pending.get(m.id);if(!p)return;this.pending.delete(m.id);clearTimeout(p.timer);m.type==='error'?p.reject(Error(`${p.method}: ${m.error}: ${m.message}`)):p.resolve(m.result);}else for(const fn of this.listeners)fn(m);});ws.addEventListener('close',()=>{for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('Gecko connection closed'));}this.pending.clear();});}
  static async connect(port){let error;for(let n=0;n<120;n++){try{return new BiDi(await new Promise((resolve,reject)=>{const ws=new WebSocket(`ws://127.0.0.1:${port}/session`);ws.addEventListener('open',()=>resolve(ws),{once:true});ws.addEventListener('error',reject,{once:true});}));}catch(e){error=e;await new Promise(r=>setTimeout(r,100));}}throw Error('Firefox/Mullvad không cung cấp WebDriver BiDi: '+error.message);}
- send(method,params={}){return new Promise((resolve,reject)=>{const id=++this.next,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('Gecko timeout: '+method));},10000);this.pending.set(id,{resolve,reject,timer,method});this.ws.send(JSON.stringify({id,method,params}));});}
+ send(method,params={}){return new Promise((resolve,reject)=>{const id=++this.next,timer=setTimeout(()=>{this.pending.delete(id);reject(Error('Gecko timeout: '+method));},method==='browsingContext.navigate'?30000:10000);this.pending.set(id,{resolve,reject,timer,method});this.ws.send(JSON.stringify({id,method,params}));});}
  close(){this.ws.close();}
 }
 function geckoUserAgent(native,os){
@@ -37,7 +37,7 @@ async function configureGecko(port,profile,options={}){
   await bidi.send('script.addPreloadScript',{functionDeclaration:declaration});
   if(userAgent(profile)||os||language){
    await bidi.send('session.subscribe',{events:['network.beforeRequestSent']});
-   bidi.listeners.add(message=>{if(message.method!=='network.beforeRequestSent'||!message.params.isBlocked)return;const request=message.params.request;const names=new Set(['user-agent',...(language?['accept-language']:[])]);const headers=request.headers.filter(header=>!names.has(header.name.toLowerCase()));headers.push({name:'User-Agent',value:{type:'string',value:ua}});if(language)headers.push({name:'Accept-Language',value:{type:'string',value:language}});void bidi.send('network.continueRequest',{request:request.request,headers}).catch(()=>{});});
+   bidi.listeners.add(message=>{if(message.method!=='network.beforeRequestSent'||!message.params.isBlocked)return;const request=message.params.request;const names=new Set(['user-agent',...(language?['accept-language']:[])]);const headers=request.headers.filter(header=>!names.has(header.name.toLowerCase()));headers.push({name:'User-Agent',value:{type:'string',value:ua}});if(language)headers.push({name:'Accept-Language',value:{type:'string',value:language}});void bidi.send('network.continueRequest',{request:request.request,headers}).catch(error=>{console.warn('Gecko header override failed:',error.message);void bidi.send('network.failRequest',{request:request.request}).catch(()=>{});});});
    await bidi.send('network.addIntercept',{phases:['beforeRequestSent']});
   }
   const tree=await bidi.send('browsingContext.getTree');
