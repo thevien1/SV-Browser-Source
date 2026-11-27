@@ -68,7 +68,14 @@ async function configureChromium(url, profile, options={}){
  if(['Allow','Block','Prompt'].includes(sw.geo))await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:{Allow:'granted',Block:'denied',Prompt:'prompt'}[sw.geo]});
  if(hw.font==='Masked')await cdp.send('Browser.setPermission',{permission:{name:'local-fonts'},setting:'denied'});
  const sessions=new Map(),localeOwners=new Set();let failure,nativeUA,nativeMetadata,windowLimiter;
+ let configuring=0,resuming=false;const resumeQueue=new Set();
+ const resumeConfigured=async()=>{
+  if(resuming||configuring)return;resuming=true;
+  try{while(!configuring&&resumeQueue.size){const id=resumeQueue.values().next().value;resumeQueue.delete(id);try{await cdp.send('Runtime.runIfWaitingForDebugger',{},id);}catch{}}}
+  finally{resuming=false;if(!configuring&&resumeQueue.size)void resumeConfigured();}
+ };
  const setup=async(sessionId,targetInfo)=>{
+  configuring++;
   const page=['page','iframe'].includes(targetInfo.type);
   let localeConflict;
   try{
@@ -81,7 +88,7 @@ async function configureChromium(url, profile, options={}){
     }
     return;
    }
-   if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
+
    await cdp.send('Page.enable',{},sessionId);
    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script,runImmediately:true},sessionId);
    await cdp.send('Runtime.enable',{},sessionId);
@@ -89,9 +96,8 @@ async function configureChromium(url, profile, options={}){
    // Register document-start protection before allowing that context to start.
    let native;
    if(!nativeUA){
-    await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
-    native=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},sessionId);
-    nativeUA=native.result.value;
+    native={result:{value:browser.userAgent}};
+    nativeUA=browser.userAgent;
    }else native={result:{value:nativeUA}};
    ua=userAgent(profile)||autoUserAgent(native.result.value,sw.os);
    if(userAgent(profile)||ua!==native.result.value||sw.os){
@@ -123,17 +129,18 @@ async function configureChromium(url, profile, options={}){
     if(timezone)await cdp.send('Emulation.setTimezoneOverride',{timezoneId:timezone},sessionId);
     if(Number(hw.cpu)>0)await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:Number(hw.cpu)},sessionId);
     const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen&&targetInfo.type==='page')await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
-    await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
     if(localeConflict){
      const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
      if(Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(language.split(',')[0].split(';')[0].trim())[0])throw localeConflict;
     }
-    const applied=await evaluateWhenReady(cdp,{expression:script},sessionId);
-    if(applied.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
+    let applied;
+    try{applied=await cdp.send('Runtime.evaluate',{expression:script,timeout:1000},sessionId);}catch(error){if(!/Cannot find default execution context|Cannot find context with specified id/.test(error.message))throw error;}
+    if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
+    if(applied?.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
    }
   }catch(error){failure=error;console.warn("Profile target configuration failed:",targetInfo.type,targetInfo.url,error.message);}
-  finally{try{await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);}catch{}}
+  finally{configuring--;resumeQueue.add(sessionId);await resumeConfigured();}
  };
  cdp.listeners.add(message=>{
   if(message.method==='Target.attachedToTarget'){
