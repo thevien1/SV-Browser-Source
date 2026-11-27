@@ -75,7 +75,7 @@ async function configureChromium(url, profile, options={}){
    if (!page) return;
    if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
    await cdp.send('Page.enable',{},sessionId);
-   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
+   await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script,runImmediately:true},sessionId);
    await cdp.send('Runtime.enable',{},sessionId);
    // A newly attached page may be paused before it has a default JS context.
    // Register document-start protection before allowing that context to start.
