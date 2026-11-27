@@ -560,7 +560,7 @@ class BrowserLauncher extends EventEmitter {
         const screen=String(originalProfile.software?.screen||'').match(/^(\d+)x(\d+)$/);
         if(screen&&this.profileStore?.getSettings().limitBrowserSize!==false)args.push('-width',screen[1],'-height',screen[2]);
         const configured=this.profileStore?.getSettings().startupUrl;
-        startupUrls=configured?String(configured).split(/[\r\n]+/).map(url=>url.trim()).filter(Boolean):[];
+        startupUrls=configured?String(configured).trim().split(/\s+/).filter(Boolean):[];
       }else if (profile.startUrl) args.push(profile.startUrl);
 
       // Cấu hình user.js cho Firefox: Tắt màn hình chào mừng (First-run), telemetry, mặc định browser, nạp proxy & extensions

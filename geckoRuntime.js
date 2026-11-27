@@ -19,7 +19,8 @@ async function configureGecko(port,profile,options={}){
  try{
   const {capabilities}=await bidi.send('session.new',{capabilities:{alwaysMatch:{acceptInsecureCerts:false}}});
   const sw=profile.software||{},hardware=profile.hardware||{};
-  const language=sw.language==='Real'?undefined:sw.language&&sw.language!=='Auto'?sw.language:options.detectedLang;
+  const detectedLanguage=options.detectedLang||(options.detectedCountry?require('./proxyChecker').getLangFromCountry(options.detectedCountry):undefined);
+  const language=sw.language==='Real'?undefined:sw.language&&sw.language!=='Auto'?sw.language:detectedLanguage;
   let timezone=sw.timezone&&sw.timezone!=='Auto'?sw.timezone:options.detectedTimezone,geo=options.detectedGeo;
   if((sw.timezone==='Auto'&&!timezone)||(sw.geo==='Allow'&&!geo)){
    const ip=options.detectedIp||profile.ip;
@@ -29,7 +30,9 @@ async function configureGecko(port,profile,options={}){
   }
   const os=sw.os?softwareOS(sw.os):'',platform=os.startsWith('Mac')?'MacIntel':({Windows:'Win32',Linux:'Linux x86_64',Android:'Linux armv8l'}[os]);
   const ua=userAgent(profile)||geckoUserAgent(capabilities.userAgent,os);
-  const config={hardware,software:sw,seed:crypto.createHash('sha256').update(String(profile.id)).digest().readUInt32LE(0),platform,language,locale:language?.split(',')[0].split(';')[0].trim(),timezone,geo,userAgent:ua,webrtc:sw.webrtc};
+  const oscpu=os.startsWith('Mac')?'Intel Mac OS X 10.15':({Windows:'Windows NT 10.0; Win64; x64',Linux:'Linux x86_64',Android:'Linux armv8l'}[os]);
+  const appVersion=os.startsWith('Mac')?'5.0 (Macintosh)':({Windows:'5.0 (Windows)',Linux:'5.0 (X11)',Android:'5.0 (Android)'}[os]);
+  const config={hardware,software:sw,seed:crypto.createHash('sha256').update(String(profile.id)).digest().readUInt32LE(0),platform,oscpu,appVersion,language,locale:language?.split(',')[0].split(';')[0].trim(),timezone,geo,userAgent:ua,webrtc:sw.webrtc};
   const declaration=`()=>{(${source('profile-hardware.js')})(${JSON.stringify(config)});(${source('profile-gecko.js')})(${JSON.stringify(config)});}`;
   await bidi.send('script.addPreloadScript',{functionDeclaration:declaration});
   if(userAgent(profile)||os||language){
@@ -46,7 +49,7 @@ async function configureGecko(port,profile,options={}){
   // A blank setting uses the engine's New Tab, never a configured external URL.
   for(let i=0;i<Math.max(1,urls.length);i++){
    const context=i===0&&tree.contexts[0]?tree.contexts[0].context:(await bidi.send('browsingContext.create',{type:'tab'})).context;
-   await bidi.send('browsingContext.navigate',{context,url:urls[i]||'about:newtab',wait:'complete'});
+   await bidi.send('browsingContext.navigate',{context,url:urls[i]||'about:newtab',wait:'none'});
   }
   return {cdp:bidi,bidi,ua,timezone,settingsApplied:true};
  }catch(error){bidi.close();throw error;}

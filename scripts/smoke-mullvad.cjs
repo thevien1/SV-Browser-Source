@@ -19,7 +19,7 @@ const BrowserLauncher=require('../browserLauncher');
  try{
   const found=launcher.detectBrowsers().mullvad;assert.ok(found,'Mullvad not installed for smoke test');
   const result=await launcher.launchProfile({id,name:'Mullvad isolated smoke',browserType:'mullvad',version:'default',headless:true,software:{webrtc:'Disable'}},1);
-  assert.equal(result.success,true);assert.equal(result.websocket_debugging_url,'');assert.equal(result.driver_path,'');
+  assert.equal(result.success,true,result.message);assert.equal(result.websocket_debugging_url,'');assert.equal(result.driver_path,'');
   const info=launcher.getRunningInfo(id);assert.ok(info);
   const initialized=()=>fs.readdirSync(info.profileDir).some(name=>['prefs.js','parent.lock','.parentlock'].includes(name));
   for(let i=0;i<60&&!initialized();i++)await new Promise(r=>setTimeout(r,500));

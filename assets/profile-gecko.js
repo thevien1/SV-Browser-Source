@@ -4,6 +4,8 @@ function installGeckoSoftware(config) {
  const define=(object,key,get)=>{try{Object.defineProperty(object,key,{get,configurable:true});}catch{}};
  const sw=config.software||{},h=config.hardware||{},nav=Object.getPrototypeOf(navigator);
  if(config.userAgent)define(nav,'userAgent',()=>config.userAgent);
+ if(config.oscpu)define(nav,'oscpu',()=>config.oscpu);
+ if(config.appVersion)define(nav,'appVersion',()=>config.appVersion);
  if(sw.screen&&sw.screen!=='-1x-1'){
   const [width,height]=sw.screen.split('x').map(Number);
   for(const [key,value] of Object.entries({width,height,availWidth:width,availHeight:height}))define(Object.getPrototypeOf(screen),key,()=>value);
