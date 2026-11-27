@@ -9,6 +9,11 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
  let globalSettings={canvasMode:'real',clientRectMode:'real',webglImageMode:'real',webglMetaMode:'real',audioMode:'real',fontMode:'real',screenMode:'real',languageMode:'real'};
  const launcher=new BrowserLauncher(root);launcher.setProfileStore({getSettings:()=>globalSettings});launcher.getExecutable=()=>({path:exe,type:'chrome',version:'157.0.0.0'});
  try{
+  if(process.platform==='darwin'){
+   // Isolated loopback fixtures only: hosted Mac runners have no hardware GPU.
+   const launch=launcher.launchProfile.bind(launcher);
+   launcher.launchProfile=(profile,index,options={})=>launch(profile,index,{...options,addition_args:[options.addition_args,'--use-gl=angle --use-angle=swiftshader-webgl --enable-unsafe-swiftshader'].filter(Boolean).join(' ')});
+  }
   const busy=await launcher.launchProfile({id:'busy-port',browserType:'chrome',headless:true},0,{remote_debugging_port:server.address().port});assert.equal(busy.success,false);assert.match(busy.message,/cổng điều khiển/);
   const profile={id:'custom-settings',language:'fr-FR',browserType:'chrome',headless:true,startUrl:`http://127.0.0.1:${server.address().port}/`,software:{userAgent:'SV Test/1.0 Edg/999.1',language:'ja-JP,ja',timezone:'Asia/Tokyo',screen:'1366x768',webrtc:'Disable',geo:'Block'},hardware:{cpu:'4',ram:'16GB',canvas:'Noise',clientrect:'Noise',webglImg:'Noise',webglMeta:'Masked',audio:'Noise',font:'Masked',videoIn:'0',audioInOut:'2'},cookies:JSON.stringify([{name:'session',value:'fixture',domain:'127.0.0.1',path:'/',httpOnly:true},{name:'visible',value:'yes',domain:'127.0.0.1',path:'/'}])};
   const result=await launcher.launchProfile(profile,1);assert.equal(result.success,true,result.message);

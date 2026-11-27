@@ -66,6 +66,7 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "SV Browser macOS ${VERSION}" --notes "macOS Intel and Apple Silicon builds. Unsigned preview; Chrome profile smoke tests run on native macOS runners." || gh release view "$TAG"
           gh release upload "$TAG" dist-mac/${{ matrix.arch }}/*.dmg dist-mac/${{ matrix.arch }}/*.zip --clobber
       - uses: actions/upload-artifact@v4
+        continue-on-error: true # GitHub Release above is the primary verified download.
         with:
           name: SV-Browser-mac-${{ matrix.arch }}
           path: |
