@@ -41,15 +41,15 @@ async function configureGecko(port,profile,options={}){
    await bidi.send('network.addIntercept',{phases:['beforeRequestSent']});
   }
   const tree=await bidi.send('browsingContext.getTree');
-  if(tree.contexts[0]){
+  if(tree.contexts[0]&&!/^about:(?!blank)/.test(tree.contexts[0].url)){
    const initialized=await bidi.send('script.callFunction',{functionDeclaration:declaration,target:{context:tree.contexts[0].context},awaitPromise:false});
    if(initialized.type==='exception')throw Error(initialized.exceptionDetails?.text||'Không khởi tạo được cấu hình trang Firefox/Mullvad');
   }
   const urls=profile.startUrl?.trim()?[profile.startUrl.trim()]:(options.startupUrls||[]);
   // A blank setting uses the engine's New Tab, never a configured external URL.
-  for(let i=0;i<Math.max(1,urls.length);i++){
+  for(let i=0;i<urls.length;i++){
    const context=i===0&&tree.contexts[0]?tree.contexts[0].context:(await bidi.send('browsingContext.create',{type:'tab'})).context;
-   await bidi.send('browsingContext.navigate',{context,url:urls[i]||'about:newtab',wait:'none'});
+   await bidi.send('browsingContext.navigate',{context,url:urls[i],wait:'none'});
   }
   return {cdp:bidi,bidi,ua,timezone,settingsApplied:true};
  }catch(error){bidi.close();throw error;}

@@ -428,10 +428,10 @@ class BrowserLauncher extends EventEmitter {
         is_incognito: cur.isIncognito || false,
         is_headless: cur.isHeadless || false,
         remote_debugging_port: cur.debugPort,
-        remote_debugging_address: cur.browserType === 'mullvad' ? '' : `127.0.0.1:${cur.debugPort}`,
-        websocket_debugging_url: cur.browserType === 'mullvad' ? '' : cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
+        remote_debugging_address: cur.browserType === 'mullvad'||cur.runtime?.bidi ? '' : `127.0.0.1:${cur.debugPort}`,
+        websocket_debugging_url: cur.browserType === 'mullvad'||cur.runtime?.bidi ? '' : cur.websocket_debugging_url || `ws://127.0.0.1:${cur.debugPort}/devtools/browser`,
         browser_location: cur.exePath || '',
-        driver_path: cur.browserType === 'mullvad' ? '' : cur.driver_path || this.getChromedriverPath(),
+        driver_path: cur.browserType === 'mullvad'||cur.runtime?.bidi ? '' : cur.driver_path || this.getChromedriverPath(),
         addition_info: {
           process_id: cur.pid,
           profile_name: profile.name || '',
@@ -556,11 +556,12 @@ class BrowserLauncher extends EventEmitter {
         args.push('-private');
       }
       if(macGecko){
-        args.push('--remote-debugging-port',String(debugPort),'about:blank');
-        const screen=String(originalProfile.software?.screen||'').match(/^(\d+)x(\d+)$/);
-        if(screen&&this.profileStore?.getSettings().limitBrowserSize!==false)args.push('-width',screen[1],'-height',screen[2]);
         const configured=this.profileStore?.getSettings().startupUrl;
         startupUrls=configured?String(configured).trim().split(/\s+/).filter(Boolean):[];
+        const firstUrl=originalProfile.startUrl?.trim()||startupUrls[0];
+        args.push('--remote-debugging-port',String(debugPort),firstUrl?'about:blank':'about:newtab');
+        const screen=String(originalProfile.software?.screen||'').match(/^(\d+)x(\d+)$/);
+        if(screen&&this.profileStore?.getSettings().limitBrowserSize!==false)args.push('-width',screen[1],'-height',screen[2]);
       }else if (profile.startUrl) args.push(profile.startUrl);
 
       // Cấu hình user.js cho Firefox: Tắt màn hình chào mừng (First-run), telemetry, mặc định browser, nạp proxy & extensions
