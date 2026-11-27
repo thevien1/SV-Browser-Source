@@ -11,11 +11,24 @@ function installHardware(config) {
  if(config.language){const languages=config.language.split(',').map(v=>v.split(';')[0].trim()).filter(Boolean);define(Object.getPrototypeOf(navigator),'language',()=>languages[0]);define(Object.getPrototypeOf(navigator),'languages',()=>Object.freeze(languages.slice()));}
  if(config.platform)define(Object.getPrototypeOf(navigator),'platform',()=>config.platform);
  const noise=data=>{for(let i=0;i<data.length;i+=4){data[i]=Math.min(255,Math.max(0,data[i]+(seed%2?1:-1)));}return data;};
+ const nativeImage=globalThis.CanvasRenderingContext2D?.prototype.getImageData;
+ const contexts=new WeakMap();
+ if(typeof HTMLCanvasElement!=='undefined'&&(['Noise','Block'].includes(h.canvas)||h.webglImg==='Noise')){
+  wrap(HTMLCanvasElement.prototype,'getContext',function(original,args){
+   const context=Reflect.apply(original,this,args);
+   if(context)contexts.set(this,String(args[0]).toLowerCase());
+   return context;
+  });
+ }
  if(typeof CanvasRenderingContext2D!=='undefined'&&h.canvas==='Noise')wrap(CanvasRenderingContext2D.prototype,'getImageData',function(original,args){const image=Reflect.apply(original,this,args);noise(image.data);return image;});
- if(typeof HTMLCanvasElement!=='undefined'&&['Noise','Block'].includes(h.canvas)){
-  const nativeImage=CanvasRenderingContext2D.prototype.getImageData;
-  const clone=canvas=>{const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d');ctx.drawImage(canvas,0,0);if(copy.width&&copy.height){const image=Reflect.apply(nativeImage,ctx,[0,0,copy.width,copy.height]);ctx.putImageData(image,0,0);}return copy;};
-  for(const key of ['toDataURL','toBlob'])wrap(HTMLCanvasElement.prototype,key,function(original,args){if(h.canvas==='Block')throw new DOMException('Canvas readback blocked by profile','SecurityError');return Reflect.apply(original,clone(this),args);});
+ if(typeof HTMLCanvasElement!=='undefined'&&(['Noise','Block'].includes(h.canvas)||h.webglImg==='Noise')){
+  const clone=canvas=>{const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d');ctx.drawImage(canvas,0,0);if(copy.width&&copy.height){const image=Reflect.apply(nativeImage,ctx,[0,0,copy.width,copy.height]);noise(image.data);ctx.putImageData(image,0,0);}return copy;};
+  for(const key of ['toDataURL','toBlob'])wrap(HTMLCanvasElement.prototype,key,function(original,args){
+   const type=contexts.get(this);
+   const mode=type==='2d'?h.canvas:/^(webgl2?|experimental-webgl2?|moz-webgl|webkit-3d)$/.test(type||'')?h.webglImg:'Off';
+   if(mode==='Block')throw new DOMException('Canvas readback blocked by profile','SecurityError');
+   return Reflect.apply(original,mode==='Noise'?clone(this):this,args);
+  });
   if(h.canvas==='Block')wrap(CanvasRenderingContext2D.prototype,'getImageData',()=>{throw new DOMException('Canvas readback blocked by profile','SecurityError');});
  }
  if(h.clientrect==='Noise'&&typeof Element!=='undefined'){
