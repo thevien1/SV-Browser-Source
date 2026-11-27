@@ -72,7 +72,12 @@ async function configureChromium(url, profile, options={}){
   const page=['page','iframe'].includes(targetInfo.type);
   let localeConflict;
   try{
-   if (!page) return;
+   if (!page) {
+    // New Chromium versions expose an intermediate tab target. Its page must
+    // also be auto-attached before the tab is allowed to start running.
+    if(targetInfo.type==='tab')await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
+    return;
+   }
    if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
    await cdp.send('Page.enable',{},sessionId);
    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script,runImmediately:true},sessionId);
@@ -133,7 +138,7 @@ async function configureChromium(url, profile, options={}){
    const task=setup(sessionId,targetInfo);sessions.set(targetInfo.targetId,{sessionId,targetInfo,task});
   }
  });
- await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true});
+ await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true,filter:[{type:'tab'},{type:'page'},{type:'iframe'},{exclude:true}]});
  await cdp.send('Target.getTargets');
  for(let i=0;i<40&&!Array.from(sessions.values()).some(s=>s.targetInfo.type==='page');i++)await new Promise(r=>setTimeout(r,50));
  await Promise.all(Array.from(sessions.values()).map(s=>s.task));if(failure){cdp.close();throw failure;}
