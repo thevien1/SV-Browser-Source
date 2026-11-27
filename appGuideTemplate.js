@@ -177,6 +177,7 @@ const GUIDE_SECTIONS = [
  {id:'automation',title:'16. Automation',intro:'Mục Automation giúp nhận diện và mở SV Browser Automate Editor. Việc xây dựng/chạy kịch bản được thực hiện trong công cụ editor tương ứng.',api:'profiles-start',items:[
   ['Phát hiện và mở Editor','Vào Automation. Nếu nhận diện được editor đã cài, ứng dụng thử mở công cụ; nếu chưa có, dùng hướng dẫn cài/chọn đường dẫn trong màn hình.','Quét lại sau khi cài xong hoặc đổi thư mục.'],
   ['Đổi đường dẫn và quét lại','Chọn đường dẫn đến editor đúng máy, sau đó bấm Quét lại/Kiểm tra lại.','Không chọn file DMG macOS làm chương trình chạy trên Windows hoặc ngược lại.'],
+  ['Tạo tab bằng CDP trên macOS','Ứng dụng cấu hình tab trước rồi mới điều hướng đến URL khởi động. Với công cụ bên ngoài, hãy tạo about:blank, đợi cấu hình được áp dụng rồi mới điều hướng.','Một số core Mac chạy mã của URL truyền thẳng vào Target.createTarget trước khi hoàn tất cấu hình. Không bảo đảm cấu hình có hiệu lực ngay từ script đầu tiên trong trường hợp đó.'],
   ['Kết nối profile cho kịch bản','Công cụ automation cần ID profile và thông tin phiên mở từ API. Dùng tài liệu API để lấy đúng endpoint và ví dụ.','Mullvad không có WebSocket CDP như Chromium. Không suy ra mọi engine đều hỗ trợ cùng thao tác automation.']
  ]},
  {id:'settings-general',title:'17. Cài đặt chung',intro:'Đọc nhãn yêu cầu khởi động lại và bấm Lưu khi có thay đổi. Không phải mọi ô cấu hình đang hiển thị đều có luồng áp dụng đầy đủ.',items:[

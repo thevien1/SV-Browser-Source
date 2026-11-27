@@ -63,7 +63,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="mac-v${VERSION}"
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "SV Browser macOS ${VERSION}" --notes "macOS Intel and Apple Silicon builds. Unsigned preview; Chrome profile smoke tests run on native macOS runners." || gh release view "$TAG"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "SV Browser macOS ${VERSION}" --notes "macOS Intel and Apple Silicon builds. Unsigned preview; Chrome profile smoke tests run on native macOS runners." || gh release view "$TAG"
           gh release upload "$TAG" dist-mac/${{ matrix.arch }}/*.dmg dist-mac/${{ matrix.arch }}/*.zip --clobber
       - uses: actions/upload-artifact@v4
         continue-on-error: true # GitHub Release above is the primary verified download.
@@ -89,3 +89,15 @@ jobs:
           git add result.txt build.log
           git commit -m "Record macOS build result"
           git -c http.https://github.com/.extraheader="$(git -C "$GITHUB_WORKSPACE" config --get http.https://github.com/.extraheader)" push --force "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/codex/macos-result-${{ matrix.arch }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish after both Mac builds pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release edit "mac-v${VERSION}" --draft=false
