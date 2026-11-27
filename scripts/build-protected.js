@@ -177,6 +177,7 @@ async function run() {
     'proxyConnection.js',
     'profileConfig.js',
     'profileRuntime.js',
+    'geckoRuntime.js',
     'extensionStore.js',
     'gpmApiServer.js',
     'apiDocsTemplate.js',

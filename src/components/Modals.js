@@ -9,6 +9,8 @@
 import { getBrowserIconHtml } from '../data/browserIcons.js';
 import { enhanceSelects, closeSelect } from './PrettySelect.js';
 
+const isMacHost=()=>typeof navigator!=='undefined'&&/Mac/i.test(navigator.platform);
+
 export class ModalsComponent {
   constructor(options = {}) {
     this.container = options.container || document.getElementById('modals-container');
@@ -1946,7 +1948,7 @@ export class ModalsComponent {
       if (el) el.textContent = text;
     };
 
-    setText('#sum-browser', `Chrome - ${major}`);
+    setText('#sum-browser', `${isMacHost()?({firefox:'Firefox',mullvad:'Mullvad Browser',brave:'Brave',edge:'Edge'}[browserType]||'Chrome'):'Chrome'} - ${major}`);
     setText('#sum-os', this.selectedOs || 'Windows');
     setText('#sum-taskbar', taskbar || '');
     setText('#sum-ua', this.container.querySelector('#sw-user-agent')?.value.trim() || 'Auto');
@@ -2018,30 +2020,33 @@ export class ModalsComponent {
   updateBrowserCapabilities() {
     for(const prefix of ['', 'edit-']) {
       const browser=this.container.querySelector('#'+prefix+'quick-browser-core')?.value.split('|')[0];
-      const gecko=['firefox','mullvad'].includes(browser);
+      const gecko=['firefox','mullvad'].includes(browser),lockedGecko=gecko&&!isMacHost();
       const hardware=this.container.querySelector('#pane-'+prefix+'hardware');
       const software=this.container.querySelector('#pane-'+prefix+'software');
-      for(const control of hardware?.querySelectorAll('input,select')||[])control.disabled=gecko;
-      for(const id of ['timezone','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control){control.disabled=gecko;control.title=gecko?'Firefox/Mullvad chưa hỗ trợ tùy chỉnh '+id+'; giữ mặc định engine.':'';}}
+      for(const control of hardware?.querySelectorAll('input,select')||[])control.disabled=lockedGecko;
+      for(const id of ['timezone','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control){control.disabled=lockedGecko;control.title=lockedGecko?'Firefox/Mullvad chưa hỗ trợ tùy chỉnh '+id+'; giữ mặc định engine.':'';}}
       const rtc=this.container.querySelector('#'+prefix+'sw-webrtc');
       if(rtc){
         rtc.disabled=false;
-        for(const option of rtc.options)option.disabled=option.value==='Noise'||(gecko&&option.value==='BaseOnIp');
-        if(gecko&&!['Real','Disable'].includes(rtc.value))rtc.value='Real';
+        for(const option of rtc.options)option.disabled=option.value==='Noise'||(lockedGecko&&option.value==='BaseOnIp');
+        if(lockedGecko&&!['Real','Disable'].includes(rtc.value))rtc.value='Real';
       }
       const language=this.container.querySelector('#'+prefix+'sw-language');
       if(language){
-        for(const option of language.options)if(option.value==='Auto')option.disabled=gecko;
-        if(gecko&&language.value==='Auto')language.value='Real';
+        for(const option of language.options)if(option.value==='Auto')option.disabled=lockedGecko;
+        if(lockedGecko&&language.value==='Auto')language.value='Real';
       }
       if(software){
         if(!software.querySelector('.software-runtime-note'))software.insertAdjacentHTML('afterbegin','<p class="software-runtime-note" style="font-size:12px;color:#64748b;line-height:1.6"></p>');
         const note=software.querySelector('.software-runtime-note');
-        if(note)note.textContent=gecko?'Firefox/Mullvad: Disable ghi media.peerconnection.enabled=false; Real trả về mặc định engine (Mullvad có thể vẫn tắt WebRTC). about:config chỉ dùng cho Firefox/Mullvad. Auto UA dùng mặc định; ngôn ngữ hỗ trợ Real hoặc giá trị cụ thể. OS, timezone, vị trí và Screen chưa hỗ trợ ở luồng này.':'Chromium: BaseOnIp hạn chế UDP ngoài proxy, không tắt WebRTC. Disable chặn RTCPeerConnection ở trang/iframe; Real giữ mặc định engine. Không kiểm tra Chromium bằng about:config. OS/UA là thông tin báo cho website, không thay hệ điều hành thật.';
+        if(note)note.textContent=gecko&&isMacHost()?'Firefox/Mullvad trên macOS: thông số riêng được áp dụng vào trang/iframe trước khi mở URL. Không thay thế thông số native trong worker. Prompt/Real giữ mặc định engine; BaseOnIp chỉ cho ICE qua proxy. Cơ chế bảo vệ mặc định của engine vẫn có thể giới hạn API native.':gecko?'Firefox/Mullvad: Disable ghi media.peerconnection.enabled=false; Real trả về mặc định engine (Mullvad có thể vẫn tắt WebRTC). about:config chỉ dùng cho Firefox/Mullvad. Auto UA dùng mặc định; ngôn ngữ hỗ trợ Real hoặc giá trị cụ thể. OS, timezone, vị trí và Screen chưa hỗ trợ ở luồng này.':'Chromium: BaseOnIp hạn chế UDP ngoài proxy, không tắt WebRTC. Disable chặn RTCPeerConnection ở trang/iframe; Real giữ mặc định engine. Không kiểm tra Chromium bằng about:config. OS/UA là thông tin báo cho website, không thay hệ điều hành thật.';
       }
-      for(const control of software?.querySelectorAll('.os-btn,.edit-os-btn')||[])control.disabled=gecko;
+      for(const control of software?.querySelectorAll('.os-btn,.edit-os-btn')||[])control.disabled=lockedGecko;
       const cookie=this.container.querySelector(prefix?'#edit-cookies-input':'#tab-cookies-input');if(cookie){cookie.disabled=false;if(!cookie.parentElement.querySelector('.cookie-support-note'))cookie.insertAdjacentHTML('afterend','<p class="cookie-support-note" style="font-size:12px;color:#64748b">JSON/Netscape được nạp vào Chromium trước URL khởi động. Firefox/Mullvad chưa hỗ trợ cookie khởi động.</p>');}
       if(hardware&&!hardware.querySelector('.runtime-note'))hardware.insertAdjacentHTML('afterbegin','<p class="runtime-note" style="grid-column:1/-1;font-size:12px;color:#64748b">Chromium: Noise/Masked áp dụng qua JavaScript trên trang/iframe, không thay thế fingerprint native trong mọi worker. Số thiết bị là mô phỏng danh sách, không tạo camera/micro thật. Firefox/Mullvad giữ mặc định riêng tư; phần Hardware và Cookies chưa hỗ trợ.</p>');
+    }
+    if(isMacHost())for(const hardware of this.container.querySelectorAll('#pane-hardware,#pane-edit-hardware')){
+      const note=hardware.querySelector('.runtime-note');if(note)note.textContent='macOS: Noise/Masked, CPU/RAM và số thiết bị áp dụng ở trang/iframe; không tạo phần cứng thật hoặc thay thế mọi API native/worker. Off/Real giữ hành vi engine; bộ bảo vệ native của Firefox/Mullvad vẫn hoạt động.';
     }
     this.updateSummary?.();
     this.updateEditSummary?.();
@@ -2197,8 +2202,8 @@ export class ModalsComponent {
           cookies,
           notes,
           note: notes,
-          hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
-          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
+          hardware: ['firefox','mullvad'].includes(browserType)&&!isMacHost() ? {} : hardware,
+          software: ['firefox','mullvad'].includes(browserType)&&!isMacHost() ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
         });
 
         this.closeModal('modal-add-profile');
@@ -2601,7 +2606,7 @@ export class ModalsComponent {
       if (el) el.textContent = text;
     };
 
-    setText('#edit-sum-browser', `Chrome - ${major}`);
+    setText('#edit-sum-browser', `${isMacHost()?({firefox:'Firefox',mullvad:'Mullvad Browser',brave:'Brave',edge:'Edge'}[browserType]||'Chrome'):'Chrome'} - ${major}`);
     setText('#edit-sum-os', this.editSelectedOs || 'Windows');
     setText('#edit-sum-taskbar', taskbar || '');
     setText('#edit-sum-ua', this.container.querySelector('#edit-sw-user-agent')?.value.trim() || 'Auto');
@@ -2796,8 +2801,8 @@ export class ModalsComponent {
           cookies: this.container.querySelector('#edit-cookies-input')?.value.trim() || '',
           notes,
           note: notes,
-          hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
-          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
+          hardware: ['firefox','mullvad'].includes(browserType)&&!isMacHost() ? {} : hardware,
+          software: ['firefox','mullvad'].includes(browserType)&&!isMacHost() ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
         });
 
         if (!saved || saved.success === false || saved.id !== this.editingProfile.id) {

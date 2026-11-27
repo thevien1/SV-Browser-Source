@@ -526,8 +526,9 @@ class BrowserLauncher extends EventEmitter {
       || (typeof profileIndex === 'object' && profileIndex !== null && (profileIndex.customPort || profileIndex.port || profileIndex.remote_debugging_port))
       || (profile && (profile.remote_debugging_port || profile.port || profile.debugPort))
       || null;
+    const macGecko=process.platform==='darwin'&&['firefox','mullvad'].includes(type);
     let debugPort = 0;
-    if (type !== 'mullvad') {
+    if (type !== 'mullvad'||macGecko) {
       try {
         const requested = customPort ? Number(customPort) : 0;
         if (!Number.isInteger(requested) || requested < 0 || requested > 65535) throw Error('Cổng remote debugging không hợp lệ');
@@ -554,7 +555,13 @@ class BrowserLauncher extends EventEmitter {
       if (isIncognito) {
         args.push('-private');
       }
-      if (profile.startUrl) args.push(profile.startUrl);
+      if(macGecko){
+        args.push('--remote-debugging-port',String(debugPort),'about:blank');
+        const screen=String(originalProfile.software?.screen||'').match(/^(\d+)x(\d+)$/);
+        if(screen&&this.profileStore?.getSettings().limitBrowserSize!==false)args.push('-width',screen[1],'-height',screen[2]);
+        const configured=this.profileStore?.getSettings().startupUrl;
+        startupUrls=configured?String(configured).split(/[\r\n]+/).map(url=>url.trim()).filter(Boolean):[];
+      }else if (profile.startUrl) args.push(profile.startUrl);
 
       // Cấu hình user.js cho Firefox: Tắt màn hình chào mừng (First-run), telemetry, mặc định browser, nạp proxy & extensions
       try {
@@ -614,6 +621,7 @@ class BrowserLauncher extends EventEmitter {
         }
         const config = require('./profileConfig');
         const softwarePrefs = config.geckoSoftwarePreferences(originalProfile);
+        if(macGecko)ffPrefs.push('user_pref("remote.prefs.recommended", false);');
         const prefsPath = path.join(profileDir,'prefs.js');
         if(fs.existsSync(prefsPath)){
           const previous=fs.readFileSync(prefsPath,'utf8');
@@ -938,7 +946,7 @@ try {
       child.once('error', releaseResources);
 
       // Lấy WebSocket URL chuẩn cho Puppeteer / Playwright (chỉ với Chromium)
-      let wsUrl = type === 'mullvad' ? '' : `ws://127.0.0.1:${debugPort}/devtools/browser`;
+      let wsUrl = type === 'mullvad'||macGecko ? '' : `ws://127.0.0.1:${debugPort}/devtools/browser`;
       if (type !== 'firefox' && type !== 'mullvad') {
         try {
           wsUrl = await this.getWebSocketDebuggerUrl(debugPort);
@@ -963,8 +971,12 @@ try {
           return { success: false, message: `Không áp dụng được cấu hình profile: ${error.message}` };
         }
       }
+      if(macGecko){
+        try{runtime=await require('./geckoRuntime').configureGecko(debugPort,originalProfile,{...options,startupUrls});}
+        catch(error){try{process.kill(-child.pid,'SIGTERM');}catch{try{child.kill();}catch{}}if(proxyBridge)await proxyBridge.close();return {success:false,message:'Không áp dụng được cấu hình macOS Firefox/Mullvad: '+error.message};}
+      }
       if (spawnError) throw spawnError;
-      const driverPath = type === 'mullvad' ? '' : this.getChromedriverPath();
+      const driverPath = type === 'mullvad'||macGecko ? '' : this.getChromedriverPath();
       const execTime = Date.now() - startTime;
 
       const profileInfo = {
@@ -983,7 +995,7 @@ try {
         browserType: type,
         version: version || '151.0.7922.76',
         debugPort,
-        remote_debugging_address: type === 'mullvad' ? '' : `127.0.0.1:${debugPort}`,
+        remote_debugging_address: type === 'mullvad'||macGecko ? '' : `127.0.0.1:${debugPort}`,
         websocket_debugging_url: wsUrl,
         browser_location: exePath,
         driver_path: driverPath,
@@ -1064,7 +1076,7 @@ try {
         profileIndex: badgeNum,
         badgeNumber: badgeNum,
         remote_debugging_port: debugPort,
-        remote_debugging_address: type === 'mullvad' ? '' : `127.0.0.1:${debugPort}`,
+        remote_debugging_address: type === 'mullvad'||macGecko ? '' : `127.0.0.1:${debugPort}`,
         websocket_debugging_url: wsUrl,
         browser_location: exePath,
         driver_path: driverPath,

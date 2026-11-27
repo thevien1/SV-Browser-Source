@@ -43,7 +43,7 @@ function validateProfile(profile) {
   try{Intl.getCanonicalLocales(sw.language.split(',').map(part=>part.split(';')[0].trim()));}catch{throw Error('Ngôn ngữ cần mã locale hợp lệ, ví dụ vi-VN,vi');}
  }
  if(sw.webrtc&&!['BaseOnIp','Real','Disable','Noise'].includes(sw.webrtc))throw Error('Chế độ WebRTC không hợp lệ');
- if(['firefox','mullvad'].includes(profile.browserType)&&sw.webrtc==='BaseOnIp')throw Error('Firefox/Mullvad chưa hỗ trợ WebRTC BaseOnIp; chọn Real hoặc Disable');
+ if(process.platform!=='darwin'&&['firefox','mullvad'].includes(profile.browserType)&&sw.webrtc==='BaseOnIp')throw Error('Firefox/Mullvad chưa hỗ trợ WebRTC BaseOnIp; chọn Real hoặc Disable');
  if(hw.webglMeta==='Custom'&&(!hw.webglVendor||!hw.webglRenderer))throw Error('WebGL Custom cần vendor và renderer; hãy dùng Masked hoặc Off');
  if(sw.webrtc==='Noise')throw Error('WebRTC Noise chưa được hỗ trợ; chọn BaseOnIp, Real hoặc Disable');
  if(sw.timezone&&sw.timezone!=='Auto')new Intl.DateTimeFormat('en',{timeZone:sw.timezone});
@@ -78,12 +78,17 @@ function applyBrowserDefaults(profile,settings) {
  if(profile.language&&!Object.hasOwn(profile.software||{},'language'))software.language=profile.language;
  return {...profile,hardware:{...defaults.hardware,...profile.hardware},software};
 }
-function geckoSoftwarePreferences(profile){
+function geckoSoftwarePreferences(profile,platform=process.platform){
  const sw=profile.software||{},prefs=[],reset=[];
  const ua=userAgent(profile);
  if(ua)prefs.push(`user_pref("general.useragent.override", ${JSON.stringify(ua)});`);else reset.push('general.useragent.override');
  if(sw.language&&!['Auto','Real'].includes(sw.language))prefs.push(`user_pref("intl.accept_languages", ${JSON.stringify(sw.language)});`);else reset.push('intl.accept_languages');
- if(sw.webrtc==='Disable')prefs.push('user_pref("media.peerconnection.enabled", false);');
+ if(platform==='darwin'){
+  if(sw.webrtc==='BaseOnIp'){prefs.push('user_pref("media.peerconnection.enabled", true);','user_pref("media.peerconnection.ice.proxy_only", true);','user_pref("media.peerconnection.ice.no_host", true);');}
+  else if(sw.webrtc)reset.push('media.peerconnection.ice.proxy_only','media.peerconnection.ice.no_host');
+ }
+ if(sw.webrtc==='BaseOnIp'&&platform==='darwin'){}
+ else if(sw.webrtc==='Disable')prefs.push('user_pref("media.peerconnection.enabled", false);');
  else if(sw.webrtc==='Real')reset.push('media.peerconnection.enabled');
  else if(sw.webrtc)throw Error('Firefox/Mullvad chỉ hỗ trợ WebRTC Real hoặc Disable');
  return {prefs,reset};

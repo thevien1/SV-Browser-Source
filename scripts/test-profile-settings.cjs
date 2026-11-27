@@ -10,7 +10,7 @@ test('Software validates modes/locales and restores Gecko native defaults instea
  const saved='// keep\nuser_pref("general.useragent.override", "Old UA");\nuser_pref("intl.accept_languages", "fr");\nuser_pref("media.peerconnection.enabled", false);\nuser_pref("general.useragent.override.extra", "keep");\nuser_pref("other", true);\n';
  const reset=resetGeckoPreferences(saved,real.reset);assert.ok(!reset.includes('Old UA'));assert.ok(!reset.includes('media.peerconnection.enabled'));assert.ok(reset.includes('override.extra'));assert.ok(reset.includes('"other", true'));assert.ok(!real.prefs.some(p=>p.includes('true')),'Real must not force-enable Mullvad WebRTC');
  assert.equal(softwareOS('mac_arm'),'Mac (ARM)');assert.match(autoUserAgent('Mozilla/5.0 (Windows NT 10.0) Chrome/157.0.0.0 Safari/537.36','Mac (ARM)'),/Macintosh/);
- assert.throws(()=>validateProfile({software:{webrtc:'Unknown'}}),/WebRTC/);assert.throws(()=>validateProfile({browserType:'firefox',software:{webrtc:'BaseOnIp'}}),/chưa hỗ trợ/);
+ assert.throws(()=>validateProfile({software:{webrtc:'Unknown'}}),/WebRTC/);if(process.platform==='darwin')validateProfile({browserType:'firefox',software:{webrtc:'BaseOnIp'}});else assert.throws(()=>validateProfile({browserType:'firefox',software:{webrtc:'BaseOnIp'}}),/chưa hỗ trợ/);
  assert.throws(()=>validateProfile({software:{geo:'Unknown'}}),/Geolocation/);assert.throws(()=>validateProfile({software:{language:'not_a_locale'}}),/locale/);assert.throws(()=>validateProfile({software:{os:'Imaginary'}}),/hệ điều hành/i);
  validateProfile({software:{language:'vi-VN,vi;q=0.9',webrtc:'Real',geo:'Prompt',os:'mac_arm'}});
 });
@@ -29,12 +29,12 @@ test('runtime waits for a default execution context and never retries unrelated 
  await assert.rejects(evaluateWhenReady({send:async()=>{throw Error('Cannot find default execution context');}},{},'test',{delay:1,timeout:5}),/execution context/);
 });
 
-function editFixture(store,profile) {
+function editFixture(store,profile,hostPlatform='Win32') {
  const fs=require('node:fs'),vm=require('node:vm');
  const source=fs.readFileSync(require.resolve('../src/components/Modals.js'),'utf8').replace(/^import .*$/gm,'').replace('export class ModalsComponent','class ModalsComponent');
  const fields=new Map(),alerts=[];let closed=false,refreshed=false;
  const field=id=>{if(!fields.has(id))fields.set(id,{value:'',tagName:'SELECT',options:[],style:{},append(option){this.options.push(option);}});return fields.get(id);};
- const context={window:{api:{updateProfile:async(id,data)=>store.updateProfile(id,data)}},document:{createElement:()=>({})},alert:message=>alerts.push(message),getBrowserIconHtml:()=>''};
+ const context={navigator:{platform:hostPlatform},window:{api:{updateProfile:async(id,data)=>store.updateProfile(id,data)}},document:{createElement:()=>({})},alert:message=>alerts.push(message),getBrowserIconHtml:()=>''};
  vm.createContext(context);vm.runInContext(source+';globalThis.Modals=ModalsComponent',context);
  const modal=new context.Modals({container:{querySelector:field,querySelectorAll:()=>[]},onProfileCreated:async()=>{refreshed=true;}});
  for(const name of ['syncCustomBrowserDropdown','updateBrowserCapabilities','updateEditSummary','openModal'])modal[name]=()=>{};
@@ -57,6 +57,10 @@ test('edit form round trip saves hardware/software/cookies and reopens saved val
   saved.software.os='Mac (ARM)';assert.equal(editFixture(store,saved).modal.editSelectedOs,'Mac (ARM)');
   const gecko=store.createProfile({name:'Gecko fixture',browserType:'mullvad',version:'default',software:{webrtc:'Real',language:'Real',userAgent:'Auto'}});
   const geckoEdit=editFixture(store,gecko);geckoEdit.field('#edit-sw-webrtc').value='Disable';await geckoEdit.modal.handleUpdateProfile();assert.deepEqual(geckoEdit.alerts,[]);assert.equal(store.getProfile(gecko.id).software.webrtc,'Disable');assert.equal(Object.keys(store.getProfile(gecko.id).hardware).length,0);assert.equal(store.getProfile(gecko.id).software.screen,undefined);
+  const macEdit=editFixture(store,store.getProfile(gecko.id),'MacIntel');macEdit.field('#edit-hw-cpu').value='4';macEdit.field('#edit-hw-ram').value='16GB';macEdit.field('#edit-sw-timezone').value='Asia/Tokyo';macEdit.field('#edit-sw-screen').value='1440x900';macEdit.field('#edit-sw-geo').value='Block';await macEdit.modal.handleUpdateProfile();assert.deepEqual(macEdit.alerts,[]);
+  const macSaved=store.getProfile(gecko.id);assert.equal(macSaved.hardware.cpu,'4');assert.equal(macSaved.hardware.ram,'16GB');assert.equal(macSaved.software.timezone,'Asia/Tokyo');assert.equal(macSaved.software.screen,'1440x900');assert.equal(macSaved.software.geo,'Block');
+  assert.equal(editFixture(store,macSaved,'MacIntel').field('#edit-sw-screen').value,'1440x900');
+
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 

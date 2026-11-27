@@ -25,7 +25,7 @@ jobs:
       - shell: bash
         run: set -o pipefail; npm ci 2>&1 | tee -a build.log
       - shell: bash
-        run: set -o pipefail; node --test scripts/test-macos.cjs scripts/test-update.cjs scripts/test-core-catalog.cjs scripts/test-mac-updates.cjs scripts/test-license.cjs scripts/test-activity.cjs scripts/test-notes-api.cjs scripts/test-bulk-cleanup.cjs scripts/test-mullvad.cjs scripts/test-mac-mullvad-lifecycle.cjs scripts/test-profile-settings.cjs 2>&1 | tee -a build.log
+        run: set -o pipefail; node --test scripts/test-macos.cjs scripts/test-update.cjs scripts/test-core-catalog.cjs scripts/test-mac-updates.cjs scripts/test-license.cjs scripts/test-activity.cjs scripts/test-notes-api.cjs scripts/test-bulk-cleanup.cjs scripts/test-mullvad.cjs scripts/test-mac-mullvad-lifecycle.cjs scripts/test-profile-settings.cjs scripts/test-gecko-settings.cjs 2>&1 | tee -a build.log
       - name: Verify native Mullvad Browser 16.0.3
         shell: bash
         run: |
@@ -41,6 +41,7 @@ jobs:
           MULLVAD_APP="$MULLVAD_TEMP/Mullvad Browser.app"
           codesign --verify --deep --strict "$MULLVAD_APP"
           SV_MULLVAD_TEST_EXE="$MULLVAD_APP/Contents/MacOS/mullvadbrowser" node scripts/smoke-mullvad.cjs 2>&1 | tee -a build.log
+          SV_MULLVAD_TEST_EXE="$MULLVAD_APP/Contents/MacOS/mullvadbrowser" node scripts/smoke-gecko-settings.cjs 2>&1 | tee -a build.log
       - run: node scripts/make-mac-icons.cjs
       - shell: bash
         run: set -o pipefail; node scripts/smoke-macos.cjs 2>&1 | tee -a build.log
