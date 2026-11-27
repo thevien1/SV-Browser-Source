@@ -32,7 +32,7 @@ const probe=async()=>{
  try{
   for(const canvas of ['Off','Noise','Block'])for(const webgl of ['Off','Noise']){
    const id=canvas+'-'+webgl;report=undefined;
-   const result=await launcher.launchProfile({id,browserType:'chrome',headless:true,startUrl:`http://127.0.0.1:${server.address().port}/`,hardware:{canvas,webglImg:webgl,webglMeta:'Off'},software:{userAgent:'Auto',language:'Real',timezone:'Asia/Bangkok'}},1);
+   const result=await launcher.launchProfile({id,browserType:'chrome',headless:true,startUrl:`http://127.0.0.1:${server.address().port}/`,hardware:{canvas,webglImg:webgl,webglMeta:'Off'},software:{userAgent:'Auto',language:'Real',timezone:'Asia/Bangkok'}},1,process.platform==='darwin'?{addition_args:'--use-gl=angle --use-angle=swiftshader-webgl --enable-unsafe-swiftshader'}:{});
    assert.equal(result.success,true,result.message);
    for(let n=0;n<100&&!report;n++)await new Promise(resolve=>setTimeout(resolve,100));
    assert.ok(report,'Missing report '+id);assert.ok(!report.error,report.error);reports[id]=report;
