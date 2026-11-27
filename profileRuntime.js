@@ -67,7 +67,7 @@ async function configureChromium(url, profile, options={}){
  const cookies=parseCookies(profile.cookies);if(cookies.length)await cdp.send('Storage.setCookies',{cookies});
  if(['Allow','Block','Prompt'].includes(sw.geo))await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:{Allow:'granted',Block:'denied',Prompt:'prompt'}[sw.geo]});
  if(hw.font==='Masked')await cdp.send('Browser.setPermission',{permission:{name:'local-fonts'},setting:'denied'});
- const sessions=new Map();let failure,nativeUA,nativeMetadata,windowLimiter;
+ const sessions=new Map(),localeOwners=new Set();let failure,nativeUA,nativeMetadata,windowLimiter;
  const setup=async(sessionId,targetInfo)=>{
   const page=['page','iframe'].includes(targetInfo.type);
   let localeConflict;
@@ -99,10 +99,14 @@ async function configureChromium(url, profile, options={}){
    }
    if(language){
     const locale=language.split(',')[0].split(';')[0].trim();
-    try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);}catch(error){
+    try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);localeOwners.add(sessionId);}catch(error){
      // New Tab can attach multiple targets in the same renderer, which shares its locale override.
      if(!/Another locale override is already in effect/.test(error.message))throw error;
-     localeConflict=error;
+     // New Tab and a new page can share a renderer. Release the previous
+     // session's locale ownership before applying the same profile locale.
+     for(const owner of localeOwners){try{await cdp.send('Emulation.setLocaleOverride',{locale:''},owner);}catch{}}
+     localeOwners.clear();
+     await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);localeOwners.add(sessionId);
     }
     await cdp.send('Network.enable',{},sessionId);await cdp.send('Network.setExtraHTTPHeaders',{headers:{'Accept-Language':language}},sessionId);
    }
