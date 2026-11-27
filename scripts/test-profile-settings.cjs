@@ -172,3 +172,10 @@ test('browser settings defaults map Real/Noise/Block, persist stable Random scre
   context.Select.prototype.refresh.call({select:{selectedOptions:[{textContent:'Auto'}],disabled:true,title:'Engine chưa hỗ trợ'},button,panel:{},close(){closed=true;}});
   assert.equal(button.disabled,true);assert.equal(button.title,'Engine chưa hỗ trợ');assert.equal(closed,true);
  });
+
+test('startup sizing fits a shared window once without installing a resize monitor',async()=>{
+ const {limitWindowsToScreen}=require('../profileRuntime');let bounds={width:1920,height:1080,windowState:'normal'},writes=0;
+ const cdp={send:async(method,params)=>{if(method==='Browser.getWindowForTarget')return {windowId:1};if(method==='Browser.getWindowBounds')return {bounds:{...bounds}};if(method==='Browser.setWindowBounds'){writes++;bounds={...bounds,...params.bounds};return {};}throw Error(method);}};
+ await limitWindowsToScreen(cdp,['tab-a','tab-b'],1366,768);assert.equal(writes,1);assert.equal(bounds.width,1366);
+ bounds={width:1920,height:1080,windowState:'maximized'};await new Promise(resolve=>setTimeout(resolve,1100));assert.equal(writes,1);assert.equal(bounds.windowState,'maximized');
+});

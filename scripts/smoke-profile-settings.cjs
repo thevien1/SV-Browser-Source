@@ -30,9 +30,15 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
   assert.notEqual(viewport.result.value,1366,'Screen spoofing must not force the page viewport to the fake screen width');
   const windowInfo=await runtime.cdp.send('Browser.getWindowForTarget',{targetId:target.targetId});assert.ok(windowInfo.bounds.width<=1366&&windowInfo.bounds.height<=768,'Window must fit the configured Screen');
   await runtime.cdp.send('Browser.setWindowBounds',{windowId:windowInfo.windowId,bounds:{width:1900,height:1000}});
-  await new Promise(resolve=>setTimeout(resolve,1600));const fitted=await runtime.cdp.send('Browser.getWindowBounds',{windowId:windowInfo.windowId});assert.ok(fitted.bounds.width<=1366&&fitted.bounds.height<=768,'Resizing must not exceed configured Screen while size limit is enabled');
+  await new Promise(resolve=>setTimeout(resolve,1600));const fitted=await runtime.cdp.send('Browser.getWindowBounds',{windowId:windowInfo.windowId});assert.equal(fitted.bounds.width,1900,'Manual resize must remain after startup');assert.equal(fitted.bounds.height,1000);
+  await runtime.createPage('data:text/html,<!doctype html><title>Manual window size</title>');
+  const afterTab=await runtime.cdp.send('Browser.getWindowBounds',{windowId:windowInfo.windowId});assert.equal(afterTab.bounds.width,1900,'Opening another tab must not reset a manually resized window');
+  await runtime.cdp.send('Browser.setWindowBounds',{windowId:windowInfo.windowId,bounds:{windowState:'maximized'}});
+  const maximized=await runtime.cdp.send('Browser.getWindowBounds',{windowId:windowInfo.windowId});
+  await new Promise(resolve=>setTimeout(resolve,1600));const afterMaximize=await runtime.cdp.send('Browser.getWindowBounds',{windowId:windowInfo.windowId});assert.equal(afterMaximize.bounds.windowState,maximized.bounds.windowState,'Maximize must not be undone');assert.equal(afterMaximize.bounds.width,maximized.bounds.width);
+  await runtime.cdp.send('Browser.setWindowBounds',{windowId:windowInfo.windowId,bounds:{windowState:'normal'}});
   const geometry=await runtime.cdp.send('Runtime.evaluate',{expression:'({width:innerWidth,height:innerHeight,outerWidth,outerHeight,dpr:devicePixelRatio,deviceWidth:matchMedia("(device-width: 1366px)").matches})',returnByValue:true},session.sessionId);
-  assert.ok(geometry.result.value.width<=1366&&geometry.result.value.height<=768);assert.equal(geometry.result.value.deviceWidth,true);assert.equal(geometry.result.value.dpr,1);
+  assert.ok(geometry.result.value.width<=geometry.result.value.outerWidth&&geometry.result.value.height<=geometry.result.value.outerHeight);assert.equal(geometry.result.value.deviceWidth,true);assert.equal(geometry.result.value.dpr,1);
   await runtime.cdp.send('Target.detachFromTarget',{sessionId:session.sessionId});
   const auto={...profile,id:'auto-settings',cookies:'',hardware:{canvas:'Off',clientrect:'Off',audio:'Off'},software:{userAgent:'Auto',language:'en-US,en',geo:'Prompt',webrtc:'Real'}};
   const second=await launcher.launchProfile(auto,2);assert.equal(second.success,true,second.message);
@@ -76,7 +82,7 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
   count=reports.length;globalSettings.limitBrowserSize=false;
   const unlimited={...auto,id:'screen-no-limit',hardware:{canvas:'Off'},software:{...auto.software,screen:'1366x768'}};const unlimitedResult=await launcher.launchProfile(unlimited,12,{window_size:'1600,900'});assert.equal(unlimitedResult.success,true,unlimitedResult.message);
   for(let i=0;i<100&&reports.length<=count;i++)await new Promise(r=>setTimeout(r,100));const unlimitedTargets=await launcher.getRunningInfo(unlimited.id).runtime.cdp.send('Target.getTargets');const unlimitedWindow=await launcher.getRunningInfo(unlimited.id).runtime.cdp.send('Browser.getWindowForTarget',{targetId:unlimitedTargets.targetInfos.find(t=>t.type==='page').targetId});assert.ok(unlimitedWindow.bounds.width>1366);assert.deepEqual(reports[count].screen,[1366,768]);
-  console.log('PASS: cookies/UA, Hardware/Software, WebRTC Real/Disable/BaseOnIp and iframe, Android/Mac ARM hints, Screen/viewport and resize limits, Real/no-limit, timezone/geolocation, New Tab');
+  console.log('PASS: cookies/UA, Hardware/Software, WebRTC Real/Disable/BaseOnIp and iframe, Android/Mac ARM hints, Screen/viewport at startup and free resizing/maximize afterward, Real/no-limit, timezone/geolocation, New Tab');
  }finally{
   launcher.closeAllProfiles();server.closeAllConnections();await new Promise(r=>server.close(r));
   for(let attempt=0;;attempt++){try{fs.rmSync(root,{recursive:true,force:true});break;}catch(error){if(attempt>=30)throw error;await new Promise(r=>setTimeout(r,250));}}

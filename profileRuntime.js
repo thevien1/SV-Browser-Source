@@ -25,7 +25,7 @@ function fitWindowBounds(bounds,width,height){
  return {width:w,height:h};
 }
 async function limitWindowsToScreen(cdp,targetIds,width,height){
- const windows=new Set();let stopped=false,busy=false,timer;
+ const windows=new Set();
  const fit=async windowId=>{
   const {bounds}=await cdp.send('Browser.getWindowBounds',{windowId});
   const next=fitWindowBounds(bounds,width,height);if(!next)return;
@@ -34,13 +34,13 @@ async function limitWindowsToScreen(cdp,targetIds,width,height){
   const actual=await cdp.send('Browser.getWindowBounds',{windowId});
   if(actual.bounds.width>width||actual.bounds.height>height)throw Error('Engine/OS không hỗ trợ cửa sổ nhỏ theo Screen đã chọn; chọn Screen lớn hơn hoặc tắt giới hạn kích thước');
  };
- const add=async targetId=>{if(stopped)return;const {windowId}=await cdp.send('Browser.getWindowForTarget',{targetId});windows.add(windowId);await fit(windowId);};
- const stop=()=>{stopped=true;clearInterval(timer);windows.clear();};
- try{for(const targetId of targetIds)await add(targetId);}catch(error){stop();throw error;}
- cdp.ws.addEventListener('close',stop,{once:true});
- timer=setInterval(async()=>{if(stopped||busy)return;busy=true;try{for(const windowId of windows){try{await fit(windowId);}catch{windows.delete(windowId);}}}finally{busy=false;}},1000);
- timer.unref?.();
- return {add,stop};
+ // Apply once at launch. Later resizing/maximizing belongs to the user.
+ for(const targetId of targetIds){
+  const {windowId}=await cdp.send('Browser.getWindowForTarget',{targetId});
+  if(windows.has(windowId))continue;
+  windows.add(windowId);await fit(windowId);
+ }
+
 }
 async function configureChromium(url, profile, options={}){
  const cdp=await CDP.connect(url);
@@ -67,7 +67,7 @@ async function configureChromium(url, profile, options={}){
  const cookies=parseCookies(profile.cookies);if(cookies.length)await cdp.send('Storage.setCookies',{cookies});
  if(['Allow','Block','Prompt'].includes(sw.geo))await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:{Allow:'granted',Block:'denied',Prompt:'prompt'}[sw.geo]});
  if(hw.font==='Masked')await cdp.send('Browser.setPermission',{permission:{name:'local-fonts'},setting:'denied'});
- const sessions=new Map(),localeOwners=new Set();let failure,nativeUA,nativeMetadata,windowLimiter;
+ const sessions=new Map(),localeOwners=new Set();let failure,nativeUA,nativeMetadata;
  let configuring=0,resuming=false;const resumeQueue=new Set();
  const resumeConfigured=async()=>{
   if(resuming||configuring)return;resuming=true;
@@ -135,7 +135,6 @@ async function configureChromium(url, profile, options={}){
     }
     let applied;
     try{if(targetInfo.type==='page')applied=await cdp.send('Runtime.evaluate',{expression:script,timeout:1000},sessionId);}catch(error){if(!/Cannot find default execution context|Cannot find context with specified id/.test(error.message))throw error;}
-    if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
     if(applied?.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
    }
@@ -156,7 +155,7 @@ async function configureChromium(url, profile, options={}){
  if(!pages.length){cdp.close();throw Error('Không tìm thấy trang để áp dụng cấu hình profile');}
  const actualUA=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
  const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);
- if(screen&&options.limitBrowserSize!==false)windowLimiter=await limitWindowsToScreen(cdp,pages.map(page=>page.targetInfo.targetId),+screen[1],+screen[2]);
+ if(screen&&options.limitBrowserSize!==false)await limitWindowsToScreen(cdp,pages.map(page=>page.targetInfo.targetId),+screen[1],+screen[2]);
  const createPage=async(url,params={})=>{
   // Create a neutral document first. Some Mac Chromium builds start scripts
   // passed to Target.createTarget before the debugger can finish configuring.

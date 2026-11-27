@@ -166,7 +166,7 @@ export class SettingsViewComponent {
                     <input type="checkbox" id="settings-browser-limit-size" checked>
                     <span class="slider"></span>
                   </label>
-                  <span style="font-size: 13px; color: var(--text-main); font-weight: 500;">Giới hạn kích thước trình duyệt theo cài đặt</span>
+                  <span style="font-size: 13px; color: var(--text-main); font-weight: 500;">Áp dụng kích thước đã chọn khi mở profile</span>
                 </div>
                 <div class="settings-toggle-row">
                   <label class="toggle-switch">
