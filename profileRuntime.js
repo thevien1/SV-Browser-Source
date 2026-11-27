@@ -4,9 +4,9 @@ const resourceSource=path.join(process.resourcesPath||__dirname,'assets','profil
 const hardwareSource=fs.readFileSync(fs.existsSync(resourceSource)?resourceSource:path.join(__dirname,'assets','profile-hardware.js'),'utf8');
 const crypto=require('crypto');
 class CDP {
- constructor(ws){this.ws=ws;this.next=0;this.pending=new Map();this.listeners=new Set();ws.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const p=this.pending.get(message.id);if(!p)return;this.pending.delete(message.id);clearTimeout(p.timer);message.error?p.reject(Error(message.error.message)):p.resolve(message.result);}else for(const listener of this.listeners)listener(message);});ws.addEventListener('close',()=>{for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('Browser CDP closed'));}this.pending.clear();});}
+ constructor(ws){this.ws=ws;this.next=0;this.pending=new Map();this.listeners=new Set();ws.addEventListener('message',event=>{const message=JSON.parse(event.data);if(message.id){const p=this.pending.get(message.id);if(!p)return;this.pending.delete(message.id);clearTimeout(p.timer);message.error?p.reject(Error((p.method?p.method+': ':'')+message.error.message)):p.resolve(message.result);}else for(const listener of this.listeners)listener(message);});ws.addEventListener('close',()=>{for(const p of this.pending.values()){clearTimeout(p.timer);p.reject(Error('Browser CDP closed'));}this.pending.clear();});}
  static async connect(url){const ws=new WebSocket(url);await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{ws.close();reject(Error('CDP connect timeout'));},10000);ws.addEventListener('open',()=>{clearTimeout(timer);resolve();},{once:true});ws.addEventListener('error',()=>{clearTimeout(timer);reject(Error('CDP connect failed'));},{once:true});});return new CDP(ws);}
- send(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++this.next;const timer=setTimeout(()=>{this.pending.delete(id);reject(Error(`CDP timeout: ${method}`));},10000);this.pending.set(id,{resolve,reject,timer});this.ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});}
+ send(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++this.next;const timer=setTimeout(()=>{this.pending.delete(id);reject(Error(`CDP timeout: ${method}`));},10000);this.pending.set(id,{resolve,reject,timer,method});this.ws.send(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})}));});}
  close(){this.ws.close();}
 }
 async function evaluateWhenReady(cdp,params,sessionId,{timeout=5000,delay=50}={}){
@@ -119,7 +119,7 @@ async function configureChromium(url, profile, options={}){
     if(geo&&sw.geo==='Allow')await cdp.send('Emulation.setGeolocationOverride',{latitude:geo.latitude,longitude:geo.longitude,accuracy:100},sessionId);
     if(timezone)await cdp.send('Emulation.setTimezoneOverride',{timezoneId:timezone},sessionId);
     if(Number(hw.cpu)>0)await cdp.send('Emulation.setHardwareConcurrencyOverride',{hardwareConcurrency:Number(hw.cpu)},sessionId);
-    const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen)await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
+    const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);if(screen&&targetInfo.type==='page')await cdp.send('Emulation.setDeviceMetricsOverride',{width:0,height:0,screenWidth:+screen[1],screenHeight:+screen[2],deviceScaleFactor:1,mobile:sw.os==='Android'},sessionId);
     await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
     if(localeConflict){
      const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
