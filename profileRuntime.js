@@ -124,7 +124,7 @@ async function configureChromium(url, profile, options={}){
     if(applied.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
    }
-  }catch(error){failure=error;}
+  }catch(error){failure=error;console.warn("Profile target configuration failed:",targetInfo.type,targetInfo.url,error.message);}
   finally{try{await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);}catch{}}
  };
  cdp.listeners.add(message=>{
