@@ -36,9 +36,9 @@ async function configureGecko(port,profile,options={}){
   const declaration=`()=>{(${source('profile-hardware.js')})(${JSON.stringify(config)});(${source('profile-gecko.js')})(${JSON.stringify(config)});}`;
   await bidi.send('script.addPreloadScript',{functionDeclaration:declaration});
   if(userAgent(profile)||os||language){
-   await bidi.send('session.subscribe',{events:['network.beforeRequestSent']});
-   bidi.listeners.add(message=>{if(message.method!=='network.beforeRequestSent'||!message.params.isBlocked)return;const request=message.params.request;const names=new Set(['user-agent',...(language?['accept-language']:[])]);const headers=request.headers.filter(header=>!names.has(header.name.toLowerCase()));headers.push({name:'User-Agent',value:{type:'string',value:ua}});if(language)headers.push({name:'Accept-Language',value:{type:'string',value:language}});void bidi.send('network.continueRequest',{request:request.request,headers}).catch(error=>{console.warn('Gecko header override failed:',error.message);void bidi.send('network.failRequest',{request:request.request}).catch(()=>{});});});
-   await bidi.send('network.addIntercept',{phases:['beforeRequestSent']});
+   const headers=[{name:'User-Agent',value:{type:'string',value:ua}}];
+   if(language)headers.push({name:'Accept-Language',value:{type:'string',value:language}});
+   await bidi.send('network.setExtraHeaders',{headers});
   }
   const tree=await bidi.send('browsingContext.getTree');
   if(tree.contexts[0]&&!/^about:(?!blank)/.test(tree.contexts[0].url)){
