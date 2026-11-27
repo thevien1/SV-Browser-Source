@@ -2,6 +2,26 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),http=requ
 const {parseProxy,resolveProxy,openBridge}=require('../proxyConnection');
 const {parseCookies,userAgent,validateProfile,autoUserAgent}=require('../profileConfig');
 
+test('Software validates modes/locales and restores Gecko native defaults instead of retaining stale overrides',()=>{
+ const {geckoSoftwarePreferences,resetGeckoPreferences,softwareOS}=require('../profileConfig');
+ const disabled=geckoSoftwarePreferences({software:{userAgent:'Exact UA',language:'vi-VN,vi',webrtc:'Disable'}});
+ assert.ok(disabled.prefs.includes('user_pref("media.peerconnection.enabled", false);'));assert.ok(disabled.prefs.some(p=>p.includes('Exact UA')));
+ const real=geckoSoftwarePreferences({software:{userAgent:'Auto',language:'Real',webrtc:'Real'}});assert.deepEqual(real.prefs,[]);
+ const saved='// keep\nuser_pref("general.useragent.override", "Old UA");\nuser_pref("intl.accept_languages", "fr");\nuser_pref("media.peerconnection.enabled", false);\nuser_pref("general.useragent.override.extra", "keep");\nuser_pref("other", true);\n';
+ const reset=resetGeckoPreferences(saved,real.reset);assert.ok(!reset.includes('Old UA'));assert.ok(!reset.includes('media.peerconnection.enabled'));assert.ok(reset.includes('override.extra'));assert.ok(reset.includes('"other", true'));assert.ok(!real.prefs.some(p=>p.includes('true')),'Real must not force-enable Mullvad WebRTC');
+ assert.equal(softwareOS('mac_arm'),'Mac (ARM)');assert.match(autoUserAgent('Mozilla/5.0 (Windows NT 10.0) Chrome/157.0.0.0 Safari/537.36','Mac (ARM)'),/Macintosh/);
+ assert.throws(()=>validateProfile({software:{webrtc:'Unknown'}}),/WebRTC/);assert.throws(()=>validateProfile({browserType:'firefox',software:{webrtc:'BaseOnIp'}}),/chưa hỗ trợ/);
+ assert.throws(()=>validateProfile({software:{geo:'Unknown'}}),/Geolocation/);assert.throws(()=>validateProfile({software:{language:'not_a_locale'}}),/locale/);assert.throws(()=>validateProfile({software:{os:'Imaginary'}}),/hệ điều hành/i);
+ validateProfile({software:{language:'vi-VN,vi;q=0.9',webrtc:'Real',geo:'Prompt',os:'mac_arm'}});
+});
+
+test('Screen window bounds keep native viewport sizing, cap oversize/maximized windows and preserve minimization',()=>{
+ const {fitWindowBounds}=require('../profileRuntime');assert.equal(fitWindowBounds({width:1200,height:700,windowState:'normal'},1366,768),null);
+ assert.deepEqual(fitWindowBounds({width:1920,height:1080,windowState:'normal'},1366,768),{width:1366,height:768});
+ assert.deepEqual(fitWindowBounds({width:1920,height:1080,windowState:'maximized'},1366,768),{width:1366,height:768});
+ assert.equal(fitWindowBounds({width:1920,height:1080,windowState:'minimized'},1366,768),null);
+});
+
 test('runtime waits for a default execution context and never retries unrelated protocol errors',async()=>{
  const {evaluateWhenReady}=require('../profileRuntime');let calls=0;
  const result=await evaluateWhenReady({send:async()=>{if(++calls<3)throw Error('Cannot find default execution context');return {result:{value:'ready'}};}},{expression:'navigator.userAgent'},'test',{delay:1});assert.equal(result.result.value,'ready');assert.equal(calls,3);
@@ -35,6 +55,8 @@ test('edit form round trip saves hardware/software/cookies and reopens saved val
   const saved=JSON.parse(fs.readFileSync(store.profilesFilePath,'utf8'))[0];assert.equal(saved.name,'After');assert.equal(saved.version,'157.9.8.7');assert.equal(saved.hardware.canvas,'Block');assert.equal(saved.hardware.webglImg,'Off');assert.equal(saved.hardware.cpu,'4');assert.equal(saved.hardware.ram,'16GB');assert.equal(saved.software.os,'Android');assert.equal(saved.software.userAgent,'Exact custom UA');assert.equal(saved.software.screen,'1920x1080');assert.equal(JSON.parse(saved.cookies)[0].value,'saved');
   const reopened=editFixture(store,saved);assert.equal(reopened.field('#edit-hw-canvas').value,'Block');assert.equal(reopened.field('#edit-hw-webgl-img').value,'Off');assert.equal(reopened.field('#edit-sw-user-agent').value,'Exact custom UA');
   saved.software.os='Mac (ARM)';assert.equal(editFixture(store,saved).modal.editSelectedOs,'Mac (ARM)');
+  const gecko=store.createProfile({name:'Gecko fixture',browserType:'mullvad',version:'default',software:{webrtc:'Real',language:'Real',userAgent:'Auto'}});
+  const geckoEdit=editFixture(store,gecko);geckoEdit.field('#edit-sw-webrtc').value='Disable';await geckoEdit.modal.handleUpdateProfile();assert.deepEqual(geckoEdit.alerts,[]);assert.equal(store.getProfile(gecko.id).software.webrtc,'Disable');assert.equal(Object.keys(store.getProfile(gecko.id).hardware).length,0);assert.equal(store.getProfile(gecko.id).software.screen,undefined);
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 

@@ -377,16 +377,16 @@ export class ModalsComponent {
                     <div style="flex: 1;">
                       <label class="field-label">WebRTC</label>
                       <select class="form-control" id="sw-webrtc">
-                        <option value="BaseOnIp" selected>BaseOnIp (Chuẩn)</option>
-                        <option value="Real">Real</option>
-                        <option value="Disable">Disable</option>
+                        <option value="BaseOnIp" selected>BaseOnIp (hạn chế UDP ngoài proxy)</option>
+                        <option value="Real">Real (mặc định engine)</option>
+                        <option value="Disable">Disable (chặn WebRTC)</option>
                         <option value="Noise" disabled>Noise (chưa hỗ trợ)</option>
                       </select>
                     </div>
                     <div style="flex: 1;">
                       <label class="field-label">Geolocation</label>
                       <select class="form-control" id="sw-geo">
-                        <option value="Prompt" selected>Prompt (Hỏi khi mở)</option>
+                        <option value="Prompt" selected>Prompt (hỏi quyền khi website yêu cầu)</option>
                         <option value="Allow">Allow</option>
                         <option value="Block">Block</option>
                       </select>
@@ -962,7 +962,7 @@ export class ModalsComponent {
                     <div>
                       <label class="field-label">Ngôn ngữ</label>
                       <select class="form-control" id="edit-sw-language"><option value="Real">Real (ngôn ngữ trình duyệt)</option>
-                        <option value="Auto" selected>Auto (Theo IP Proxy)</option>
+                        <option value="Auto" selected>Auto (theo IP kết nối)</option>
                         <option value="vi-VN">vi-VN (Tiếng Việt)</option>
                         <option value="en-US">en-US (English - US)</option>
                       </select>
@@ -970,7 +970,7 @@ export class ModalsComponent {
                     <div>
                       <label class="field-label">Múi giờ (Timezone)</label>
                       <select class="form-control" id="edit-sw-timezone">
-                        <option value="Auto" selected>Auto (Theo IP Proxy)</option>
+                        <option value="Auto" selected>Auto (theo IP kết nối)</option>
                         <option value="Asia/Ho_Chi_Minh">Asia/Ho_Chi_Minh (GMT+7)</option>
                         <option value="America/New_York">America/New_York (GMT-5)</option>
                       </select>
@@ -980,9 +980,9 @@ export class ModalsComponent {
                     <div>
                       <label class="field-label">WebRTC</label>
                       <select class="form-control" id="edit-sw-webrtc">
-                        <option value="BaseOnIp" selected>BaseOnIp</option>
-                        <option value="Disable">Disable</option>
-                        <option value="Real">Real</option>
+                        <option value="BaseOnIp" selected>BaseOnIp (hạn chế UDP ngoài proxy)</option>
+                        <option value="Disable">Disable (chặn WebRTC)</option>
+                        <option value="Real">Real (mặc định engine)</option>
                       </select>
                     </div>
                     <div>
@@ -1379,6 +1379,7 @@ export class ModalsComponent {
       }
 
       if (editSelect) {
+        const previous=this.editingProfile?editSelect.value:'';
         editSelect.innerHTML = '';
         if (cores && cores.length > 0) {
           cores.forEach((c, idx) => {
@@ -1390,6 +1391,7 @@ export class ModalsComponent {
           });
         }
         appendAdditionalBrowsers(editSelect);
+        if(previous){if(!Array.from(editSelect.options).some(option=>option.value===previous)){const option=document.createElement('option');option.value=previous;option.textContent=previous;editSelect.appendChild(option);}editSelect.value=previous;}
         this.syncCustomBrowserDropdown('#edit-quick-browser-core');
       }
 
@@ -2018,11 +2020,29 @@ export class ModalsComponent {
       const hardware=this.container.querySelector('#pane-'+prefix+'hardware');
       const software=this.container.querySelector('#pane-'+prefix+'software');
       for(const control of hardware?.querySelectorAll('input,select')||[])control.disabled=gecko;
-      for(const id of ['timezone','webrtc','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control)control.disabled=gecko;}
+      for(const id of ['timezone','geo','screen']){const control=this.container.querySelector('#'+prefix+'sw-'+id);if(control)control.disabled=gecko;}
+      const rtc=this.container.querySelector('#'+prefix+'sw-webrtc');
+      if(rtc){
+        rtc.disabled=false;
+        for(const option of rtc.options)option.disabled=option.value==='Noise'||(gecko&&option.value==='BaseOnIp');
+        if(gecko&&!['Real','Disable'].includes(rtc.value))rtc.value='Real';
+      }
+      const language=this.container.querySelector('#'+prefix+'sw-language');
+      if(language){
+        for(const option of language.options)if(option.value==='Auto')option.disabled=gecko;
+        if(gecko&&language.value==='Auto')language.value='Real';
+      }
+      if(software){
+        if(!software.querySelector('.software-runtime-note'))software.insertAdjacentHTML('afterbegin','<p class="software-runtime-note" style="font-size:12px;color:#64748b;line-height:1.6"></p>');
+        const note=software.querySelector('.software-runtime-note');
+        if(note)note.textContent=gecko?'Firefox/Mullvad: Disable ghi media.peerconnection.enabled=false; Real trả về mặc định engine (Mullvad có thể vẫn tắt WebRTC). about:config chỉ dùng cho Firefox/Mullvad. Auto UA dùng mặc định; ngôn ngữ hỗ trợ Real hoặc giá trị cụ thể. OS, timezone, vị trí và Screen chưa hỗ trợ ở luồng này.':'Chromium: BaseOnIp hạn chế UDP ngoài proxy, không tắt WebRTC. Disable chặn RTCPeerConnection ở trang/iframe; Real giữ mặc định engine. Không kiểm tra Chromium bằng about:config. OS/UA là thông tin báo cho website, không thay hệ điều hành thật.';
+      }
       for(const control of software?.querySelectorAll('.os-btn,.edit-os-btn')||[])control.disabled=gecko;
       const cookie=this.container.querySelector(prefix?'#edit-cookies-input':'#tab-cookies-input');if(cookie){cookie.disabled=false;if(!cookie.parentElement.querySelector('.cookie-support-note'))cookie.insertAdjacentHTML('afterend','<p class="cookie-support-note" style="font-size:12px;color:#64748b">JSON/Netscape được nạp vào Chromium trước URL khởi động. Firefox/Mullvad chưa hỗ trợ cookie khởi động.</p>');}
       if(hardware&&!hardware.querySelector('.runtime-note'))hardware.insertAdjacentHTML('afterbegin','<p class="runtime-note" style="grid-column:1/-1;font-size:12px;color:#64748b">Chromium: Noise/Masked áp dụng qua JavaScript trên trang/iframe, không thay thế fingerprint native trong mọi worker. Số thiết bị là mô phỏng danh sách, không tạo camera/micro thật. Firefox/Mullvad giữ mặc định riêng tư; phần Hardware và Cookies chưa hỗ trợ.</p>');
     }
+    this.updateSummary?.();
+    this.updateEditSummary?.();
   }
 
   bindConnectionFields(prefix) {
@@ -2176,7 +2196,7 @@ export class ModalsComponent {
           notes,
           note: notes,
           hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
-          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language} : software
+          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
         });
 
         this.closeModal('modal-add-profile');
@@ -2535,6 +2555,7 @@ export class ModalsComponent {
     setSelect('#edit-sw-geo', sw.geo || 'Prompt');
     setSelect('#edit-sw-screen', sw.screen || '-1x-1');
 
+    this.updateBrowserCapabilities();
     this.updateEditSummary();
     this.openModal('modal-edit-profile');
   }
@@ -2770,7 +2791,7 @@ export class ModalsComponent {
           notes,
           note: notes,
           hardware: ['firefox','mullvad'].includes(browserType) ? {} : hardware,
-          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language} : software
+          software: ['firefox','mullvad'].includes(browserType) ? {userAgent:software.userAgent,language:software.language,webrtc:software.webrtc} : software
         });
 
         if (!saved || saved.success === false || saved.id !== this.editingProfile.id) {

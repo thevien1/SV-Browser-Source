@@ -18,7 +18,7 @@ const BrowserLauncher=require('../browserLauncher');
  const id='isolated-test';
  try{
   const found=launcher.detectBrowsers().mullvad;assert.ok(found,'Mullvad not installed for smoke test');
-  const result=await launcher.launchProfile({id,name:'Mullvad isolated smoke',browserType:'mullvad',version:'default',headless:true},1);
+  const result=await launcher.launchProfile({id,name:'Mullvad isolated smoke',browserType:'mullvad',version:'default',headless:true,software:{webrtc:'Disable'}},1);
   assert.equal(result.success,true);assert.equal(result.websocket_debugging_url,'');assert.equal(result.driver_path,'');
   const info=launcher.getRunningInfo(id);assert.ok(info);
   const initialized=()=>fs.readdirSync(info.profileDir).some(name=>['prefs.js','parent.lock','.parentlock'].includes(name));
@@ -29,7 +29,8 @@ const BrowserLauncher=require('../browserLauncher');
   const prefs=fs.readFileSync(path.join(info.profileDir,'user.js'),'utf8');
   assert.ok(!prefs.includes('xpinstall.signatures.required'));
   assert.ok(!prefs.includes('extensions.experiments.enabled'));
-  console.log('PASS: native Mullvad launches isolated profile; no Chrome CDP or security preference overrides');
+  assert.ok(prefs.includes('user_pref("media.peerconnection.enabled", false);'));
+  console.log('PASS: native Mullvad launches isolated profile with WebRTC disabled; no Chrome CDP or weakened extension security preferences');
  }finally{
   await launcher.closeProfile(id);
   if(process.platform==='darwin') {

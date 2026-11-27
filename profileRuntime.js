@@ -1,4 +1,4 @@
-const {parseCookies,userAgent,autoUserAgent}=require('./profileConfig');
+const {parseCookies,userAgent,autoUserAgent,softwareOS}=require('./profileConfig');
 const fs=require('fs'),path=require('path');
 const resourceSource=path.join(process.resourcesPath||__dirname,'assets','profile-hardware.js');
 const hardwareSource=fs.readFileSync(fs.existsSync(resourceSource)?resourceSource:path.join(__dirname,'assets','profile-hardware.js'),'utf8');
@@ -18,14 +18,41 @@ async function evaluateWhenReady(cdp,params,sessionId,{timeout=5000,delay=50}={}
   }
  }
 }
+function fitWindowBounds(bounds,width,height){
+ if(bounds.windowState==='minimized')return null;
+ const w=Math.min(bounds.width||width,width),h=Math.min(bounds.height||height,height);
+ if(bounds.windowState==='normal'&&w===bounds.width&&h===bounds.height)return null;
+ return {width:w,height:h};
+}
+async function limitWindowsToScreen(cdp,targetIds,width,height){
+ const windows=new Set();let stopped=false,busy=false,timer;
+ const fit=async windowId=>{
+  const {bounds}=await cdp.send('Browser.getWindowBounds',{windowId});
+  const next=fitWindowBounds(bounds,width,height);if(!next)return;
+  if(bounds.windowState!=='normal')await cdp.send('Browser.setWindowBounds',{windowId,bounds:{windowState:'normal'}});
+  await cdp.send('Browser.setWindowBounds',{windowId,bounds:next});
+  const actual=await cdp.send('Browser.getWindowBounds',{windowId});
+  if(actual.bounds.width>width||actual.bounds.height>height)throw Error('Engine/OS không hỗ trợ cửa sổ nhỏ theo Screen đã chọn; chọn Screen lớn hơn hoặc tắt giới hạn kích thước');
+ };
+ const add=async targetId=>{if(stopped)return;const {windowId}=await cdp.send('Browser.getWindowForTarget',{targetId});windows.add(windowId);await fit(windowId);};
+ const stop=()=>{stopped=true;clearInterval(timer);windows.clear();};
+ try{for(const targetId of targetIds)await add(targetId);}catch(error){stop();throw error;}
+ cdp.ws.addEventListener('close',stop,{once:true});
+ timer=setInterval(async()=>{if(stopped||busy)return;busy=true;try{for(const windowId of windows){try{await fit(windowId);}catch{windows.delete(windowId);}}}finally{busy=false;}},1000);
+ timer.unref?.();
+ return {add,stop};
+}
 async function configureChromium(url, profile, options={}){
  const cdp=await CDP.connect(url);
  try {
  const sw={...profile.software},hw=profile.hardware||{};
+ if(sw.os)sw.os=softwareOS(sw.os);
+ const macArm=/^mac \(arm\)$/i.test(sw.os||'');
  if (/^mac(?:os| \((?:intel|arm)\))?$/i.test(sw.os||'')) sw.os='Mac';
  const browser=await cdp.send('Browser.getVersion');
  let ua=userAgent(profile)||browser.userAgent;
- const language=sw.language==='Real'?undefined:sw.language&&sw.language!=='Auto'?sw.language:options.detectedLang;
+ const detectedLanguage=options.detectedLang||(options.detectedCountry?require('./proxyChecker').getLangFromCountry(options.detectedCountry):undefined);
+ const language=sw.language==='Real'?undefined:sw.language&&sw.language!=='Auto'?sw.language:detectedLanguage;
  let timezone=sw.timezone&&sw.timezone!=='Auto'?sw.timezone:options.detectedTimezone;
  let geo=options.detectedGeo;
  if ((sw.timezone==='Auto'&&!timezone)||(sw.geo==='Allow'&&!geo)) {
@@ -40,12 +67,13 @@ async function configureChromium(url, profile, options={}){
  const cookies=parseCookies(profile.cookies);if(cookies.length)await cdp.send('Storage.setCookies',{cookies});
  if(['Allow','Block','Prompt'].includes(sw.geo))await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:{Allow:'granted',Block:'denied',Prompt:'prompt'}[sw.geo]});
  if(hw.font==='Masked')await cdp.send('Browser.setPermission',{permission:{name:'local-fonts'},setting:'denied'});
- const sessions=new Map();let failure,nativeUA,nativeMetadata;
+ const sessions=new Map();let failure,nativeUA,nativeMetadata,windowLimiter;
  const setup=async(sessionId,targetInfo)=>{
   const page=['page','iframe'].includes(targetInfo.type);
   let localeConflict;
   try{
    if (!page) return;
+   if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
    await cdp.send('Page.enable',{},sessionId);
    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:script},sessionId);
    await cdp.send('Runtime.enable',{},sessionId);
@@ -58,19 +86,19 @@ async function configureChromium(url, profile, options={}){
     nativeUA=native.result.value;
    }else native={result:{value:nativeUA}};
    ua=userAgent(profile)||autoUserAgent(native.result.value,sw.os);
-   if(userAgent(profile)||ua!==native.result.value){
+   if(userAgent(profile)||ua!==native.result.value||sw.os){
     let userAgentMetadata;
     if(!userAgent(profile)) {
       // Use synchronous UA data. Waiting for a high-entropy Promise can hang on
       // a target that is paused or changing documents during browser startup.
       if(nativeMetadata===undefined){const data=await evaluateWhenReady(cdp,{expression:'navigator.userAgentData?.toJSON()',returnByValue:true},sessionId);nativeMetadata=data.result.value||null;}
       const version=ua.match(/(?:HeadlessChrome|Chrome)\/([\d.]+)/)?.[1] || '1.0.0.0';
-      userAgentMetadata={...nativeMetadata,brands:nativeMetadata?.brands||[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64',platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'?'arm':'x86'};
+      userAgentMetadata={...nativeMetadata,brands:nativeMetadata?.brands||[{brand:'Chromium',version:version.split('.')[0]}],fullVersionList:[{brand:'Chromium',version}],bitness:'64',platform:({Mac:'macOS',Windows:'Windows',Linux:'Linux',Android:'Android'}[sw.os]),platformVersion:({Mac:'10.15.7',Windows:'10.0.0',Linux:'6.0.0',Android:'14.0.0'}[sw.os]),mobile:sw.os==='Android',model:sw.os==='Android'?'Pixel 8':'',architecture:sw.os==='Android'||macArm?'arm':'x86'};
     }
     await cdp.send('Emulation.setUserAgentOverride',{userAgent:ua,...(language?{acceptLanguage:language}:{}),...(platform?{platform}: {}),...(userAgentMetadata?{userAgentMetadata}:{})},sessionId);
    }
    if(language){
-    const locale=language.split(',')[0];
+    const locale=language.split(',')[0].split(';')[0].trim();
     try{await cdp.send('Emulation.setLocaleOverride',{locale},sessionId);}catch(error){
      // New Tab can attach multiple targets in the same renderer, which shares its locale override.
      if(!/Another locale override is already in effect/.test(error.message))throw error;
@@ -86,7 +114,7 @@ async function configureChromium(url, profile, options={}){
     await cdp.send('Runtime.runIfWaitingForDebugger',{},sessionId);
     if(localeConflict){
      const current=await evaluateWhenReady(cdp,{expression:'Intl.DateTimeFormat().resolvedOptions().locale',returnByValue:true},sessionId);
-     if(Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(language.split(',')[0])[0])throw localeConflict;
+     if(Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(language.split(',')[0].split(';')[0].trim())[0])throw localeConflict;
     }
     const applied=await evaluateWhenReady(cdp,{expression:script},sessionId);
     if(applied.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
@@ -108,6 +136,8 @@ async function configureChromium(url, profile, options={}){
  const pages=Array.from(sessions.values()).filter(s=>s.targetInfo.type==='page');
  if(!pages.length){cdp.close();throw Error('Không tìm thấy trang để áp dụng cấu hình profile');}
  const actualUA=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
+ const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);
+ if(screen&&options.limitBrowserSize!==false)windowLimiter=await limitWindowsToScreen(cdp,pages.map(page=>page.targetInfo.targetId),+screen[1],+screen[2]);
  const configuredUrls=profile.startUrl?.trim()? [profile.startUrl.trim()] : (options.startupUrls||[]);
  // Keep the blank bootstrap private to setup; an empty startup URL opens the browser's New Tab.
  const urls=configuredUrls.length?configuredUrls:['chrome://newtab/'];
@@ -118,4 +148,4 @@ async function configureChromium(url, profile, options={}){
  return {cdp,ua:actualUA.result.value,timezone,settingsApplied:true};
  } catch(error){cdp.close();throw error;}
 }
-module.exports={CDP,configureChromium,evaluateWhenReady};
+module.exports={CDP,configureChromium,evaluateWhenReady,fitWindowBounds,limitWindowsToScreen};

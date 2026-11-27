@@ -612,10 +612,15 @@ class BrowserLauncher extends EventEmitter {
             }
           }
         }
-        const customUa = require('./profileConfig').userAgent(originalProfile);
-        if (customUa) ffPrefs.push(`user_pref("general.useragent.override", ${JSON.stringify(customUa)});`);
-        const ffLang = originalProfile.software?.language;
-        if (ffLang && !['Auto','Real'].includes(ffLang)) ffPrefs.push(`user_pref("intl.accept_languages", ${JSON.stringify(ffLang)});`);
+        const config = require('./profileConfig');
+        const softwarePrefs = config.geckoSoftwarePreferences(originalProfile);
+        const prefsPath = path.join(profileDir,'prefs.js');
+        if(fs.existsSync(prefsPath)){
+          const previous=fs.readFileSync(prefsPath,'utf8');
+          const next=config.resetGeckoPreferences(previous,softwarePrefs.reset);
+          if(next!==previous)fs.writeFileSync(prefsPath,next,'utf8');
+        }
+        ffPrefs.push(...softwarePrefs.prefs);
         fs.writeFileSync(userJsPath, ffPrefs.join('\n') + '\n', 'utf8');
 
         // Nạp extensions cho Firefox vào thư mục <profileDir>/extensions
@@ -646,7 +651,8 @@ class BrowserLauncher extends EventEmitter {
           } catch (extErr) {}
         }
       } catch (e) {
-        console.error('Lỗi cấu hình user.js cho Firefox:', e.message);
+        await proxyBridge?.close();
+        return {success:false,message:'Không lưu được cấu hình Firefox/Mullvad: '+e.message};
       }
     } else {
       // Các flags chuẩn 100% trích xuất từ GPMLogin Global theo đúng mẫu Command Line
@@ -865,15 +871,12 @@ try {
       if (['BaseOnIp', 'Disable'].includes(profile.software?.webrtc)) args.push('--force-webrtc-ip-handling-policy=disable_non_proxied_udp');
 
       // 4. Ngôn ngữ: Tự động theo IP vừa kiểm tra (trừ khi có thiết lập thủ công khác Auto)
-      const detectedCountry = (options && options.detectedCountry) || profile.proxyCountry || '';
-      const langFromCountry = detectedCountry ? ProxyChecker.getLangFromCountry(detectedCountry) : 'vi';
-      const customLang = (profile.language && profile.language !== 'Auto')
-        ? profile.language
-        : ((profile.software && profile.software.language && profile.software.language !== 'Auto')
-          ? profile.software.language
-          : null);
-      const lang = customLang || (options && options.detectedLang) || langFromCountry || 'vi';
-      if(profile.software?.language!=='Real')args.push(`--lang=${lang}`);
+      const detectedCountry = (options && options.detectedCountry) || '';
+      const langFromCountry = detectedCountry ? ProxyChecker.getLangFromCountry(detectedCountry) : undefined;
+      const chosenLang=Object.hasOwn(profile.software||{},'language')?profile.software.language:profile.language;
+      const customLang=chosenLang&&!['Auto','Real'].includes(chosenLang)?chosenLang:null;
+      const lang = customLang || (options && options.detectedLang) || langFromCountry;
+      if(chosenLang!=='Real'&&lang)args.push(`--lang=${lang}`);
 
       // 5. Global Settings & Start URL
       const globalSettings = this.profileStore ? this.profileStore.getSettings() : {};
@@ -953,7 +956,7 @@ try {
 
       if (type !== 'firefox' && type !== 'mullvad') {
         try {
-          runtime = await require('./profileRuntime').configureChromium(wsUrl, originalProfile, { ...options, startupUrls });
+          runtime = await require('./profileRuntime').configureChromium(wsUrl, originalProfile, { ...options, startupUrls,limitBrowserSize:this.profileStore?.getSettings().limitBrowserSize!==false });
         } catch (error) {
           try { child.kill(); } catch {}
           if (proxyBridge) await proxyBridge.close();

@@ -27,10 +27,23 @@ function userAgent(profile) {
  const value=Object.hasOwn(profile.software||{},'userAgent')?profile.software.userAgent:profile.userAgent;
  return !value||/^auto$/i.test(String(value).trim())?'':String(value).trim();
 }
+function softwareOS(value){
+ if(!value)return '';
+ const os={windows:'Windows',win:'Windows',win32:'Windows',mac:'Mac',macos:'Mac','mac (intel)':'Mac (Intel)','mac (arm)':'Mac (ARM)',mac_arm:'Mac (ARM)',linux:'Linux',android:'Android'}[String(value).toLowerCase()];
+ if(!os)throw Error('Hệ điều hành Software không hợp lệ');return os;
+}
 function validateProfile(profile) {
  parseCookies(profile.cookies);
  if(profile.proxyType&&profile.proxyType!=='None'&&(!profile.proxy||/^no proxy$/i.test(profile.proxy)))throw Error('Vui lòng nhập địa chỉ hoặc API key proxy');
  const hw=profile.hardware||{},sw=profile.software||{};
+ if(sw.os)softwareOS(sw.os);
+ if(sw.geo&&!['Prompt','Block','Allow'].includes(sw.geo))throw Error('Geolocation chỉ hỗ trợ Prompt, Block hoặc Allow');
+ if(sw.language&&!['Auto','Real'].includes(sw.language)){
+  if(typeof sw.language!=='string'||/[\r\n]/.test(sw.language))throw Error('Ngôn ngữ Software không hợp lệ');
+  try{Intl.getCanonicalLocales(sw.language.split(',').map(part=>part.split(';')[0].trim()));}catch{throw Error('Ngôn ngữ cần mã locale hợp lệ, ví dụ vi-VN,vi');}
+ }
+ if(sw.webrtc&&!['BaseOnIp','Real','Disable','Noise'].includes(sw.webrtc))throw Error('Chế độ WebRTC không hợp lệ');
+ if(['firefox','mullvad'].includes(profile.browserType)&&sw.webrtc==='BaseOnIp')throw Error('Firefox/Mullvad chưa hỗ trợ WebRTC BaseOnIp; chọn Real hoặc Disable');
  if(hw.webglMeta==='Custom'&&(!hw.webglVendor||!hw.webglRenderer))throw Error('WebGL Custom cần vendor và renderer; hãy dùng Masked hoặc Off');
  if(sw.webrtc==='Noise')throw Error('WebRTC Noise chưa được hỗ trợ; chọn BaseOnIp, Real hoặc Disable');
  if(sw.timezone&&sw.timezone!=='Auto')new Intl.DateTimeFormat('en',{timeZone:sw.timezone});
@@ -43,6 +56,8 @@ function validateProfile(profile) {
  if(['firefox','mullvad'].includes(profile.browserType)&&parseCookies(profile.cookies).length)throw Error('Cookie khởi động hiện hỗ trợ Chromium/Chrome/Brave/Edge; chưa hỗ trợ Firefox/Mullvad');
 }
 function autoUserAgent(native, os) {
+ os=softwareOS(os);
+ if(os.startsWith('Mac'))os='Mac';
  const token={Windows:'Windows NT 10.0; Win64; x64',Mac:'Macintosh; Intel Mac OS X 10_15_7',Linux:'X11; Linux x86_64',Android:'Linux; Android 14; Pixel 8'}[os];
  if(!token)return native;
  let result=native.replace(/\([^)]*\)/,`(${token})`);
@@ -63,8 +78,21 @@ function applyBrowserDefaults(profile,settings) {
  if(profile.language&&!Object.hasOwn(profile.software||{},'language'))software.language=profile.language;
  return {...profile,hardware:{...defaults.hardware,...profile.hardware},software};
 }
+function geckoSoftwarePreferences(profile){
+ const sw=profile.software||{},prefs=[],reset=[];
+ const ua=userAgent(profile);
+ if(ua)prefs.push(`user_pref("general.useragent.override", ${JSON.stringify(ua)});`);else reset.push('general.useragent.override');
+ if(sw.language&&!['Auto','Real'].includes(sw.language))prefs.push(`user_pref("intl.accept_languages", ${JSON.stringify(sw.language)});`);else reset.push('intl.accept_languages');
+ if(sw.webrtc==='Disable')prefs.push('user_pref("media.peerconnection.enabled", false);');
+ else if(sw.webrtc==='Real')reset.push('media.peerconnection.enabled');
+ else if(sw.webrtc)throw Error('Firefox/Mullvad chỉ hỗ trợ WebRTC Real hoặc Disable');
+ return {prefs,reset};
+}
+function resetGeckoPreferences(text,keys){
+ return text.split(/\r?\n/).filter(line=>!keys.some(key=>line.trimStart().startsWith('user_pref('+JSON.stringify(key)+','))).join('\n');
+}
 function validateBrowserSettings(settings) {
  const allowed={canvasMode:['noise','real','block'],clientRectMode:['noise','real'],webglImageMode:['noise','real'],webglMetaMode:['masked','real'],audioMode:['noise','real'],fontMode:['masked','real'],screenMode:['random','real'],languageMode:['ip','real']};
  for(const [key,values] of Object.entries(allowed))if(Object.hasOwn(settings,key)&&!values.includes(settings[key]))throw Error(`Cài đặt ${key} không hợp lệ`);
 }
-module.exports={parseCookies,userAgent,validateProfile,autoUserAgent,browserDefaults,applyBrowserDefaults,validateBrowserSettings};
+module.exports={parseCookies,userAgent,validateProfile,autoUserAgent,browserDefaults,applyBrowserDefaults,validateBrowserSettings,geckoSoftwarePreferences,resetGeckoPreferences,softwareOS};
