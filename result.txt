@@ -1,0 +1,4 @@
+status=success
+arch=arm64
+commit=2d4538c4d3fca1000133a64e0353d552dbaf9642
+run=https://github.com/thevien1/SV-Browser-Source/actions/runs/45962615965

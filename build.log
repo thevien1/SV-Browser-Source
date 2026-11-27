@@ -1,0 +1,180 @@
+  type: 'test'
+  ...
+# Subtest: browser settings defaults map Real/Noise/Block, persist stable Random screens and allow profile overrides
+ok 57 - browser settings defaults map Real/Noise/Block, persist stable Random screens and allow profile overrides
+  ---
+  duration_ms: 0.435625
+  type: 'test'
+  ...
+# Subtest: profile menus preserve negative Auto labels and show engine capability reasons
+ok 58 - profile menus preserve negative Auto labels and show engine capability reasons
+  ---
+  duration_ms: 2.520875
+  type: 'test'
+  ...
+# Subtest: startup sizing fits a shared window once without installing a resize monitor
+ok 59 - startup sizing fits a shared window once without installing a resize monitor
+  ---
+  duration_ms: 1104.705083
+  type: 'test'
+  ...
+# Subtest: cores survive removal of the old installation and persistent files are not overwritten
+ok 60 - cores survive removal of the old installation and persistent files are not overwritten
+  ---
+  duration_ms: 39.98275
+  type: 'test'
+  ...
+# Subtest: one click preserves drivers then installs and restarts exactly once
+ok 61 - one click preserves drivers then installs and restarts exactly once
+  ---
+  duration_ms: 5.098042
+  type: 'test'
+  ...
+# Subtest: a failed Chromium backup blocks installation and keeps the app running
+ok 62 - a failed Chromium backup blocks installation and keeps the app running
+  ---
+  duration_ms: 1.843375
+  type: 'test'
+  ...
+# Subtest: signed Mac builds install; unsigned Mac builds detect updates and offer DMG without Squirrel installation
+ok 63 - signed Mac builds install; unsigned Mac builds detect updates and offer DMG without Squirrel installation
+  ---
+  duration_ms: 3.398125
+  type: 'test'
+  ...
+# Subtest: signed Mac falls back to manual DMG when native feed returns latest
+ok 64 - signed Mac falls back to manual DMG when native feed returns latest
+  ---
+  duration_ms: 0.77425
+  type: 'test'
+  ...
+# Subtest: signed Mac falls back to manual DMG when native feed returns error
+ok 65 - signed Mac falls back to manual DMG when native feed returns error
+  ---
+  duration_ms: 0.831291
+  type: 'test'
+  ...
+1..65
+# tests 65
+# suites 0
+# pass 65
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2015.725542
+Remaining A windows: []
+Remaining A windows: []
+PASS: Mac last-window close removes owned process; minimized and other profile remain; explicit close exits
+*** You are running in headless mode.
+WebDriver BiDi listening on ws://127.0.0.1:49221
+Profile files: .parentlock, .startup-incomplete, 85d62926.sqlite, 85d62926.sqlite-shm, 85d62926.sqlite-wal, AlternateServices.bin, Default, WebDriverBiDiServer.json, addonStartup.json.lz4, bookmarkbackups, cache2, compatibility.ini, content-prefs.sqlite, cookies.sqlite, datareporting, extension-preferences.json, extension-store, extension-store-menus, extensions, extensions.json, favicons.sqlite, favicons.sqlite-wal, logins.db, places.sqlite, places.sqlite-wal, prefs.js, safebrowsing, security_state, sessionCheckpoints.json, startupCache, storage, storage-sync-v2.sqlite, storage-sync-v2.sqlite-shm, storage-sync-v2.sqlite-wal, storage.sqlite, thumbnails, times.json, user.js
+PASS: native Mullvad launches isolated profile with WebRTC disabled; no Chrome CDP or weakened extension security preferences
+Mullvad process exited: null SIGTERM
+PASS Gecko Block: hardware, iframe, UA/HTTP headers, language, timezone/DST offset, screen, geolocation, canvas/audio/font and devices
+PASS Gecko Allow: hardware, iframe, UA/HTTP headers, language, timezone/DST offset, screen, geolocation, canvas/audio/font and devices
+Core API has no compatible Mac binaries for this architecture. Invalid or incompatible packages are rejected; native browser launch test not run.
+
+> sv-browser@1.0.77 build:mac
+> node scripts/build-protected.js --mac --no-bump
+
+====================================================
+  SV BROWSER - BẮT ĐẦU ĐÓNG GÓI & BẢO VỆ MÃ NGUỒN  
+====================================================
+
+[Phiên bản mới]: Tự động tăng phiên bản: v1.0.77 -> v1.0.77
+
+[Bước 1/4] Chuẩn bị thư mục staging & xóa sạch bản build cũ trong dist...
+
+[Bước 2/4] Đang mã hóa bảo vệ toàn bộ mã nguồn Backend...
+  ✓ Đã mã hóa bảo vệ: main.js
+  ✓ Đã mã hóa bảo vệ: activityStore.js
+  ✓ Đã mã hóa bảo vệ: macBrowser.js
+  ✓ Đã mã hóa bảo vệ: macMullvadLifecycle.js
+  ✓ Đã mã hóa bảo vệ: macUpdates.js
+  ✓ Đã mã hóa bảo vệ: macIcons.js
+  ✓ Đã mã hóa bảo vệ: coreCatalog.js
+  ✓ Đã mã hóa bảo vệ: appUpdater.js
+  ✓ Đã mã hóa bảo vệ: driverStorage.js
+  ✓ Đã mã hóa bảo vệ: licenseManager.js
+  ✓ Đã mã hóa bảo vệ: licensePolicy.js
+  ✓ Đã mã hóa bảo vệ: browserLauncher.js
+  ✓ Đã mã hóa bảo vệ: profileStore.js
+  ✓ Đã mã hóa bảo vệ: proxyStore.js
+  ✓ Đã mã hóa bảo vệ: proxyChecker.js
+  ✓ Đã mã hóa bảo vệ: proxyConnection.js
+  ✓ Đã mã hóa bảo vệ: profileConfig.js
+  ✓ Đã mã hóa bảo vệ: profileRuntime.js
+  ✓ Đã mã hóa bảo vệ: geckoRuntime.js
+  ✓ Đã mã hóa bảo vệ: extensionStore.js
+  ✓ Đã mã hóa bảo vệ: gpmApiServer.js
+  ✓ Đã mã hóa bảo vệ: apiDocsTemplate.js
+  ✓ Đã mã hóa bảo vệ: appGuideTemplate.js
+  ✓ Đã mã hóa bảo vệ: driverDownloader.js
+  ✓ Đã mã hóa bảo vệ: driverIconManager.js
+  ✓ Đã mã hóa bảo vệ: taskbarManager.js
+  ✓ Đã mã hóa bảo vệ: iconGenerator.js
+  ✓ Đã mã hóa bảo vệ: preload.js
+
+[Bước 2b/4] Đang mã hóa bảo vệ toàn bộ mã nguồn Frontend (src)...
+  ✓ Đã mã hóa bảo vệ: src/app.js
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/brave.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/chrome.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/edge.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/firefox.svg
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/mullvad.png
+  ✓ Đã sao chép tài nguyên: src/assets/browsers/opera.svg
+  ✓ Đã mã hóa bảo vệ: src/components/ActivityView.js
+  ✓ Đã mã hóa bảo vệ: src/components/ExtensionsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/GroupsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/Modals.js
+  ✓ Đã mã hóa bảo vệ: src/components/PlaceholderView.js
+  ✓ Đã mã hóa bảo vệ: src/components/PrettySelect.js
+  ✓ Đã mã hóa bảo vệ: src/components/ProfilesView.js
+  ✓ Đã mã hóa bảo vệ: src/components/ProxyView.js
+  ✓ Đã mã hóa bảo vệ: src/components/SettingsView.js
+  ✓ Đã mã hóa bảo vệ: src/components/Sidebar.js
+  ✓ Đã mã hóa bảo vệ: src/components/Titlebar.js
+  ✓ Đã mã hóa bảo vệ: src/components/TrashView.js
+  ✓ Đã mã hóa bảo vệ: src/components/UIIcons.js
+  ✓ Đã mã hóa bảo vệ: src/data/browserIcons.js
+  ✓ Đã mã hóa bảo vệ: src/data/countries.js
+  ✓ Đã sao chép tài nguyên: src/index.html
+  ✓ Đã sao chép tài nguyên: src/style.css
+  ✓ Đã sao chép tài nguyên: src/workspace.css
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+
+added 23 packages in 2s
+
+[Bước 3/4] Cấu hình Electron Builder đóng gói...
+  -> Thư mục drivers/ (1.2GB) được giữ ngoài gói để bộ cài siêu nhẹ (~80MB)
+     (Người dùng có thể tải driver tự động qua nút bấm trong ứng dụng hoặc copy thư mục drivers cạnh file .exe)
+
+[Bước 4/4] Bắt đầu đóng gói Windows (.exe)... Vui lòng đợi trong giây lát...
+  • electron-builder  version=26.15.3 os=24.6.0
+  • executing @electron/rebuild  electronVersion=44.3.0 arch=arm64 buildFromSource=false workspaceRoot=/Users/runner/work/SV-Browser-Source/SV-Browser-Source projectDir=./ appDir=dist-build-staging
+  • installing native dependencies  arch=arm64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=arm64 electron=44.3.0 appOutDir=dist-mac/arm64/mac-arm64
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/arm64/mac-arm64
+  • searching for node modules  pm=npm searchDir=/Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-build-staging
+  • duplicate dependency references  dependencies=["debug@4.4.3","socks@2.8.11"]
+  • skipped macOS code signing  reason=identity explicitly is set to null
+  • building        target=macOS zip arch=arm64 file=dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.zip
+  • building        target=DMG arch=arm64 file=dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.dmg
+  • downloaded      label=dmgbuild-bundle-arm64-75c8a6c.tar.gz progress=100%
+  • building block map  blockMapFile=dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.dmg.blockmap
+  • building block map  blockMapFile=dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.zip.blockmap
+
+====================================================
+  ĐÓNG GÓI HOÀN TẤT THÀNH CÔNG!                      
+====================================================
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.dmg.blockmap
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.dmg
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.zip.blockmap
+  -> Tạo thành công: /Users/runner/work/SV-Browser-Source/SV-Browser-Source/dist-mac/arm64/SV-Browser-1.0.77-mac-arm64.zip
+
+Đang dọn dẹp thư mục staging...
+Tổng thời gian thực thi: 65s
+PASS: packaged macOS arm64 app opens, preload bridge works, profile table and version render.
