@@ -65,9 +65,8 @@ const exe=process.env.SV_CHROME_TEST_EXE || path.join(process.env.APPDATA,'sv-br
   const ninth=await launcher.launchProfile(empty,9);assert.equal(ninth.success,true,ninth.message);
   let tabs=[];for(let i=0;i<50;i++){const targets=await launcher.getRunningInfo(empty.id).runtime.cdp.send('Target.getTargets');tabs=targets.targetInfos.filter(t=>t.type==='page');if(tabs.some(t=>/^chrome:\/\/(newtab|new-tab-page)\//.test(t.url)))break;await new Promise(r=>setTimeout(r,100));}
   assert.equal(tabs.length,1);assert.match(tabs[0].url,/^chrome:\/\/(newtab|new-tab-page)\//);assert.ok(!tabs.some(t=>t.url==='about:blank'));
-  launcher.getRunningInfo(empty.id).runtime.cdp.listeners.add(message=>{if(message.method==='Target.attachedToTarget')console.log('ATTACH',JSON.stringify(message));});
-  await launcher.getRunningInfo(empty.id).runtime.cdp.send('Target.createTarget',{url:profile.startUrl+'?profile=new-target'});
-  for(let i=0;i<100&&reports.length<9;i++)await new Promise(r=>setTimeout(r,100));await new Promise(resolve=>setTimeout(resolve,1500));console.log('NEW TARGET',JSON.stringify(reports[8]));assert.ok(reports[8],'New page configuration report missing');assert.equal(reports[8].ua,'New Target Test/1.0');assert.equal(reports[8].lang,'ja-JP');assert.equal(requests.find(r=>r._path.includes('new-target'))['user-agent'],'New Target Test/1.0');
+  await launcher.getRunningInfo(empty.id).runtime.createPage(profile.startUrl+'?profile=new-target');
+  for(let i=0;i<100&&reports.length<9;i++)await new Promise(r=>setTimeout(r,100));assert.ok(reports[8],'New page configuration report missing');assert.equal(reports[8].ua,'New Target Test/1.0');assert.equal(reports[8].lang,'ja-JP');assert.equal(requests.find(r=>r._path.includes('new-target'))['user-agent'],'New Target Test/1.0');
   let count=reports.length;
   const ipRTC={...auto,id:'base-ip-rtc',hardware:{canvas:'Off'},software:{...auto.software,webrtc:'BaseOnIp'}};const ipResult=await launcher.launchProfile(ipRTC,10);assert.equal(ipResult.success,true,ipResult.message);
   for(let i=0;i<100&&reports.length<=count;i++)await new Promise(r=>setTimeout(r,100));assert.equal(reports[count].rtc,'enabled');assert.equal(reports[count].frameRTC,'enabled');assert.ok(launcher.getRunningInfo(ipRTC.id).process.spawnargs.includes('--force-webrtc-ip-handling-policy=disable_non_proxied_udp'));

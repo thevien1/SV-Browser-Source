@@ -139,7 +139,7 @@ async function configureChromium(url, profile, options={}){
     if(applied?.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
    }
-  }catch(error){failure=error;console.warn("Profile target configuration failed:",targetInfo.type,targetInfo.url,error.message);}
+  }catch(error){failure=error;const state=sessions.get(targetInfo.targetId);if(state?.sessionId===sessionId)state.error=error;console.warn("Profile target configuration failed:",targetInfo.type,targetInfo.url,error.message);}
   finally{configuring--;resumeQueue.add(sessionId);await resumeConfigured();}
  };
  cdp.listeners.add(message=>{
@@ -157,14 +157,27 @@ async function configureChromium(url, profile, options={}){
  const actualUA=await evaluateWhenReady(cdp,{expression:'navigator.userAgent',returnByValue:true},pages[0].sessionId);
  const screen=String(sw.screen||'').match(/^(\d+)x(\d+)$/);
  if(screen&&options.limitBrowserSize!==false)windowLimiter=await limitWindowsToScreen(cdp,pages.map(page=>page.targetInfo.targetId),+screen[1],+screen[2]);
+ const createPage=async(url,params={})=>{
+  // Create a neutral document first. Some Mac Chromium builds start scripts
+  // passed to Target.createTarget before the debugger can finish configuring.
+  const result=await cdp.send('Target.createTarget',{...params,url:'about:blank'});
+  let page;for(let n=0;n<200;n++){page=sessions.get(result.targetId);if(page)break;await new Promise(resolve=>setTimeout(resolve,25));}
+  if(!page)throw Error('Không gắn được cấu hình cho tab mới');
+  await page.task;
+  if(page.error)throw page.error;
+  const applied=await evaluateWhenReady(cdp,{expression:script},page.sessionId);
+  if(applied.exceptionDetails)throw Error(applied.exceptionDetails.text);
+  await cdp.send('Page.navigate',{url},page.sessionId);
+  return result;
+ };
  const configuredUrls=profile.startUrl?.trim()? [profile.startUrl.trim()] : (options.startupUrls||[]);
  // Keep the blank bootstrap private to setup; an empty startup URL opens the browser's New Tab.
  const urls=configuredUrls.length?configuredUrls:['chrome://newtab/'];
  for(let i=0;i<urls.length;i++){
   if(i===0)await cdp.send('Page.navigate',{url:urls[i]},pages[0].sessionId);
-  else await cdp.send('Target.createTarget',{url:urls[i]});
+  else await createPage(urls[i]);
  }
- return {cdp,ua:actualUA.result.value,timezone,settingsApplied:true};
+ return {cdp,createPage,ua:actualUA.result.value,timezone,settingsApplied:true};
  } catch(error){cdp.close();throw error;}
 }
 module.exports={CDP,configureChromium,evaluateWhenReady,fitWindowBounds,limitWindowsToScreen};
