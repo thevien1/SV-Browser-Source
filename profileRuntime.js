@@ -134,7 +134,7 @@ async function configureChromium(url, profile, options={}){
      if(Intl.getCanonicalLocales(current.result.value)[0]!==Intl.getCanonicalLocales(language.split(',')[0].split(';')[0].trim())[0])throw localeConflict;
     }
     let applied;
-    try{applied=await cdp.send('Runtime.evaluate',{expression:script,timeout:1000},sessionId);}catch(error){if(!/Cannot find default execution context|Cannot find context with specified id/.test(error.message))throw error;}
+    try{if(targetInfo.type==='page')applied=await cdp.send('Runtime.evaluate',{expression:script,timeout:1000},sessionId);}catch(error){if(!/Cannot find default execution context|Cannot find context with specified id/.test(error.message))throw error;}
     if(targetInfo.type==='page'&&windowLimiter)await windowLimiter.add(targetInfo.targetId);
     if(applied?.exceptionDetails)throw Error(applied.exceptionDetails.exception?.description || applied.exceptionDetails.text);
     await cdp.send('Target.setAutoAttach',{autoAttach:true,waitForDebuggerOnStart:true,flatten:true},sessionId);
